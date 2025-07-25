@@ -1,0 +1,8 @@
+ng new user-management-app --no-standalone --routing=true --style=scss
+cd user-management-app
+ng generate service services/auth
+ng generate service services/user
+ng generate guard guards/auth
+ng generate component components/login
+ng generate component components/admin-dashboard
+ng generate component components/mfa-setup-modal # For MFA QR code display
