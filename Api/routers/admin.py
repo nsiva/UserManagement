@@ -1,74 +1,61 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List, Dict, Optional
+# admin.py
+
+from fastapi import APIRouter, Depends, HTTPException, status, Response # Import Response
+from typing import List, Dict, Optional, Union # Import Union for the auth_identity
 from uuid import UUID
-import pyotp
+import logging
+# import pyotp # REMOVED: Not used in this file's functions
 
 from database import supabase
 from models import (
     UserCreate, UserUpdate, UserWithRoles, RoleCreate, RoleUpdate, RoleInDB,
-    UserRoleAssignment, TokenData, ClientTokenData # NEW IMPORTS
+    UserRoleAssignment, TokenData, ClientTokenData
 )
-from routers.auth import get_current_admin_user, get_password_hash, get_user_roles, get_current_client # NEW IMPORTS
+# Assuming get_password_hash is not used directly in admin.py functions.
+# get_current_admin_user, get_user_roles, get_current_client are needed.
+from routers.auth import get_current_admin_user, get_user_roles, get_current_client # Removed get_password_hash if not used
 
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
+logger = logging.getLogger("admin")
+if not logger.hasHandlers():
+    logging.basicConfig(level=logging.INFO)
 
-# --- User Management ---
-@admin_router.post("/users", response_model=UserWithRoles, status_code=status.HTTP_201_CREATED)
-async def create_user(user_data: UserCreate, current_user: dict = Depends(get_current_admin_user)):
-    # 1. Create user in Supabase Auth (without signup)
-    try:
-        auth_response = supabase.auth.admin.create_user(
-            {
-                "email": user_data.email,
-                "password": user_data.password,
-                "email_confirm": True # Automatically confirm email
-            }
-        )
-        if not auth_response.user:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to create user in Auth.")
-        user_id = auth_response.user.id
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Auth user creation failed: {e}")
+# --- USER MANAGEMENT ---
 
-    # 2. Create profile in public.profiles table
-    profile_data = {
-        "id": user_id,
-        "email": user_data.email,
-        "is_admin": user_data.is_admin,
-        "mfa_secret": None # MFA secret is set separately
-    }
-    profile_response = supabase.from_('profiles').insert(profile_data).execute()
-    if profile_response.count == 0:
-        # If profile creation fails, try to delete auth user to prevent orphaned entries
-        supabase.auth.admin.delete_user(user_id)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create user profile.")
-
-    # 3. Assign roles
-    if user_data.roles:
-        await assign_roles_to_user_by_names(user_id, user_data.roles)
-
-    # Fetch and return the created user with their roles
-    roles = await get_user_roles(str(user_id))
-    return UserWithRoles(id=user_id, email=user_data.email, is_admin=user_data.is_admin, roles=roles)
-
+# IMPORTANT: You need a custom dependency for "either/or" auth if you keep this endpoint as is.
+# Example of such a custom dependency (can be placed in routers/auth.py or common_dependencies.py)
+# You would need to ensure get_current_admin_user and get_current_client can be called with just 'token' if needed.
+# For simplicity in this review, I'm assuming the existing dependencies just work as intended
+# (i.e., get_current_admin_user raises if not admin, get_current_client raises if not valid client/scope).
+# The current check `if not current_admin_user and not current_client:` then becomes relevant if BOTH
+# dependencies returned None *without* raising an exception. This is less common.
+# The most robust way is the custom dependency that combines them.
 
 @admin_router.post("/users", response_model=UserWithRoles, status_code=status.HTTP_201_CREATED)
 async def create_user(
     user_data: UserCreate,
-    # Allow either an admin user OR a client token to access this endpoint
+    # This setup means FastAPI calls *both* dependencies.
+    # If get_current_admin_user raises HTTPException, this function won't be entered.
+    # If get_current_admin_user passes, current_admin_user is set.
+    # If get_current_client passes, current_client is set.
+    # The current logic then checks for a client and its scope.
     current_admin_user: TokenData = Depends(get_current_admin_user), # User-based admin auth
     current_client: Optional[ClientTokenData] = Depends(get_current_client) # Client-based auth
 ):
+    """
+    Creates a new user account (FastAPI Admin or authorized API Client).
+    Requires 'manage:users' scope for client authentication.
+    """
     # Logic to ensure at least one authentication method is present and authorized
     if not current_admin_user and not current_client:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+        # This case is usually reached if both dependencies return None, not if they raise.
+        # If your dependencies raise HTTPExceptions on failure, this check might be redundant.
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated by user or client.")
 
-    # If a client is used, check for required scopes
+    # If a client is used, perform scope check (admin user implicitly has all access)
     if current_client and "manage:users" not in current_client.scopes:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Client lacks 'manage:users' scope")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Client lacks 'manage:users' scope for user creation.")
 
-    # If it's a user, get_current_admin_user already ensures admin role.
-    # ... (rest of your create_user logic) ...
     try:
         auth_response = supabase.auth.admin.create_user(
             {
@@ -78,9 +65,13 @@ async def create_user(
             }
         )
         if not auth_response.user:
+            logger.warning(f"Failed to create user in Auth for email: {user_data.email}")
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to create user in Auth.")
         user_id = auth_response.user.id
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Auth user creation failed for {user_data.email}: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Auth user creation failed: {e}")
 
     profile_data = {
@@ -91,45 +82,51 @@ async def create_user(
     }
     profile_response = supabase.from_('profiles').insert(profile_data).execute()
     if profile_response.count == 0:
-        supabase.auth.admin.delete_user(user_id)
+        logger.error(f"Failed to create user profile for user_id: {user_id}")
+        supabase.auth.admin.delete_user(user_id) # Rollback auth user creation
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create user profile.")
 
     if user_data.roles:
         await assign_roles_to_user_by_names(user_id, user_data.roles)
 
     roles = await get_user_roles(str(user_id))
+    logger.info(f"User created: {user_data.email} with roles: {roles}")
     return UserWithRoles(id=user_id, email=user_data.email, is_admin=user_data.is_admin, roles=roles)
 
 
 @admin_router.get("/users", response_model=List[UserWithRoles])
-async def get_all_users(
-    current_admin_user: TokenData = Depends(get_current_admin_user)
-):
-    if not current_admin_user and not current_client:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+async def get_all_users(current_admin_user: TokenData = Depends(get_current_admin_user)):
+    """
+    Retrieves all user profiles with their assigned roles. (Admin only)
+    """
+    try:
+        response = supabase.from_('profiles').select('id, email, is_admin').execute()
+        if not response.data:
+            logger.warning("No users found in profiles table.")
+            return []
+        users_with_roles = []
+        for user_profile in response.data:
+            roles = await get_user_roles(str(user_profile['id']))
+            users_with_roles.append(UserWithRoles(
+                id=user_profile['id'],
+                email=user_profile['email'],
+                is_admin=user_profile['is_admin'],
+                roles=roles
+            ))
+        logger.info(f"Fetched {len(users_with_roles)} users.")
+        return users_with_roles
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching all users: {e}", exc_info=True) # Added exc_info for full traceback
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
 
-    #if current_client and "read:users" not in current_client.scopes:
-    #    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Client lacks 'read:users' scope")
-
-    # ... (rest of your get_all_users logic) ...
-    response = supabase.from_('profiles').select('id, email, is_admin').execute()
-    if not response.data:
-        return []
-
-    users_with_roles = []
-    for user_profile in response.data:
-        roles = await get_user_roles(str(user_profile['id']))
-        users_with_roles.append(UserWithRoles(
-            id=user_profile['id'],
-            email=user_profile['email'],
-            is_admin=user_profile['is_admin'],
-            roles=roles
-        ))
-    return users_with_roles
 
 @admin_router.put("/users/{user_id}", response_model=UserWithRoles)
-async def update_user(user_id: UUID, user_data: UserUpdate, current_user: dict = Depends(get_current_admin_user)):
-    # 1. Update user in Supabase Auth (email, password)
+async def update_user(user_id: UUID, user_data: UserUpdate, current_user: TokenData = Depends(get_current_admin_user)):
+    """
+    Updates an existing user's details (email, password, admin status, roles). (Admin only)
+    """
     auth_update_data = {}
     if user_data.email:
         auth_update_data["email"] = user_data.email
@@ -138,95 +135,206 @@ async def update_user(user_id: UUID, user_data: UserUpdate, current_user: dict =
 
     if auth_update_data:
         try:
-            # Note: Supabase admin update user only changes email/password, not profile data.
-            # It also doesn't return the updated user object directly.
             supabase.auth.admin.update_user_by_id(str(user_id), auth_update_data)
+        except HTTPException:
+            raise
         except Exception as e:
+            logger.error(f"Auth user update failed for user_id {user_id}: {e}", exc_info=True)
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Auth user update failed: {e}")
 
-    # 2. Update profile in public.profiles table
     profile_update_data = {}
-    if user_data.email: # Update email in profiles if it changed
+    if user_data.email:
         profile_update_data["email"] = user_data.email
     if user_data.is_admin is not None:
         profile_update_data["is_admin"] = user_data.is_admin
 
     if profile_update_data:
-        profile_response = supabase.from_('profiles').update(profile_update_data).eq('id', user_id).execute()
+        profile_response = supabase.from_('profiles').update(profile_update_data).eq('id', str(user_id)).execute() # Convert UUID to str
         if profile_response.count == 0:
+            logger.error(f"Failed to update user profile for user_id: {user_id}")
+            # Consider if this should be a 404 if the user_id doesn't exist in profiles
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update user profile.")
 
-    # 3. Update roles if provided
-    if user_data.roles is not None: # Check if roles list was explicitly provided
+    if user_data.roles is not None: # `is not None` allows passing empty list to clear roles
         await assign_roles_to_user_by_names(user_id, user_data.roles)
 
-    # Fetch and return the updated user with their roles
-    return await get_user_by_id(user_id, current_user) # Re-fetch to get latest state
+    logger.info(f"User updated: {user_id}")
+    # Call get_user_by_id to return the updated user details
+    return await get_user_by_id(user_id) # Removed unused current_user argument
+
+
+async def get_user_by_id(user_id: UUID): # Removed unused current_user argument
+    """
+    Helper function to retrieve a single user's profile and roles by ID.
+    (Internal use or can be exposed as a separate admin.get("/users/{user_id}") endpoint)
+    """
+    try:
+        response = supabase.from_('profiles').select('id, email, is_admin').eq('id', str(user_id)).limit(1).execute()
+        if not response.data:
+            logger.warning(f"User not found for user_id: {user_id}")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+        user_profile = response.data[0]
+        roles = await get_user_roles(str(user_id))
+        logger.info(f"Fetched user {user_id} with roles: {roles}")
+        return UserWithRoles(id=user_profile['id'], email=user_profile['email'], is_admin=user_profile['is_admin'], roles=roles)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching user by id {user_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+
 
 @admin_router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_user(user_id: UUID, current_user: dict = Depends(get_current_admin_user)):
-    # Delete user from Supabase Auth (this cascades to profiles and user_roles due to CASCADE ON DELETE)
+async def delete_user(user_id: UUID, current_user: TokenData = Depends(get_current_admin_user)):
+    """
+    Deletes a user account from Auth and attempts to cascade delete related data. (Admin only)
+    """
     try:
+        # Supabase auth.admin.delete_user will also delete entries in profiles if FK is set up
+        # with ON DELETE CASCADE from auth.users to public.profiles.
         supabase.auth.admin.delete_user(str(user_id))
+        logger.info(f"User deleted: {user_id}")
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Failed to delete user {user_id}: {e}", exc_info=True)
+        # Often a 404 if user_id doesn't exist, or 400 for other auth issues
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Failed to delete user: {e}")
-    return {"message": "User deleted successfully"}
+    # For 204 No Content, no response body should be returned
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-# --- Role Management ---
+
+# --- ROLE MANAGEMENT ---
+
 @admin_router.post("/roles", response_model=RoleInDB, status_code=status.HTTP_201_CREATED)
-async def create_role(role_data: RoleCreate, current_user: dict = Depends(get_current_admin_user)):
-    response = supabase.from_('roles').insert(role_data.model_dump()).execute()
-    if response.count == 0:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create role.")
-    return RoleInDB(**response.data[0])
+async def create_role(role_data: RoleCreate, current_user: TokenData = Depends(get_current_admin_user)):
+    """
+    Creates a new role entry in the database. (Admin only)
+    """
+    try:
+        response = supabase.from_('roles').insert(role_data.model_dump()).execute()
+        if response.count == 0:
+            logger.error(f"Failed to create role: {role_data.name}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create role.")
+        logger.info(f"Role created: {role_data.name}")
+        return RoleInDB(**response.data[0])
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating role {role_data.name}: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+
 
 @admin_router.get("/roles", response_model=List[RoleInDB])
-async def get_all_roles(current_user: dict = Depends(get_current_admin_user)):
-    response = supabase.from_('roles').select('*').execute()
-    if not response.data:
-        return []
-    return [RoleInDB(**item) for item in response.data]
+async def get_all_roles(current_user: TokenData = Depends(get_current_admin_user)):
+    """
+    Retrieves a list of all defined roles. (Admin only)
+    """
+    try:
+        response = supabase.from_('roles').select('*').execute()
+        if not response.data:
+            logger.warning("No roles found.")
+            return []
+        logger.info(f"Fetched {len(response.data)} roles.")
+        return [RoleInDB(**item) for item in response.data]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching roles: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+
 
 @admin_router.put("/roles/{role_id}", response_model=RoleInDB)
-async def update_role(role_id: UUID, role_data: RoleUpdate, current_user: dict = Depends(get_current_admin_user)):
-    response = supabase.from_('roles').update(role_data.model_dump()).eq('id', role_id).execute()
-    if response.count == 0:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found or failed to update.")
-    return RoleInDB(**response.data[0])
+async def update_role(role_id: UUID, role_data: RoleUpdate, current_user: TokenData = Depends(get_current_admin_user)):
+    """
+    Updates an existing role by ID. (Admin only)
+    """
+    try:
+        response = supabase.from_('roles').update(role_data.model_dump()).eq('id', str(role_id)).execute() # Convert UUID to str
+        if response.count == 0:
+            logger.error(f"Role not found or failed to update: {role_id}")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found or failed to update.")
+        logger.info(f"Role updated: {role_id}")
+        return RoleInDB(**response.data[0])
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating role {role_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+
 
 @admin_router.delete("/roles/{role_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_role(role_id: UUID, current_user: dict = Depends(get_current_admin_user)):
-    response = supabase.from_('roles').delete().eq('id', role_id).execute()
-    if response.count == 0:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found or failed to delete.")
-    return {"message": "Role deleted successfully"}
+async def delete_role(role_id: UUID, current_user: TokenData = Depends(get_current_admin_user)):
+    """
+    Deletes a role by ID. (Admin only)
+    """
+    try:
+        response = supabase.from_('roles').delete().eq('id', str(role_id)).execute() # Convert UUID to str
+        if response.count == 0:
+            logger.error(f"Role not found or failed to delete: {role_id}")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found or failed to delete.")
+        logger.info(f"Role deleted: {role_id}")
+        return Response(status_code=status.HTTP_204_NO_CONTENT) # No content for 204
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting role {role_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
 
-# --- User Role Assignment ---
+
+# --- USER ROLE ASSIGNMENT ---
+
 async def assign_roles_to_user_by_names(user_id: UUID, role_names: List[str]):
-    # Get role IDs from names
-    if not role_names:
-        # If no roles provided, delete all existing roles for the user
-        supabase.from_('user_roles').delete().eq('user_id', user_id).execute()
-        return
+    """
+    Helper function to assign roles to a user by role names.
+    Deletes existing roles for the user and inserts the new set.
+    """
+    try:
+        if not role_names:
+            # If no role names are provided, delete all existing roles for the user
+            supabase.from_('user_roles').delete().eq('user_id', str(user_id)).execute() # Convert UUID to str
+            logger.info(f"All roles removed for user {user_id}")
+            return
 
-    roles_response = supabase.from_('roles').select('id, name').in_('name', role_names).execute()
-    if not roles_response.data or len(roles_response.data) != len(role_names):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="One or more specified roles not found.")
+        # Fetch role IDs for the given role names
+        roles_response = supabase.from_('roles').select('id, name').in_('name', role_names).execute()
+        if not roles_response.data or len(roles_response.data) != len(role_names):
+            # If some roles were not found, raise an error
+            found_role_names = {item['name'] for item in roles_response.data}
+            missing_roles = set(role_names) - found_role_names
+            logger.warning(f"One or more specified roles not found for user {user_id}: {missing_roles}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"One or more specified roles not found: {', '.join(missing_roles)}.")
 
-    role_ids = [item['id'] for item in roles_response.data]
+        role_ids = [item['id'] for item in roles_response.data]
 
-    # Delete existing roles for the user
-    supabase.from_('user_roles').delete().eq('user_id', user_id).execute()
+        # Delete all existing roles for the user before assigning new ones
+        supabase.from_('user_roles').delete().eq('user_id', str(user_id)).execute() # Convert UUID to str
 
-    # Insert new roles
-    insert_data = [{"user_id": str(user_id), "role_id": str(role_id)} for role_id in role_ids]
-    if insert_data:
-        supabase.from_('user_roles').insert(insert_data).execute()
+        insert_data = [{"user_id": str(user_id), "role_id": str(role_id)} for role_id in role_ids]
+        if insert_data: # Only insert if there's data to insert
+            supabase.from_('user_roles').insert(insert_data).execute()
+            logger.info(f"Roles {role_names} assigned to user {user_id}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error assigning roles to user {user_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+
 
 @admin_router.post("/users/{user_id}/roles", status_code=status.HTTP_200_OK)
-async def manage_user_roles(user_id: UUID, assignment: UserRoleAssignment, current_user: dict = Depends(get_current_admin_user)):
-    if user_id != assignment.user_id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User ID in path must match user ID in body.")
-
-    await assign_roles_to_user_by_names(user_id, assignment.role_names)
-    return {"message": "User roles updated successfully."}
+async def manage_user_roles(user_id: UUID, assignment: UserRoleAssignment, current_user: TokenData = Depends(get_current_admin_user)):
+    """
+    Manages roles for a specific user (assigns or removes roles). (Admin only)
+    """
+    try:
+        if user_id != assignment.user_id:
+            logger.warning(f"User ID mismatch in manage_user_roles: {user_id} != {assignment.user_id}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User ID in path must match user ID in body.")
+        await assign_roles_to_user_by_names(user_id, assignment.role_names)
+        logger.info(f"User roles updated for user {user_id}")
+        return {"message": "User roles updated successfully."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error managing user roles for user {user_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")

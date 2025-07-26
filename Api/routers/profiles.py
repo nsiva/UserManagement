@@ -36,8 +36,6 @@ async def get_my_profile(
 
         if not response.data:
             logger.warning(f"Profile not found for authenticated user_id: {current_user.user_id}")
-            # This case should ideally not happen if get_current_user correctly validates
-            # the user against the database, but it's good for robustness.
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User profile not found."
@@ -63,6 +61,8 @@ async def get_my_profile(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Database error: {e.message}"
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.critical(f"An unexpected error occurred retrieving profile for user {current_user.user_id}: {e}", exc_info=True)
         raise HTTPException(
