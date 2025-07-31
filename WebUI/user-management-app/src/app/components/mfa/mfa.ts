@@ -1,0 +1,60 @@
+import { Component } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
+import { FormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+
+@Component({
+  selector: 'app-mfa',
+  imports: [FormsModule, CommonModule],
+  templateUrl: './mfa.html',
+  styleUrls: ['./mfa.scss']
+})
+export class MfaComponent {
+  mfaCode = '';
+  emailId: string | null = null;
+  message: string | null = null;
+  isError = false;
+  private apiUrl = 'http://localhost:8001';
+
+  constructor(
+    private route: ActivatedRoute,
+    private http: HttpClient,
+    private router: Router
+  ) {
+    this.route.queryParams.subscribe(params => {
+      this.emailId = params['emailId'] || null;
+    });
+  }
+
+  onSubmitMfa(): void {
+    this.message = null;
+    this.isError = false;
+    if (!this.mfaCode ) {
+      this.message = 'Please enter the MFA code.';
+      this.isError = true;
+      return;
+    }
+    if (!this.emailId) {
+      this.message = 'Email Id is required for MFA verification.';
+      this.isError = true;
+      return;
+    }
+    const headers = new HttpHeaders({ 'Content-Type': 'application/json' });
+    const body = { email: this.emailId, mfa_code: this.mfaCode };
+    this.http.post<any>(`${this.apiUrl}/auth/mfa/verify`, body, { headers })
+      .subscribe(
+        response => {
+          this.message = 'MFA verification successful! You are now logged in.';
+          this.isError = false;
+          localStorage.setItem('access_token', response.access_token);
+          // Redirect to dashboard or wherever appropriate
+          this.router.navigate(['/admin']);
+        },
+        (error: HttpErrorResponse) => {
+          this.isError = true;
+          this.message = error.error?.detail || 'MFA verification failed. Please try again.';
+        }
+      );
+  }
+}
