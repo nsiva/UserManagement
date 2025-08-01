@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { environment } from '../environments/environment';
 import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
 import { catchError } from 'rxjs/operators';
 import { throwError } from 'rxjs';
@@ -33,7 +34,7 @@ export class App {
   tempUserId: string | null = null;
 
   // Base URL for your FastAPI backend
-  private apiUrl = 'http://localhost:8001'; // Make sure this matches your FastAPI server URL
+  private apiUrl = environment.apiUrl;
 
   constructor(private http: HttpClient) { } // Inject HttpClient for making API calls
 

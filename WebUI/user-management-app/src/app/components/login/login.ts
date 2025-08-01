@@ -5,6 +5,8 @@ import { throwError } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { environment } from '../../../environments/environment';
+import { API_PATHS } from '../../api-paths';
 
 @Component({
   selector: 'app-login',
@@ -20,7 +22,7 @@ export class LoginComponent {
   tempUserId: string | null = null;
   message: string | null = null;
   isError = false;
-  private apiUrl = 'http://localhost:8001';
+  private apiUrl = environment.apiUrl;
 
   constructor(private http: HttpClient, private router: Router) { }
 
@@ -40,7 +42,8 @@ export class LoginComponent {
     const headers = new HttpHeaders({ 'Content-Type': 'application/json' });
     const body = { email: this.email, password: this.password };
 
-    this.http.post<any>(`${this.apiUrl}/auth/login`, body, { headers, observe: 'response' as 'body' })
+    const url = `${this.apiUrl}${API_PATHS.login}`;
+    this.http.post<any>(url, body, { headers, observe: 'response' as 'body' })
     .subscribe({
       next: (response: any) => {
         this.message = 'Login successful! Welcome.';
@@ -69,7 +72,8 @@ export class LoginComponent {
     }
     const headers = new HttpHeaders({ 'Content-Type': 'application/json' });
     const body = { user_id: this.tempUserId, mfa_code: this.mfaCode };
-    this.http.post<any>(`${this.apiUrl}/auth/mfa/verify`, body, { headers })
+    const url = `${this.apiUrl}${API_PATHS.mfaVerify}`;
+    this.http.post<any>(url, body, { headers })
       .pipe(
         catchError(this.handleError)
       )

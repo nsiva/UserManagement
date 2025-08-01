@@ -3,6 +3,8 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, BehaviorSubject } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
 import { Router } from '@angular/router';
+import { environment } from '../../environments/environment';
+import { API_PATHS } from '../api-paths';
 
 interface LoginResponse {
   access_token: string;
@@ -17,7 +19,7 @@ interface LoginResponse {
   providedIn: 'root'
 })
 export class AuthService {
-  private apiUrl = 'http://localhost:8001/auth'; // Your FastAPI auth endpoint
+  private apiUrl = environment.apiUrl;
   private tokenKey = 'access_token';
   private userRolesKey = 'user_roles';
   private isAdminKey = 'is_admin';
@@ -34,7 +36,7 @@ export class AuthService {
   }
 
   login(email: string, password: string): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${this.apiUrl}/login`, { email, password }).pipe(
+    return this.http.post<LoginResponse>(`${this.apiUrl}${API_PATHS.login}`, { email, password }).pipe(
       tap(response => {
         // MFA required, don't store token yet
         // The backend will return 402 if MFA is needed.
@@ -49,7 +51,7 @@ export class AuthService {
   }
 
   verifyMfa(email: string, mfaCode: string): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${this.apiUrl}/mfa/verify`, { email, mfa_code: mfaCode }).pipe(
+    return this.http.post<LoginResponse>(`${this.apiUrl}${API_PATHS.mfaVerify}`, { email, mfa_code: mfaCode }).pipe(
       tap(response => {
         this.setSession(response);
       })

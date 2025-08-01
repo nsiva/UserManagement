@@ -3,6 +3,8 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { AuthService } from './auth';
+import { environment } from '../../environments/environment';
+import { API_PATHS } from '../api-paths';
 
 // Define the UserProfile interface according to your API response structure
 export interface UserProfile {
@@ -16,7 +18,7 @@ export interface UserProfile {
   providedIn: 'root'
 })
 export class UserProfileService {
-  private apiUrl = 'http://localhost:8001/profiles/me'; // Update with your actual API endpoint
+  private apiUrl = environment.apiUrl;
 
   constructor(private http: HttpClient, private authService: AuthService) {}
 
@@ -36,7 +38,7 @@ export class UserProfileService {
     if (!userId) {
       return throwError(() => new Error('No user ID found.'));
     }
-    return this.http.get<any>(`${this.apiUrl}`, { headers: this.getAuthHeaders() })
+    return this.http.get<any>(`${this.apiUrl}${API_PATHS.userProfile}`, { headers: this.getAuthHeaders() })
       .pipe(
         // Map the response to UserProfile
         // You can adjust the mapping if your API response structure is different

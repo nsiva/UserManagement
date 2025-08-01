@@ -4,6 +4,8 @@ import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth';
+import { environment } from '../../../environments/environment';
+import { API_PATHS } from '../../api-paths';
 
 @Component({
   selector: 'app-mfa',
@@ -16,7 +18,7 @@ export class MfaComponent {
   emailId: string | null = null;
   message: string | null = null;
   isError = false;
-  private apiUrl = 'http://localhost:8001';
+  private apiUrl = environment.apiUrl;
 
   constructor(
     private route: ActivatedRoute,
@@ -44,7 +46,8 @@ export class MfaComponent {
     }
     const headers = new HttpHeaders({ 'Content-Type': 'application/json' });
     const body = { email: this.emailId, mfa_code: this.mfaCode };
-    this.http.post<any>(`${this.apiUrl}/auth/mfa/verify`, body, { headers })
+    const url = `${this.apiUrl}${API_PATHS.mfaVerify}`;
+    this.http.post<any>(url, body, { headers })
       .subscribe(
         response => {
           this.message = 'MFA verification successful! You are now logged in.';

@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { AuthService } from './auth';
+import { environment } from '../../environments/environment';
 
 // Re-declare interfaces from models.py for Angular
 export interface User {
@@ -47,7 +48,7 @@ export interface UserRoleAssignment {
   providedIn: 'root'
 })
 export class UserService {
-  private apiUrl = 'http://localhost:8000/admin'; // Your FastAPI admin endpoint
+  private apiUrl = environment.apiUrl + '/admin'; // Your FastAPI admin endpoint
 
   constructor(private http: HttpClient, private authService: AuthService) { }
 
@@ -110,7 +111,7 @@ export class UserService {
   setupMfaForUser(email: string): Observable<{ qr_code_base64: string, secret: string, provisioning_uri: string }> {
     // Note: This is an admin-triggered MFA setup. The backend endpoint is protected.
     return this.http.post<{ qr_code_base64: string, secret: string, provisioning_uri: string }>(
-      `http://localhost:8000/auth/mfa/setup?email=${email}`, {}, { headers: this.getAuthHeaders() }
+      environment.apiUrl + `/auth/mfa/setup?email=${email}`, {}, { headers: this.getAuthHeaders() }
     );
   }
 }
