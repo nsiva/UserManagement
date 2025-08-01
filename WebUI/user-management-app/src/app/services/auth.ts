@@ -56,7 +56,7 @@ export class AuthService {
     );
   }
 
-  private setSession(authResult: LoginResponse): void {
+  setSession(authResult: LoginResponse): void {
     localStorage.setItem(this.tokenKey, authResult.access_token);
     localStorage.setItem(this.userRolesKey, JSON.stringify(authResult.roles));
     localStorage.setItem(this.isAdminKey, authResult.is_admin.toString());

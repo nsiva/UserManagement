@@ -16,6 +16,7 @@ export class AuthGuard implements CanActivate {
 
     const requiredRoles = route.data['roles'] as Array<string>;
 
+    // Step 2: AuthGuard checks session using AuthService.isLoggedIn()
     if (this.authService.isLoggedIn()) {
       if (requiredRoles && requiredRoles.length > 0) {
         // Check if user has any of the required roles

@@ -1,0 +1,22 @@
+<div class="profile-container" *ngIf="user; else loading">
+  <h2 class="text-2xl font-bold mb-4">Profile Details</h2>
+  <div class="mb-2">
+    <span class="font-semibold">User ID:</span>
+    <span>{{ user.id }}</span>
+  </div>
+  <div class="mb-2">
+    <span class="font-semibold">Email:</span>
+    <span>{{ user.email }}</span>
+  </div>
+  <div class="mb-2">
+    <span class="font-semibold">First Name:</span>
+    <span>{{ user.first_name || '-' }}</span>
+  </div>
+  <div class="mb-2">
+    <span class="font-semibold">Last Name:</span>
+    <span>{{ user.last_name || '-' }}</span>
+  </div>
+</div>
+<ng-template #loading>
+  <div class="text-center py-8 text-gray-500">Loading user details...</div>
+</ng-template>

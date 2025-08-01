@@ -3,6 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { AuthService } from '../../services/auth';
 
 @Component({
   selector: 'app-mfa',
@@ -20,7 +21,8 @@ export class MfaComponent {
   constructor(
     private route: ActivatedRoute,
     private http: HttpClient,
-    private router: Router
+    private router: Router,
+    private authService: AuthService
   ) {
     this.route.queryParams.subscribe(params => {
       this.emailId = params['emailId'] || null;
@@ -47,9 +49,8 @@ export class MfaComponent {
         response => {
           this.message = 'MFA verification successful! You are now logged in.';
           this.isError = false;
-          localStorage.setItem('access_token', response.access_token);
-          // Redirect to dashboard or wherever appropriate
-          this.router.navigate(['/admin']);
+          this.authService.setSession(response);
+          this.router.navigate(['/profile']);
         },
         (error: HttpErrorResponse) => {
           this.isError = true;
