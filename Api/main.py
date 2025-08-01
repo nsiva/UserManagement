@@ -26,7 +26,7 @@ app = FastAPI(title="User Management API")
 try:
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:4200"],
+        allow_origins=["http://localhost:4201"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
