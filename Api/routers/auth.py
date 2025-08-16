@@ -24,11 +24,11 @@ auth_router = APIRouter(prefix="/auth", tags=["auth"])
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT settings
-SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
+CLIENT_JWT_SECRET = os.environ.get("JWT_SECRET_KEY")
 ALGORITHM = os.environ.get("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 
-print("Using SECRET_KEY from environment variables:", SECRET_KEY)   
+print("Using SECRET_KEY from environment variables:", CLIENT_JWT_SECRET)   
 print("Using ALGORITHM from environment variables:", ALGORITHM)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -50,7 +50,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     else:
         expire = datetime.utcnow() + timedelta(minutes=15)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, CLIENT_JWT_SECRET, algorithm=ALGORITHM)
     return encoded_jwt
 
 async def get_user_by_email(email: str):
@@ -90,7 +90,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     )
     logger.info(f"Validating token: {token}")
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, CLIENT_JWT_SECRET, algorithms=[ALGORITHM])
         user_id: str = payload.get("user_id")
         email: str = payload.get("email")
         is_admin: bool = payload.get("is_admin", False)
@@ -134,8 +134,10 @@ import logging
 
 # Define your secret key for client tokens (different from Supabase's JWT secret if applicable)
 # It's crucial this matches how you *issue* client tokens.
-CLIENT_JWT_SECRET = "your_client_jwt_secret" # MAKE SURE THIS IS A STRONG SECRET FROM ENV VARS
-CLIENT_ALGORITHM = "HS256" # Or whatever algorithm you use for client tokens
+#CLIENT_JWT_SECRET = "your_client_jwt_secret" # MAKE SURE THIS IS A STRONG SECRET FROM ENV VARS
+
+CLIENT_JWT_SECRET = os.environ.get("JWT_SECRET_KEY")
+CLIENT_ALGORITHM = os.environ.get("ALGORITHM") # Or whatever algorithm you use for client tokens
 
 # Initialize HTTPBearer to extract token from "Authorization: Bearer <token>"
 bearer_scheme = HTTPBearer()
