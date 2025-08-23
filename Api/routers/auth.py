@@ -267,6 +267,9 @@ async def login_for_access_token(request: LoginRequest):
             token_type="bearer",
             user_id=user.id,
             email=user.email,
+            first_name=user.first_name,
+            middle_name=user.middle_name,
+            last_name=user.last_name,
             is_admin=user.is_admin,
             roles=roles
         )
@@ -299,6 +302,9 @@ async def verify_mfa_code(request: MFARequest):
             token_type="bearer",
             user_id=user.id,
             email=user.email,
+            first_name=user.first_name,
+            middle_name=user.middle_name,
+            last_name=user.last_name,
             is_admin=user.is_admin,
             roles=roles
         )

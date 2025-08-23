@@ -16,6 +16,9 @@ class TokenResponse(BaseModel):
     token_type: str
     user_id: UUID
     email: EmailStr
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
     is_admin: bool
     roles: List[str]
 
@@ -28,13 +31,20 @@ class TokenData(BaseModel):
 # --- User Management Models ---
 class UserBase(BaseModel):
     email: EmailStr
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str
     is_admin: Optional[bool] = False
     roles: Optional[List[str]] = [] # Roles by name
 
-class UserUpdate(UserBase):
+class UserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
     password: Optional[str] = None
     is_admin: Optional[bool] = None
     roles: Optional[List[str]] = None # Roles by name
@@ -102,6 +112,7 @@ class ProfileResponse(BaseModel):
     id: UUID
     email: EmailStr
     first_name: Optional[str] = None
+    middle_name: Optional[str] = None
     last_name: Optional[str] = None
     # Add any other non-sensitive profile fields you want to return
     # is_admin: bool # You might include this if you want the client to know their admin status
