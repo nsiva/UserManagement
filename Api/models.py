@@ -42,7 +42,10 @@ class UserUpdate(UserBase):
 class UserInDB(UserBase):
     id: UUID
     is_admin: bool
+    password_hash: str # Stored hashed password
     mfa_secret: Optional[str] = None # Only for backend use
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
 
     class Config:
         from_attributes = True

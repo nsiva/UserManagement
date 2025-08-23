@@ -5,17 +5,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def get_supabase_client() -> Client:
-    """Initializes and returns a Supabase client."""
+    """Initializes and returns a Supabase client for data storage only."""
     url: str = os.environ.get("SUPABASE_URL")
-    key: str = os.environ.get("SUPABASE_KEY")
-    service_key: str = os.environ.get("SUPABASE_SERVICE_KEY") # Use service key for admin operations
+    service_key: str = os.environ.get("SUPABASE_SERVICE_KEY")
 
-    if not url or not key or not service_key:
-        raise ValueError("Supabase URL, Key, or Service Key not found in environment variables.")
+    if not url or not service_key:
+        raise ValueError("Supabase URL or Service Key not found in environment variables.")
 
-    # For operations requiring elevated privileges (e.g., creating users without signup)
-    # or bypassing RLS for admin tasks, use the service_key.
-    # For regular user operations, the anon key is sufficient.
-    return create_client(url, service_key) # Using service_key for direct admin access
+    # Using service_key for direct database access only (no auth features)
+    return create_client(url, service_key)
 
 supabase: Client = get_supabase_client()

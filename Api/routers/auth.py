@@ -55,7 +55,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 async def get_user_by_email(email: str):
     try:
-        response = supabase.from_('profiles').select('*').eq('email', email).limit(1).execute()
+        response = supabase.from_('aaa_profiles').select('*').eq('email', email).limit(1).execute()
         if response.data:
             logger.info(f"User found for email: {email}")
             return UserInDB(**response.data[0])
@@ -69,9 +69,9 @@ async def get_user_by_email(email: str):
 
 async def get_user_roles(user_id: str) -> List[str]:
     try:
-        response = supabase.from_('user_roles').select('role_id,roles(name)').eq('user_id', user_id).execute()
+        response = supabase.from_('aaa_user_roles').select('role_id,aaa_roles(name)').eq('user_id', user_id).execute()
         if response.data:
-            roles = [item['roles']['name'] for item in response.data if item['roles']]
+            roles = [item['aaa_roles']['name'] for item in response.data if item['aaa_roles']]
             logger.info(f"Roles for user_id {user_id}: {roles}")
             return roles
         logger.warning(f"No roles found for user_id: {user_id}")
@@ -197,7 +197,7 @@ async def get_current_client(
 async def get_client_token(request: ClientTokenRequest):
     # Retrieve client from database
     try:
-        response = supabase.from_('clients').select('*').eq('client_id', request.client_id).limit(1).execute()
+        response = supabase.from_('aaa_clients').select('*').eq('client_id', request.client_id).limit(1).execute()
         if not response.data:
             logger.warning(f"Client not found: {request.client_id}")
             raise HTTPException(
@@ -234,42 +234,40 @@ async def get_client_token(request: ClientTokenRequest):
 
 @auth_router.post("/login", response_model=TokenResponse)
 async def login_for_access_token(request: LoginRequest):
-    # Fetch user from Supabase profiles table
+    # Fetch user from profiles table and verify password
     try:
-        user_profile_response = supabase.from_('profiles').select('id, email, mfa_secret').eq('email', request.email).limit(1).execute()
-        if not user_profile_response.data:
-            logger.warning(f"Login failed: Incorrect email or password for {request.email}")
+        user = await get_user_by_email(request.email)
+        if not user:
+            logger.warning(f"Login failed: User not found for {request.email}")
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect email or password")
-        user_profile = user_profile_response.data[0]
-        user_id = user_profile['id']
-        email = user_profile['email']
-        mfa_secret = user_profile['mfa_secret']
-        try:
-            auth_response = supabase.auth.sign_in_with_password({"email": request.email, "password": request.password})
-            if not auth_response.user:
-                logger.warning(f"Login failed: Incorrect password for {request.email}")
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect email or password")
-        except Exception as e:
-            logger.error(f"Authentication failed for {request.email}: {e}")
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Authentication failed: {e}")
-        if mfa_secret:
-            logger.info(f"MFA required for user {email}")
+        
+        # Verify password using bcrypt
+        if not verify_password(request.password, user.password_hash):
+            logger.warning(f"Login failed: Incorrect password for {request.email}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect email or password")
+        
+        # Check if MFA is required
+        if user.mfa_secret:
+            logger.info(f"MFA required for user {user.email}")
             raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="MFA required. Please provide MFA code.")
-        profile_response = supabase.from_('profiles').select('is_admin').eq('id', user_id).limit(1).execute()
-        is_admin = profile_response.data[0]['is_admin'] if profile_response.data else False
-        roles = await get_user_roles(str(user_id))
+        
+        # Get user roles
+        roles = await get_user_roles(str(user.id))
+        
+        # Create access token
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
-            data={"user_id": str(user_id), "email": email, "is_admin": is_admin, "roles": roles},
+            data={"user_id": str(user.id), "email": user.email, "is_admin": user.is_admin, "roles": roles},
             expires_delta=access_token_expires
         )
-        logger.info(f"Access token issued for user {email}")
+        
+        logger.info(f"Access token issued for user {user.email}")
         return TokenResponse(
             access_token=access_token,
             token_type="bearer",
-            user_id=user_id,
-            email=email,
-            is_admin=is_admin,
+            user_id=user.id,
+            email=user.email,
+            is_admin=user.is_admin,
             roles=roles
         )
     except HTTPException:
@@ -289,12 +287,10 @@ async def verify_mfa_code(request: MFARequest):
         if not totp.verify(request.mfa_code):
             logger.warning(f"Invalid MFA code for user {request.email}")
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid MFA code.")
-        profile_response = supabase.from_('profiles').select('is_admin').eq('id', user.id).limit(1).execute()
-        is_admin = profile_response.data[0]['is_admin'] if profile_response.data else False
         roles = await get_user_roles(str(user.id))
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
-            data={"user_id": str(user.id), "email": user.email, "is_admin": is_admin, "roles": roles},
+            data={"user_id": str(user.id), "email": user.email, "is_admin": user.is_admin, "roles": roles},
             expires_delta=access_token_expires
         )
         logger.info(f"MFA verified and access token issued for user {user.email}")
@@ -303,7 +299,7 @@ async def verify_mfa_code(request: MFARequest):
             token_type="bearer",
             user_id=user.id,
             email=user.email,
-            is_admin=is_admin,
+            is_admin=user.is_admin,
             roles=roles
         )
     except HTTPException:
@@ -320,25 +316,23 @@ async def setup_mfa(email: str, current_user: TokenData = Depends(get_current_us
     # For now, only admin can trigger this.
 
     try:
-        user_profile_response = supabase.from_('profiles').select('id, email, mfa_secret').eq('email', email).limit(1).execute()
-        if not user_profile_response.data:
+        user = await get_user_by_email(email)
+        if not user:
             logger.warning(f"MFA setup failed: User not found for {email}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
-        user_id = user_profile_response.data[0]['id']
-        user_email = user_profile_response.data[0]['email']
         secret = pyotp.random_base32()
         provisioning_uri = pyotp.totp.TOTP(secret).provisioning_uri(
-            name=user_email, issuer_name="YourAppName"
+            name=user.email, issuer_name="YourAppName"
         )
-        update_response = supabase.from_('profiles').update({'mfa_secret': secret}).eq('id', user_id).execute()
+        update_response = supabase.from_('aaa_profiles').update({'mfa_secret': secret}).eq('id', str(user.id)).execute()
         if update_response.count == 0:
-            logger.error(f"Failed to save MFA secret for user {user_email}")
+            logger.error(f"Failed to save MFA secret for user {user.email}")
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to save MFA secret.")
         img = qrcode.make(provisioning_uri)
         buffered = BytesIO()
         img.save(buffered, format="PNG")
         qr_code_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
-        logger.info(f"MFA setup complete for user {user_email}")
+        logger.info(f"MFA setup complete for user {user.email}")
         return {"qr_code_base64": qr_code_base64, "secret": secret, "provisioning_uri": provisioning_uri}
     except HTTPException:
         raise

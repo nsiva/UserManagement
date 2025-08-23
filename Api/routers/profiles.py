@@ -30,7 +30,7 @@ async def get_my_profile(
 
     try:
         # Query the profiles table for the current user's ID
-        response = supabase.from_('profiles').select(
+        response = supabase.from_('aaa_profiles').select(
             'id, email' # Select only non-sensitive fields
         ).eq('id', str(current_user.user_id)).limit(1).execute()
 
