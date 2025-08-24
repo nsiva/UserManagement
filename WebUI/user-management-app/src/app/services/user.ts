@@ -58,11 +58,14 @@ export class UserService {
   private getAuthHeaders(): HttpHeaders {
     const token = this.authService.getToken();
     if (!token) {
+      console.error('No authentication token found');
       throw new Error('No authentication token found.');
     }
+    
     return new HttpHeaders({
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/json'
     });
   }
 

@@ -187,15 +187,7 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   editUser(user: User): void {
-    this.isEditModeUser = true;
-    this.selectedUserId = user.id;
-    this.userForm.patchValue({
-      firstName: user.first_name || '',
-      lastName: user.last_name || '',
-      email: user.email,
-      password: '' // Don't pre-fill password for security
-    });
-    this.selectedUserRole = user.roles.length > 0 ? user.roles[0] : ''; // Set first role or empty
+    this.router.navigate(['/admin/edit-user', user.id]);
   }
 
   deleteUser(userId: string): void {
@@ -329,6 +321,10 @@ export class AdminDashboardComponent implements OnInit {
   navigateToAdmin(): void {
     this.showDropdown = false;
     // Already on admin page, just close dropdown
+  }
+
+  navigateToCreateUser(): void {
+    this.router.navigate(['/admin/create-user']);
   }
 
   getUserInitials(): string {

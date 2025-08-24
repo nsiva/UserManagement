@@ -55,91 +55,13 @@
     </div>
 
     <div class="bg-white rounded-lg shadow-md p-6">
-      <div class="border-b border-gray-200">
-        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-          <button
-            (click)="selectTab('users')"
-            [ngClass]="{'border-blue-500 text-blue-600': activeTab === 'users', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'users'}"
-            class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200"
-          >
-            User Management
-          </button>
-          <button
-            (click)="selectTab('roles')"
-            [ngClass]="{'border-blue-500 text-blue-600': activeTab === 'roles', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'roles'}"
-            class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200"
-          >
-            Role Management
-          </button>
-        </nav>
+      <!-- User Management Section -->
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-xl font-semibold text-gray-800">Existing Users</h3>
+        <button (click)="navigateToCreateUser()" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+          Create New User
+        </button>
       </div>
-
-      <!-- User Management Tab Content -->
-      <div *ngIf="activeTab === 'users'" class="mt-6">
-        <h3 class="text-xl font-semibold text-gray-800 mb-4">{{ isEditModeUser ? 'Edit User' : 'Create New User' }}</h3>
-        <form [formGroup]="userForm" (ngSubmit)="onUserSubmit()" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          <div>
-            <label for="firstName" class="block text-sm font-medium text-gray-700">First Name</label>
-            <input type="text" id="firstName" formControlName="firstName"
-                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                   [ngClass]="{'border-red-500': userForm.get('firstName')?.invalid && userForm.get('firstName')?.touched}">
-            <div *ngIf="userForm.get('firstName')?.invalid && userForm.get('firstName')?.touched" class="text-red-500 text-xs mt-1">
-              First name is required.
-            </div>
-          </div>
-          <div>
-            <label for="lastName" class="block text-sm font-medium text-gray-700">Last Name</label>
-            <input type="text" id="lastName" formControlName="lastName"
-                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                   [ngClass]="{'border-red-500': userForm.get('lastName')?.invalid && userForm.get('lastName')?.touched}">
-            <div *ngIf="userForm.get('lastName')?.invalid && userForm.get('lastName')?.touched" class="text-red-500 text-xs mt-1">
-              Last name is required.
-            </div>
-          </div>
-          <div>
-            <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
-            <input type="email" id="email" formControlName="email"
-                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                   [ngClass]="{'border-red-500': userForm.get('email')?.invalid && userForm.get('email')?.touched}">
-            <div *ngIf="userForm.get('email')?.invalid && userForm.get('email')?.touched" class="text-red-500 text-xs mt-1">
-              Valid email is required.
-            </div>
-          </div>
-          <div>
-            <label for="password" class="block text-sm font-medium text-gray-700">Password {{ isEditModeUser ? '(Leave blank to keep current)' : '*' }}</label>
-            <input type="password" id="password" formControlName="password"
-                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                   [ngClass]="{'border-red-500': userForm.get('password')?.invalid && userForm.get('password')?.touched && !isEditModeUser}">
-            <div *ngIf="userForm.get('password')?.invalid && userForm.get('password')?.touched && !isEditModeUser" class="text-red-500 text-xs mt-1">
-              Password must be at least 6 characters.
-            </div>
-          </div>
-          <div class="col-span-1 md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700">Role (Select one)</label>
-            <div class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
-              <div *ngFor="let role of userRolesOptions" class="flex items-center">
-                <input type="radio" [id]="'role-' + role.id" name="userRole" [value]="role.name"
-                       [checked]="selectedUserRole === role.name"
-                       (change)="onRoleRadioChange(role.name)"
-                       class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
-                <label [for]="'role-' + role.id" class="ml-2 text-sm text-gray-900">{{ role.name }}</label>
-              </div>
-            </div>
-          </div>
-          <div class="col-span-1 md:col-span-2 flex space-x-2">
-            <button type="submit"
-                    [disabled]="userForm.invalid && !isEditModeUser"
-                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50">
-              {{ isEditModeUser ? 'Update User' : 'Create User' }}
-            </button>
-            <button type="button" (click)="resetForms()"
-                    class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition-colors">
-              Cancel
-            </button>
-          </div>
-        </form>
-
-        <h3 class="text-xl font-semibold text-gray-800 mb-4">Existing Users</h3>
         <div class="overflow-x-auto">
           <table class="min-w-full bg-white border border-gray-200 rounded-md">
             <thead>
@@ -174,58 +96,6 @@
             </tbody>
           </table>
         </div>
-      </div>
-
-      <!-- Role Management Tab Content -->
-      <div *ngIf="activeTab === 'roles'" class="mt-6">
-        <h3 class="text-xl font-semibold text-gray-800 mb-4">{{ isEditModeRole ? 'Edit Role' : 'Create New Role' }}</h3>
-        <form [formGroup]="roleForm" (ngSubmit)="onRoleSubmit()" class="flex gap-4 mb-8">
-          <div class="flex-grow">
-            <label for="roleName" class="block text-sm font-medium text-gray-700">Role Name</label>
-            <input type="text" id="roleName" formControlName="name"
-                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                   [ngClass]="{'border-red-500': roleForm.get('name')?.invalid && roleForm.get('name')?.touched}">
-            <div *ngIf="roleForm.get('name')?.invalid && roleForm.get('name')?.touched" class="text-red-500 text-xs mt-1">
-              Role name is required.
-            </div>
-          </div>
-          <div class="flex items-end space-x-2">
-            <button type="submit"
-                    [disabled]="roleForm.invalid"
-                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50">
-              {{ isEditModeRole ? 'Update Role' : 'Create Role' }}
-            </button>
-            <button type="button" (click)="resetForms()"
-                    class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition-colors">
-              Cancel
-            </button>
-          </div>
-        </form>
-
-        <h3 class="text-xl font-semibold text-gray-800 mb-4">Existing Roles</h3>
-        <div class="overflow-x-auto">
-          <table class="min-w-full bg-white border border-gray-200 rounded-md">
-            <thead>
-              <tr class="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <th class="py-3 px-6">Role Name</th>
-                <th class="py-3 px-6">Actions</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200">
-              <tr *ngFor="let role of roles">
-                <td class="py-4 px-6 whitespace-nowrap text-sm text-gray-900">{{ role.name }}</td>
-                <td class="py-4 px-6 whitespace-nowrap text-sm font-medium">
-                  <button (click)="editRole(role)" class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</button>
-                  <button (click)="deleteRole(role.id)" class="text-red-600 hover:text-red-900">Delete</button>
-                </td>
-              </tr>
-              <tr *ngIf="roles.length === 0">
-                <td colspan="2" class="py-4 px-6 text-center text-gray-500">No roles found.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
   </main>
 

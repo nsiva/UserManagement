@@ -18,9 +18,6 @@ import { AuthService } from '../../services/auth';
 export class LoginComponent {
   email = '';
   password = '';
-  mfaCode = '';
-  showMfaPrompt = false;
-  tempUserId: string | null = null;
   message: string | null = null;
   isError = false;
   private apiUrl = environment.apiUrl;
@@ -30,9 +27,6 @@ export class LoginComponent {
   onLogin(): void {
     this.message = null;
     this.isError = false;
-    this.showMfaPrompt = false;
-    this.mfaCode = '';
-    this.tempUserId = null;
 
     if (!this.email || !this.password) {
       this.message = 'Please enter both email and password.';
@@ -42,21 +36,40 @@ export class LoginComponent {
 
     this.authService.login(this.email, this.password).subscribe({
       next: (response: any) => {
-        this.message = 'Login successful! Welcome.';
-        this.isError = false;
-        this.email = '';
-        this.password = '';
-        
-        // Redirect based on user type
-        if (this.authService.isAdmin()) {
-          this.router.navigate(['/admin']);
+        // Check if MFA is required based on response
+        if (response.mfa_required === true || response.requires_mfa === true) {
+          // MFA is required - store user info and redirect to MFA page
+          sessionStorage.setItem('mfa_user_email', this.email);
+          sessionStorage.setItem('mfa_user_name', response.user_name || '');
+          sessionStorage.setItem('mfa_user_id', response.user_id || '');
+          this.router.navigate(['/mfa']);
         } else {
-          this.router.navigate(['/profile']);
+          // No MFA required - complete login
+          this.message = 'Login successful! Welcome.';
+          this.isError = false;
+          this.email = '';
+          this.password = '';
+          
+          // Redirect based on user type
+          if (this.authService.isAdmin()) {
+            this.router.navigate(['/admin']);
+          } else {
+            this.router.navigate(['/profile']);
+          }
         }
       },
       error: (error: HttpErrorResponse) => {
-        if (error.status === 402 && error.error && error.error.detail === 'MFA required. Please provide MFA code.') {
-          this.router.navigate(['/mfa'], { queryParams: { emailId: this.email } });
+        // Handle MFA required (402 status)
+        if (error.status === 402) {
+          // MFA is required - store user info and redirect to MFA page
+          sessionStorage.setItem('mfa_user_email', this.email);
+          if (error.error && error.error.user_name) {
+            sessionStorage.setItem('mfa_user_name', error.error.user_name);
+          }
+          if (error.error && error.error.user_id) {
+            sessionStorage.setItem('mfa_user_id', error.error.user_id);
+          }
+          this.router.navigate(['/mfa']);
         } else {
           this.handleError(error);
         }
@@ -64,37 +77,6 @@ export class LoginComponent {
     });
   }
 
-  onSubmitMfa(): void {
-    this.message = null;
-    this.isError = false;
-    if (!this.mfaCode || !this.tempUserId) {
-      this.message = 'Please enter the MFA code.';
-      this.isError = true;
-      return;
-    }
-    this.authService.verifyMfa(this.email, this.mfaCode).subscribe({
-      next: (response: any) => {
-        this.message = 'MFA verification successful! You are now logged in.';
-        this.isError = false;
-        this.showMfaPrompt = false;
-        this.email = '';
-        this.password = '';
-        this.mfaCode = '';
-        this.tempUserId = null;
-        
-        // Redirect based on user type
-        if (this.authService.isAdmin()) {
-          this.router.navigate(['/admin']);
-        } else {
-          this.router.navigate(['/profile']);
-        }
-      },
-      error: (error: HttpErrorResponse) => {
-        console.error('MFA verification error:', error);
-        this.handleError(error);
-      }
-    });
-  }
 
   private handleError = (error: HttpErrorResponse) => {
     this.isError = true;

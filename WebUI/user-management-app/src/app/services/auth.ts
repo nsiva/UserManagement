@@ -37,10 +37,11 @@ export class AuthService {
   login(email: string, password: string): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${this.apiUrl}${API_PATHS.login}`, { email, password }).pipe(
       tap(response => {
-        // MFA required, don't store token yet
-        // The backend will return 402 if MFA is needed.
-        // We'll handle that in the component.
-        this.setSession(response);
+        // Only set session if MFA is not required
+        if (!(response as any).mfa_required && !(response as any).requires_mfa) {
+          this.setSession(response);
+        }
+        // If MFA is required, we'll set session after MFA verification
       }),
       catchError(error => {
         // Handle specific MFA required error (e.g., status 402) in component
