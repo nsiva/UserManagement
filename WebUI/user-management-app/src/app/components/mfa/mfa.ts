@@ -53,7 +53,13 @@ export class MfaComponent {
           this.message = 'MFA verification successful! You are now logged in.';
           this.isError = false;
           this.authService.setSession(response);
-          this.router.navigate(['/profile']);
+          
+          // Redirect based on user type
+          if (this.authService.isAdmin()) {
+            this.router.navigate(['/admin']);
+          } else {
+            this.router.navigate(['/profile']);
+          }
         },
         (error: HttpErrorResponse) => {
           this.isError = true;

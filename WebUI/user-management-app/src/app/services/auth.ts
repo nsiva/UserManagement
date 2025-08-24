@@ -22,7 +22,6 @@ export class AuthService {
   private apiUrl = environment.apiUrl;
   private tokenKey = 'access_token';
   private userRolesKey = 'user_roles';
-  private isAdminKey = 'is_admin';
   private userIdKey = 'user_id';
   private userEmailKey = 'user_email';
 
@@ -61,7 +60,6 @@ export class AuthService {
   setSession(authResult: LoginResponse): void {
     localStorage.setItem(this.tokenKey, authResult.access_token);
     localStorage.setItem(this.userRolesKey, JSON.stringify(authResult.roles));
-    localStorage.setItem(this.isAdminKey, authResult.is_admin.toString());
     localStorage.setItem(this.userIdKey, authResult.user_id);
     localStorage.setItem(this.userEmailKey, authResult.email);
     this.loggedIn.next(true);
@@ -70,7 +68,6 @@ export class AuthService {
   logout(): void {
     localStorage.removeItem(this.tokenKey);
     localStorage.removeItem(this.userRolesKey);
-    localStorage.removeItem(this.isAdminKey);
     localStorage.removeItem(this.userIdKey);
     localStorage.removeItem(this.userEmailKey);
     this.loggedIn.next(false);
@@ -95,7 +92,8 @@ export class AuthService {
   }
 
   isAdmin(): boolean {
-    return localStorage.getItem(this.isAdminKey) === 'true';
+    const roles = this.getUserRoles();
+    return roles.includes('admin');
   }
 
   isLoggedIn(): boolean {

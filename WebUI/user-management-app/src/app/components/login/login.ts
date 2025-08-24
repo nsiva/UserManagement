@@ -7,6 +7,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { API_PATHS } from '../../api-paths';
+import { AuthService } from '../../services/auth';
 
 @Component({
   selector: 'app-login',
@@ -24,7 +25,7 @@ export class LoginComponent {
   isError = false;
   private apiUrl = environment.apiUrl;
 
-  constructor(private http: HttpClient, private router: Router) { }
+  constructor(private http: HttpClient, private router: Router, private authService: AuthService) { }
 
   onLogin(): void {
     this.message = null;
@@ -39,18 +40,19 @@ export class LoginComponent {
       return;
     }
 
-    const headers = new HttpHeaders({ 'Content-Type': 'application/json' });
-    const body = { email: this.email, password: this.password };
-
-    const url = `${this.apiUrl}${API_PATHS.login}`;
-    this.http.post<any>(url, body, { headers, observe: 'response' as 'body' })
-    .subscribe({
+    this.authService.login(this.email, this.password).subscribe({
       next: (response: any) => {
         this.message = 'Login successful! Welcome.';
         this.isError = false;
-        localStorage.setItem('access_token', response.access_token);
         this.email = '';
         this.password = '';
+        
+        // Redirect based on user type
+        if (this.authService.isAdmin()) {
+          this.router.navigate(['/admin']);
+        } else {
+          this.router.navigate(['/profile']);
+        }
       },
       error: (error: HttpErrorResponse) => {
         if (error.status === 402 && error.error && error.error.detail === 'MFA required. Please provide MFA code.') {
@@ -70,28 +72,28 @@ export class LoginComponent {
       this.isError = true;
       return;
     }
-    const headers = new HttpHeaders({ 'Content-Type': 'application/json' });
-    const body = { user_id: this.tempUserId, mfa_code: this.mfaCode };
-    const url = `${this.apiUrl}${API_PATHS.mfaVerify}`;
-    this.http.post<any>(url, body, { headers })
-      .pipe(
-        catchError(this.handleError)
-      )
-      .subscribe(
-        response => {
-          this.message = 'MFA verification successful! You are now logged in.';
-          this.isError = false;
-          localStorage.setItem('access_token', response.access_token);
-          this.showMfaPrompt = false;
-          this.email = '';
-          this.password = '';
-          this.mfaCode = '';
-          this.tempUserId = null;
-        },
-        error => {
-          console.error('MFA verification error:', error);
+    this.authService.verifyMfa(this.email, this.mfaCode).subscribe({
+      next: (response: any) => {
+        this.message = 'MFA verification successful! You are now logged in.';
+        this.isError = false;
+        this.showMfaPrompt = false;
+        this.email = '';
+        this.password = '';
+        this.mfaCode = '';
+        this.tempUserId = null;
+        
+        // Redirect based on user type
+        if (this.authService.isAdmin()) {
+          this.router.navigate(['/admin']);
+        } else {
+          this.router.navigate(['/profile']);
         }
-      );
+      },
+      error: (error: HttpErrorResponse) => {
+        console.error('MFA verification error:', error);
+        this.handleError(error);
+      }
+    });
   }
 
   private handleError = (error: HttpErrorResponse) => {

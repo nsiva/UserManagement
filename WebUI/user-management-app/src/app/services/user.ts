@@ -8,21 +8,24 @@ import { environment } from '../../environments/environment';
 export interface User {
   id: string;
   email: string;
-  is_admin: boolean;
+  first_name?: string;
+  last_name?: string;
   roles: string[];
 }
 
 export interface UserCreate {
   email: string;
   password?: string; // Password is required for create, but optional for update
-  is_admin?: boolean;
+  first_name?: string;
+  last_name?: string;
   roles?: string[];
 }
 
 export interface UserUpdate {
   email?: string;
   password?: string;
-  is_admin?: boolean;
+  first_name?: string;
+  last_name?: string;
   roles?: string[];
 }
 

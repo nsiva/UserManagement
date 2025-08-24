@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, HostListener } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth';
 import { UserService } from '../../services/user';
@@ -14,6 +14,7 @@ import { CommonModule } from '@angular/common';
 })
 export class ProfileComponent implements OnInit {
   user: any;
+  showDropdown = false;
 
   constructor(
     private authService: AuthService,
@@ -41,5 +42,58 @@ export class ProfileComponent implements OnInit {
         this.router.navigate(['/login']);
       }
     })();
+  }
+
+  toggleDropdown(): void {
+    this.showDropdown = !this.showDropdown;
+  }
+
+  navigateToProfile(): void {
+    this.showDropdown = false;
+    // Already on profile page, just close dropdown
+  }
+
+  navigateToAdmin(): void {
+    this.showDropdown = false;
+    this.router.navigate(['/admin']);
+  }
+
+  isAdmin(): boolean {
+    return this.authService.isAdmin();
+  }
+
+  getUserInitials(): string {
+    // If user data is loaded and has first/last name, use them
+    if (this.user && this.user.first_name && this.user.last_name) {
+      return (this.user.first_name.charAt(0) + this.user.last_name.charAt(0)).toUpperCase();
+    }
+    
+    // If only first name is available
+    if (this.user && this.user.first_name) {
+      return (this.user.first_name.charAt(0) + (this.user.first_name.charAt(1) || 'U')).toUpperCase();
+    }
+    
+    // Fall back to email from auth service
+    const email = this.authService.getUserEmail();
+    if (!email) return 'U';
+    
+    const emailParts = email.split('@')[0];
+    if (emailParts.length >= 2) {
+      return emailParts.substring(0, 2).toUpperCase();
+    }
+    return emailParts.substring(0, 1).toUpperCase() + 'U';
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: Event): void {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.relative')) {
+      this.showDropdown = false;
+    }
+  }
+
+  logout(): void {
+    this.showDropdown = false;
+    this.authService.logout();
   }
 }

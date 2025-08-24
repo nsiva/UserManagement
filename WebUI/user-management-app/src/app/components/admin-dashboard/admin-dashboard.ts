@@ -1,8 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, HostListener } from '@angular/core';
 import { AuthService } from '../../services/auth';
 import { UserService, User, UserCreate, UserUpdate, Role, RoleCreate, RoleUpdate } from '../../services/user';
+import { UserProfileService } from '../../services/user-profile.service';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { NgModule } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -24,7 +26,7 @@ export class AdminDashboardComponent implements OnInit {
   isEditModeUser = false;
   selectedUserId: string | null = null;
   userRolesOptions: Role[] = []; // All available roles for assignment
-  selectedUserRoles: string[] = []; // Roles for the currently selected user
+  selectedUserRole: string = 'user'; // Single role for the currently selected user, default to 'user'
 
   // Role Management
   roles: Role[] = [];
@@ -42,16 +44,21 @@ export class AdminDashboardComponent implements OnInit {
 
   errorMessage: string | null = null;
   successMessage: string | null = null;
+  showDropdown = false;
+  currentUser: any = null;
 
   constructor(
     private authService: AuthService,
     private userService: UserService,
-    private fb: FormBuilder
+    private userProfileService: UserProfileService,
+    private fb: FormBuilder,
+    private router: Router
   ) {
     this.userForm = this.fb.group({
+      firstName: ['', Validators.required],
+      lastName: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.minLength(6)]], // Password optional for update
-      is_admin: [false]
+      password: ['', [Validators.minLength(6)]] // Password optional for update
     });
 
     this.roleForm = this.fb.group({
@@ -62,6 +69,7 @@ export class AdminDashboardComponent implements OnInit {
   ngOnInit(): void {
     this.loadUsers();
     this.loadRoles();
+    this.loadCurrentUser();
   }
 
   // --- General UI ---
@@ -73,10 +81,10 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   resetForms(): void {
-    this.userForm.reset({ is_admin: false });
+    this.userForm.reset();
     this.isEditModeUser = false;
     this.selectedUserId = null;
-    this.selectedUserRoles = [];
+    this.selectedUserRole = 'user'; // Set default role to 'user'
 
     this.roleForm.reset();
     this.isEditModeRole = false;
@@ -121,6 +129,18 @@ export class AdminDashboardComponent implements OnInit {
     });
   }
 
+  loadCurrentUser(): void {
+    this.userProfileService.getCurrentUserProfile().subscribe({
+      next: (user) => {
+        this.currentUser = user;
+      },
+      error: (err: HttpErrorResponse) => {
+        console.error('Error loading current user profile:', err);
+        // Don't show error to user as this is background loading
+      }
+    });
+  }
+
   onUserSubmit(): void {
     if (this.userForm.invalid) {
       this.showError('Please fill in all required user fields correctly.');
@@ -128,10 +148,11 @@ export class AdminDashboardComponent implements OnInit {
     }
 
     const userData: UserCreate | UserUpdate = {
+      first_name: this.userForm.value.firstName,
+      last_name: this.userForm.value.lastName,
       email: this.userForm.value.email,
-      is_admin: this.userForm.value.is_admin,
       password: this.userForm.value.password || undefined, // Only include password if provided
-      roles: this.selectedUserRoles // Include selected roles
+      roles: this.selectedUserRole ? [this.selectedUserRole] : [] // Include selected role as array
     };
 
     if (this.isEditModeUser && this.selectedUserId) {
@@ -169,11 +190,12 @@ export class AdminDashboardComponent implements OnInit {
     this.isEditModeUser = true;
     this.selectedUserId = user.id;
     this.userForm.patchValue({
+      firstName: user.first_name || '',
+      lastName: user.last_name || '',
       email: user.email,
-      is_admin: user.is_admin,
       password: '' // Don't pre-fill password for security
     });
-    this.selectedUserRoles = [...user.roles]; // Clone roles for editing
+    this.selectedUserRole = user.roles.length > 0 ? user.roles[0] : ''; // Set first role or empty
   }
 
   deleteUser(userId: string): void {
@@ -193,17 +215,8 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   // --- Role Assignment for User Form ---
-  onRoleCheckboxChange(roleName: string, event: Event): void {
-    const isChecked = (event.target as HTMLInputElement).checked;
-    if (isChecked) {
-      this.selectedUserRoles.push(roleName);
-    } else {
-      this.selectedUserRoles = this.selectedUserRoles.filter(name => name !== roleName);
-    }
-  }
-
-  isRoleSelected(roleName: string): boolean {
-    return this.selectedUserRoles.includes(roleName);
+  onRoleRadioChange(roleName: string): void {
+    this.selectedUserRole = roleName;
   }
 
   // --- Role Management ---
@@ -296,7 +309,52 @@ export class AdminDashboardComponent implements OnInit {
     this.loadUsers(); // Refresh users to see if MFA secret is now set (though not displayed)
   }
 
+  toggleDropdown(): void {
+    this.showDropdown = !this.showDropdown;
+  }
+
+  navigateToProfile(): void {
+    this.showDropdown = false;
+    this.router.navigate(['/profile']);
+  }
+
+  navigateToAdmin(): void {
+    this.showDropdown = false;
+    // Already on admin page, just close dropdown
+  }
+
+  getUserInitials(): string {
+    // If current user data is loaded and has first/last name, use them
+    if (this.currentUser && this.currentUser.first_name && this.currentUser.last_name) {
+      return (this.currentUser.first_name.charAt(0) + this.currentUser.last_name.charAt(0)).toUpperCase();
+    }
+    
+    // If only first name is available
+    if (this.currentUser && this.currentUser.first_name) {
+      return (this.currentUser.first_name.charAt(0) + (this.currentUser.first_name.charAt(1) || 'U')).toUpperCase();
+    }
+    
+    // Fall back to email from auth service
+    const email = this.authService.getUserEmail();
+    if (!email) return 'U';
+    
+    const emailParts = email.split('@')[0];
+    if (emailParts.length >= 2) {
+      return emailParts.substring(0, 2).toUpperCase();
+    }
+    return emailParts.substring(0, 1).toUpperCase() + 'U';
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: Event): void {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.relative')) {
+      this.showDropdown = false;
+    }
+  }
+
   logout(): void {
+    this.showDropdown = false;
     this.authService.logout();
   }
 }
