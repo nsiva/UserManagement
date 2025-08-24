@@ -68,6 +68,9 @@ async def create_user(
         profile_data = {
             "id": user_id,
             "email": user_data.email,
+            "first_name": user_data.first_name,
+            "middle_name": user_data.middle_name,
+            "last_name": user_data.last_name,
             "password_hash": password_hash,
             "is_admin": user_data.is_admin,
             "mfa_secret": None
@@ -87,7 +90,15 @@ async def create_user(
 
     roles = await get_user_roles(str(user_id))
     logger.info(f"User created: {user_data.email} with roles: {roles}")
-    return UserWithRoles(id=user_id, email=user_data.email, is_admin=user_data.is_admin, roles=roles)
+    return UserWithRoles(
+        id=user_id, 
+        email=user_data.email, 
+        first_name=user_data.first_name,
+        middle_name=user_data.middle_name,
+        last_name=user_data.last_name,
+        is_admin=user_data.is_admin, 
+        roles=roles
+    )
 
 
 @admin_router.get("/users", response_model=List[UserWithRoles])
@@ -96,7 +107,7 @@ async def get_all_users(current_admin_user: TokenData = Depends(get_current_admi
     Retrieves all user profiles with their assigned roles. (Admin only)
     """
     try:
-        response = supabase.from_('aaa_profiles').select('id, email, is_admin').execute()
+        response = supabase.from_('aaa_profiles').select('id, email, first_name, middle_name, last_name, is_admin').execute()
         if not response.data:
             logger.warning("No users found in profiles table.")
             return []
@@ -106,6 +117,9 @@ async def get_all_users(current_admin_user: TokenData = Depends(get_current_admi
             users_with_roles.append(UserWithRoles(
                 id=user_profile['id'],
                 email=user_profile['email'],
+                first_name=user_profile.get('first_name'),
+                middle_name=user_profile.get('middle_name'),
+                last_name=user_profile.get('last_name'),
                 is_admin=user_profile['is_admin'],
                 roles=roles
             ))
@@ -121,11 +135,17 @@ async def get_all_users(current_admin_user: TokenData = Depends(get_current_admi
 @admin_router.put("/users/{user_id}", response_model=UserWithRoles)
 async def update_user(user_id: UUID, user_data: UserUpdate, current_user: TokenData = Depends(get_current_admin_user)):
     """
-    Updates an existing user's details (email, password, admin status, roles). (Admin only)
+    Updates an existing user's details (email, password, admin status, first name, last name, roles). (Admin only)
     """
     profile_update_data = {}
     if user_data.email:
         profile_update_data["email"] = user_data.email
+    if user_data.first_name is not None:
+        profile_update_data["first_name"] = user_data.first_name
+    if user_data.middle_name is not None:
+        profile_update_data["middle_name"] = user_data.middle_name
+    if user_data.last_name is not None:
+        profile_update_data["last_name"] = user_data.last_name
     if user_data.password:
         profile_update_data["password_hash"] = get_password_hash(user_data.password)
     if user_data.is_admin is not None:
@@ -157,14 +177,22 @@ async def get_user_by_id(user_id: UUID): # Removed unused current_user argument
     (Internal use or can be exposed as a separate admin.get("/users/{user_id}") endpoint)
     """
     try:
-        response = supabase.from_('aaa_profiles').select('id, email, is_admin').eq('id', str(user_id)).limit(1).execute()
+        response = supabase.from_('aaa_profiles').select('id, email, first_name, middle_name, last_name, is_admin').eq('id', str(user_id)).limit(1).execute()
         if not response.data:
             logger.warning(f"User not found for user_id: {user_id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
         user_profile = response.data[0]
         roles = await get_user_roles(str(user_id))
         logger.info(f"Fetched user {user_id} with roles: {roles}")
-        return UserWithRoles(id=user_profile['id'], email=user_profile['email'], is_admin=user_profile['is_admin'], roles=roles)
+        return UserWithRoles(
+            id=user_profile['id'], 
+            email=user_profile['email'], 
+            first_name=user_profile.get('first_name'),
+            middle_name=user_profile.get('middle_name'),
+            last_name=user_profile.get('last_name'),
+            is_admin=user_profile['is_admin'], 
+            roles=roles
+        )
     except HTTPException:
         raise
     except Exception as e:
