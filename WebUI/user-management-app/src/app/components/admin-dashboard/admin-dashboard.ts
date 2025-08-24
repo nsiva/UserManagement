@@ -309,6 +309,14 @@ export class AdminDashboardComponent implements OnInit {
     this.loadUsers(); // Refresh users to see if MFA secret is now set (though not displayed)
   }
 
+  copyToClipboard(text: string): void {
+    navigator.clipboard.writeText(text).then(() => {
+      this.showSuccess('Secret key copied to clipboard!');
+    }).catch(() => {
+      this.showError('Failed to copy to clipboard.');
+    });
+  }
+
   toggleDropdown(): void {
     this.showDropdown = !this.showDropdown;
   }
