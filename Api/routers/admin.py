@@ -132,6 +132,14 @@ async def get_all_users(current_admin_user: TokenData = Depends(get_current_admi
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
 
 
+@admin_router.get("/users/{user_id}", response_model=UserWithRoles)
+async def get_user(user_id: UUID, current_admin_user: TokenData = Depends(get_current_admin_user)):
+    """
+    Retrieves a single user's profile and roles by ID. (Admin only)
+    """
+    return await get_user_by_id(user_id)
+
+
 @admin_router.put("/users/{user_id}", response_model=UserWithRoles)
 async def update_user(user_id: UUID, user_data: UserUpdate, current_user: TokenData = Depends(get_current_admin_user)):
     """
