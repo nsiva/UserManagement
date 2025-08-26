@@ -41,23 +41,23 @@
   <main class="flex-grow p-6">
     <div class="bg-white rounded-lg shadow-md p-6">
       <div *ngIf="user; else loading" class="max-w-2xl">
-        <div class="space-y-8">
-          <div class="flex items-center py-4 border-b border-gray-200">
+        <div class="space-y-0">
+          <div class="flex items-center py-4 px-4 border-b border-gray-200 bg-white">
             <div class="w-32 text-gray-600 font-medium">First Name</div>
             <div class="flex-1 text-gray-900 text-lg">{{ user.first_name || '-' }}</div>
           </div>
           
-          <div class="flex items-center py-4 border-b border-gray-200">
+          <div class="flex items-center py-4 px-4 border-b border-gray-200 bg-gray-50">
             <div class="w-32 text-gray-600 font-medium">Last Name</div>
             <div class="flex-1 text-gray-900 text-lg">{{ user.last_name || '-' }}</div>
           </div>
           
-          <div class="flex items-center py-4 border-b border-gray-200">
+          <div class="flex items-center py-4 px-4 border-b border-gray-200 bg-white">
             <div class="w-32 text-gray-600 font-medium">Email</div>
             <div class="flex-1 text-gray-900 text-lg">{{ user.email }}</div>
           </div>
           
-          <div class="flex items-center py-4 border-b border-gray-200">
+          <div class="flex items-center py-4 px-4 border-b border-gray-200 bg-gray-50">
             <div class="w-32 text-gray-600 font-medium">User ID</div>
             <div class="flex-1 text-gray-900 text-lg">{{ user.id }}</div>
           </div>
