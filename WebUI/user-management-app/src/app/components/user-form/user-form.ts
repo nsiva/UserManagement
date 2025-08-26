@@ -1,6 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth';
 import { UserService, UserCreate, UserUpdate, Role, User } from '../../services/user';
 import { UserProfileService } from '../../services/user-profile.service';
@@ -15,7 +16,7 @@ import { CommonModule } from '@angular/common';
   templateUrl: './user-form.html',
   styleUrl: './user-form.scss'
 })
-export class UserFormComponent implements OnInit {
+export class UserFormComponent implements OnInit, OnDestroy {
   userForm: FormGroup;
   userRolesOptions: Role[] = [];
   selectedUserRole: string = 'user';
@@ -27,6 +28,7 @@ export class UserFormComponent implements OnInit {
   userId: string | null = null;
   userToEdit: User | null = null;
   isLoading = false;
+  private routeSubscription: Subscription | null = null;
 
   constructor(
     private fb: FormBuilder,
@@ -51,15 +53,27 @@ export class UserFormComponent implements OnInit {
       return;
     }
     
-    this.checkMode();
-    this.loadRoles();
-    this.loadCurrentUser();
+    // Subscribe to route parameter changes to handle component reuse
+    this.routeSubscription = this.route.paramMap.subscribe(params => {
+      // Reset form and component state first
+      this.resetComponent();
+      this.checkMode();
+      this.loadRoles();
+      this.loadCurrentUser();
+    });
+  }
+
+  ngOnDestroy(): void {
+    if (this.routeSubscription) {
+      this.routeSubscription.unsubscribe();
+    }
   }
 
   checkMode(): void {
     this.userId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.userId;
     
+    console.log('UserFormComponent: checkMode - userId:', this.userId, 'isEditMode:', this.isEditMode);
     
     if (this.isEditMode && this.userId) {
       // Make password optional for edit mode first
@@ -72,6 +86,28 @@ export class UserFormComponent implements OnInit {
       // Password required for create mode
       this.userForm.get('password')?.setValidators([Validators.required, Validators.minLength(6)]);
       this.userForm.get('password')?.updateValueAndValidity();
+      
+      // Ensure form is blank for create mode
+      this.userForm.reset({
+        firstName: '',
+        lastName: '',
+        email: '',
+        password: ''
+      });
+      this.selectedUserRole = 'user';
+      
+      // Add a timeout to clear form after any potential autofill
+      setTimeout(() => {
+        this.userForm.patchValue({
+          firstName: '',
+          lastName: '',
+          email: '',
+          password: ''
+        });
+        console.log('UserFormComponent: Create mode - delayed form clear:', this.userForm.value);
+      }, 100);
+      
+      console.log('UserFormComponent: Create mode - form reset to blank values:', this.userForm.value);
     }
   }
 
@@ -269,5 +305,46 @@ export class UserFormComponent implements OnInit {
   logout(): void {
     this.showDropdown = false;
     this.authService.logout();
+  }
+
+  resetComponent(): void {
+    console.log('UserFormComponent: Resetting component state');
+    
+    // Reset all component state
+    this.errorMessage = null;
+    this.successMessage = null;
+    this.showDropdown = false;
+    this.currentUser = null;
+    this.isEditMode = false;
+    this.userId = null;
+    this.userToEdit = null;
+    this.isLoading = false;
+    this.selectedUserRole = 'user';
+    
+    // Multiple approaches to clear form
+    console.log('UserFormComponent: Form values before reset:', this.userForm.value);
+    
+    // Approach 1: Reset form
+    this.userForm.reset();
+    
+    // Approach 2: Set each control value explicitly
+    this.userForm.patchValue({
+      firstName: '',
+      lastName: '',
+      email: '',
+      password: ''
+    });
+    
+    // Approach 3: Clear individual controls
+    this.userForm.get('firstName')?.setValue('');
+    this.userForm.get('lastName')?.setValue('');
+    this.userForm.get('email')?.setValue('');
+    this.userForm.get('password')?.setValue('');
+    
+    console.log('UserFormComponent: Form values after reset:', this.userForm.value);
+    
+    // Force change detection
+    this.userForm.markAsPristine();
+    this.userForm.markAsUntouched();
   }
 }
