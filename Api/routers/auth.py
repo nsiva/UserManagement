@@ -345,3 +345,21 @@ async def setup_mfa(email: str, current_user: TokenData = Depends(get_current_us
     except Exception as e:
         logger.error(f"Error in setup_mfa: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+
+@auth_router.post("/validate-token")
+async def validate_token(
+    current_user: TokenData = Depends(get_current_user)
+):
+    """Validate authentication token - used by callback page"""
+    try:
+        logger.info(f"Token validated for user: {current_user.email}")
+        return {
+            "valid": True,
+            "user": {
+                "id": current_user.user_id,
+                "email": current_user.email
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error in validate_token: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
