@@ -41,6 +41,13 @@ export class AdminDashboardComponent implements OnInit {
   mfaProvisioningUri: string | null = null;
   selectedUserForMfa: User | null = null;
 
+  // Confirmation Modal
+  showConfirmModal = false;
+  confirmTitle = '';
+  confirmMessage = '';
+  confirmButtonText = '';
+  confirmCallback: (() => void) | null = null;
+
 
   errorMessage: string | null = null;
   successMessage: string | null = null;
@@ -191,19 +198,29 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   deleteUser(userId: string): void {
-    if (confirm('Are you sure you want to delete this user?')) {
-      this.userService.deleteUser(userId).subscribe({
-        next: () => {
-          this.showSuccess('User deleted successfully!');
-          this.loadUsers();
-          this.resetForms();
-        },
-        error: (err: HttpErrorResponse) => {
-          this.showError(err.error.detail || 'Failed to delete user.');
-          console.error('Error deleting user:', err);
-        }
-      });
-    }
+    const user = this.users.find(u => u.id === userId);
+    const userName = user?.first_name && user?.last_name ? 
+      `${user.first_name} ${user.last_name}` : 
+      user?.email || 'this user';
+    
+    this.showConfirm(
+      'Delete User',
+      `Are you sure you want to delete ${userName}? This action cannot be undone.`,
+      'Delete',
+      () => {
+        this.userService.deleteUser(userId).subscribe({
+          next: () => {
+            this.showSuccess('User deleted successfully!');
+            this.loadUsers();
+            this.resetForms();
+          },
+          error: (err: HttpErrorResponse) => {
+            this.showError(err.error.detail || 'Failed to delete user.');
+            console.error('Error deleting user:', err);
+          }
+        });
+      }
+    );
   }
 
   // --- Role Assignment for User Form ---
@@ -258,20 +275,28 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   deleteRole(roleId: string): void {
-    if (confirm('Are you sure you want to delete this role? This will also remove it from all users.')) {
-      this.userService.deleteRole(roleId).subscribe({
-        next: () => {
-          this.showSuccess('Role deleted successfully!');
-          this.loadRoles();
-          this.loadUsers(); // Users might have had this role, refresh
-          this.resetForms();
-        },
-        error: (err: HttpErrorResponse) => {
-          this.showError(err.error.detail || 'Failed to delete role.');
-          console.error('Error deleting role:', err);
-        }
-      });
-    }
+    const role = this.roles.find(r => r.id === roleId);
+    const roleName = role?.name || 'this role';
+    
+    this.showConfirm(
+      'Delete Role',
+      `Are you sure you want to delete the "${roleName}" role? This will also remove it from all users and cannot be undone.`,
+      'Delete',
+      () => {
+        this.userService.deleteRole(roleId).subscribe({
+          next: () => {
+            this.showSuccess('Role deleted successfully!');
+            this.loadRoles();
+            this.loadUsers(); // Users might have had this role, refresh
+            this.resetForms();
+          },
+          error: (err: HttpErrorResponse) => {
+            this.showError(err.error.detail || 'Failed to delete role.');
+            console.error('Error deleting role:', err);
+          }
+        });
+      }
+    );
   }
 
   // --- MFA Setup ---
@@ -360,6 +385,30 @@ export class AdminDashboardComponent implements OnInit {
   logout(): void {
     this.showDropdown = false;
     this.authService.logout();
+  }
+
+  // --- Confirmation Modal ---
+  showConfirm(title: string, message: string, buttonText: string, callback: () => void): void {
+    this.confirmTitle = title;
+    this.confirmMessage = message;
+    this.confirmButtonText = buttonText;
+    this.confirmCallback = callback;
+    this.showConfirmModal = true;
+  }
+
+  closeConfirmModal(): void {
+    this.showConfirmModal = false;
+    this.confirmTitle = '';
+    this.confirmMessage = '';
+    this.confirmButtonText = '';
+    this.confirmCallback = null;
+  }
+
+  confirmAction(): void {
+    if (this.confirmCallback) {
+      this.confirmCallback();
+    }
+    this.closeConfirmModal();
   }
 }
 
