@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { AuthService } from '../../services/auth';
@@ -16,13 +16,23 @@ import { CommonModule } from '@angular/common';
   templateUrl: './reset-password.html',
   styleUrl: './reset-password.scss'
 })
-export class ResetPasswordComponent implements OnInit {
+export class ResetPasswordComponent implements OnInit, OnDestroy {
   currentPassword: string = '';
   newPassword: string = '';
   confirmPassword: string = '';
   isLoading: boolean = false;
   successMessage: string = '';
   errorMessage: string = '';
+  formSubmitted: boolean = false;
+
+  // Password requirements tracking
+  passwordRequirements = {
+    minLength: false,
+    hasUppercase: false,
+    hasLowercase: false,
+    hasNumber: false,
+    hasSpecialChar: false
+  };
 
   constructor(
     private router: Router,
@@ -35,24 +45,74 @@ export class ResetPasswordComponent implements OnInit {
     if (!this.authService.isLoggedIn()) {
       this.router.navigate(['/login']);
     }
+    
+    // Initialize password requirements validation
+    this.validatePasswordRequirements();
   }
 
   navigateBack(): void {
+    // Only clear form data when user cancels (navigating away without success)
+    this.clearAllFields();
     this.router.navigate(['/profile']);
+  }
+  
+  private clearAllFields(): void {
+    this.currentPassword = '';
+    this.newPassword = '';
+    this.confirmPassword = '';
+    this.formSubmitted = false;
+    this.validatePasswordRequirements();
+  }
+
+  onNewPasswordChange(): void {
+    this.validatePasswordRequirements();
+  }
+
+  // Only clear fields when user cancels/navigates away (not on successful submission)
+  @HostListener('window:beforeunload', ['$event'])
+  onBeforeUnload(event: BeforeUnloadEvent): void {
+    // Only clear if there's no success message (user is navigating away without completing)
+    if (!this.successMessage) {
+      this.clearAllFields();
+    }
+  }
+
+  ngOnDestroy(): void {
+    // Only clear if there's no success message (component destroyed without success)
+    if (!this.successMessage) {
+      this.clearAllFields();
+    }
+  }
+
+  validatePasswordRequirements(): void {
+    const password = this.newPassword;
+    
+    this.passwordRequirements = {
+      minLength: password.length >= 8,
+      hasUppercase: /[A-Z]/.test(password),
+      hasLowercase: /[a-z]/.test(password),
+      hasNumber: /\d/.test(password),
+      hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+    };
   }
 
   resetPassword(): void {
+    this.formSubmitted = true;
     this.errorMessage = '';
     this.successMessage = '';
 
     // Basic validation
-    if (!this.currentPassword || !this.newPassword || !this.confirmPassword) {
+    if (!this.currentPassword?.trim() || !this.newPassword?.trim() || !this.confirmPassword?.trim()) {
       this.errorMessage = 'All fields are required';
       return;
     }
 
-    if (this.newPassword.length < 8) {
-      this.errorMessage = 'New password must be at least 8 characters long';
+    // Validate password requirements
+    this.validatePasswordRequirements();
+    const allRequirementsMet = Object.values(this.passwordRequirements).every(req => req);
+    
+    if (!allRequirementsMet) {
+      this.errorMessage = 'Please ensure your new password meets all the requirements below';
       return;
     }
 
@@ -98,14 +158,20 @@ export class ResetPasswordComponent implements OnInit {
         
         if (response) {
           this.successMessage = 'Password reset successfully! Redirecting to profile...';
-          this.currentPassword = '';
-          this.newPassword = '';
-          this.confirmPassword = '';
           
-          // Redirect to profile after 2 seconds
+          // Simulate a successful form submission event for password managers
+          const form = document.querySelector('form');
+          if (form) {
+            // Create a submit event to trigger password manager detection
+            const submitEvent = new Event('submit', { bubbles: true });
+            form.dispatchEvent(submitEvent);
+          }
+          
+          // Keep fields populated briefly so browser can detect the successful change
+          // Redirect after giving browser time to offer password save
           setTimeout(() => {
-            this.navigateBack();
-          }, 2000);
+            this.router.navigate(['/profile']);
+          }, 3000);
         }
       });
   }
