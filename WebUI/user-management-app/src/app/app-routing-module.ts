@@ -6,6 +6,7 @@ import { UserFormComponent } from './components/user-form/user-form';
 import { AuthGuard } from './guards/auth-guard';
 import { MfaComponent } from './components/mfa/mfa';
 import { ProfileComponent } from './components/profile/profile';
+import { ResetPasswordComponent } from './components/reset-password/reset-password';
 
 
 export const routes: Routes = [
@@ -15,6 +16,7 @@ export const routes: Routes = [
   { path: 'admin/edit-user/:id', component: UserFormComponent, canActivate: [AuthGuard], data: { roles: ['admin'] } },
   { path: '', redirectTo: '/login', pathMatch: 'full' },
   { path: 'profile', component: ProfileComponent, canActivate: [AuthGuard] },
+  { path: 'reset-password', component: ResetPasswordComponent, canActivate: [AuthGuard] },
   { path: 'mfa', component: MfaComponent },
   { path: '**', redirectTo: '/login' } // Redirect any unknown paths to login
 ];

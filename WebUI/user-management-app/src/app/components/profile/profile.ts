@@ -58,6 +58,10 @@ export class ProfileComponent implements OnInit {
     this.router.navigate(['/admin']);
   }
 
+  navigateToResetPassword(): void {
+    this.router.navigate(['/reset-password']);
+  }
+
   isAdmin(): boolean {
     return this.authService.isAdmin();
   }

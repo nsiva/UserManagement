@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 from passlib.context import CryptContext
 import pyotp
@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 import logging
 
 from database import supabase
-from models import LoginRequest, MFARequest, TokenResponse, TokenData, UserInDB, ClientTokenRequest, ClientTokenResponse, ClientTokenData
+from models import LoginRequest, MFARequest, PasswordResetRequest, TokenResponse, TokenData, UserInDB, ClientTokenRequest, ClientTokenResponse, ClientTokenData
 
 load_dotenv()
 
@@ -362,4 +362,46 @@ async def validate_token(
         }
     except Exception as e:
         logger.error(f"Error in validate_token: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+
+@auth_router.post("/reset_password", summary="Reset password for authenticated user")
+async def reset_password(
+    request: PasswordResetRequest,
+    current_user: TokenData = Depends(get_current_user)
+):
+    """
+    Reset password for the currently authenticated user.
+    Requires current password verification before allowing password change.
+    """
+    try:
+        user = await get_user_by_email(current_user.email)
+        if not user:
+            logger.warning(f"Password reset failed: User not found for {current_user.email}")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        
+        # Verify current password
+        if not verify_password(request.current_password, user.password_hash):
+            logger.warning(f"Password reset failed: Incorrect current password for {current_user.email}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
+        
+        # Hash new password
+        new_password_hash = get_password_hash(request.new_password)
+        
+        # Update password in database
+        update_response = supabase.from_('aaa_profiles').update({
+            'password_hash': new_password_hash,
+            'updated_at': datetime.now(timezone.utc).isoformat()
+        }).eq('id', str(user.id)).execute()
+        
+        if update_response.count == 0:
+            logger.error(f"Failed to update password for user {current_user.email}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update password")
+        
+        logger.info(f"Password reset successful for user: {current_user.email}")
+        return {"message": "Password reset successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in reset_password: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
