@@ -1,0 +1,81 @@
+# Git
+.git
+.gitignore
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Build directories
+dist/
+build/
+.angular/
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+README.md
+TROUBLESHOOTING.md
+RESET_PASSWORD_REQUIREMENTS_DEMO.md
+
+# Scripts
+scripts/
+
+# Test files
+*.spec.ts
+*.test.ts
+test/
+tests/
+coverage/
+
+# SQL files
+sqls/
+
+# Temporary files
+.tmp/
+temp/
