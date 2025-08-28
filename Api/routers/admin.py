@@ -6,7 +6,7 @@ from uuid import UUID
 import logging
 # import pyotp # REMOVED: Not used in this file's functions
 
-from database import supabase
+from database import get_repository
 from models import (
     UserCreate, UserUpdate, UserWithRoles, RoleCreate, RoleUpdate, RoleInDB,
     UserRoleAssignment, TokenData, ClientTokenData
@@ -75,8 +75,9 @@ async def create_user(
             "is_admin": user_data.is_admin,
             "mfa_secret": None
         }
-        profile_response = supabase.from_('aaa_profiles').insert(profile_data).execute()
-        if profile_response.count == 0:
+        repo = get_repository()
+        created_user = await repo.create_user(profile_data)
+        if not created_user:
             logger.error(f"Failed to create user profile for email: {user_data.email}")
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create user profile.")
     except HTTPException:
@@ -108,12 +109,13 @@ async def get_all_users(current_admin_user: TokenData = Depends(get_current_admi
     Retrieves all user profiles with their assigned roles. (Admin only)
     """
     try:
-        response = supabase.from_('aaa_profiles').select('id, email, first_name, middle_name, last_name, is_admin, mfa_secret').execute()
-        if not response.data:
+        repo = get_repository()
+        users_data = await repo.get_all_users()
+        if not users_data:
             logger.warning("No users found in profiles table.")
             return []
         users_with_roles = []
-        for user_profile in response.data:
+        for user_profile in users_data:
             roles = await get_user_roles(str(user_profile['id']))
             mfa_enabled = bool(user_profile.get('mfa_secret'))
             users_with_roles.append(UserWithRoles(
@@ -164,8 +166,9 @@ async def update_user(user_id: UUID, user_data: UserUpdate, current_user: TokenD
 
     if profile_update_data:
         try:
-            profile_response = supabase.from_('aaa_profiles').update(profile_update_data).eq('id', str(user_id)).execute()
-            if profile_response.count == 0:
+            repo = get_repository()
+            success = await repo.update_user(user_id, profile_update_data)
+            if not success:
                 logger.error(f"Failed to update user profile for user_id: {user_id}")
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
         except HTTPException:
@@ -188,11 +191,11 @@ async def get_user_by_id(user_id: UUID): # Removed unused current_user argument
     (Internal use or can be exposed as a separate admin.get("/users/{user_id}") endpoint)
     """
     try:
-        response = supabase.from_('aaa_profiles').select('id, email, first_name, middle_name, last_name, is_admin, mfa_secret').eq('id', str(user_id)).limit(1).execute()
-        if not response.data:
+        repo = get_repository()
+        user_profile = await repo.get_user_by_id(user_id)
+        if not user_profile:
             logger.warning(f"User not found for user_id: {user_id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
-        user_profile = response.data[0]
         roles = await get_user_roles(str(user_id))
         logger.info(f"Fetched user {user_id} with roles: {roles}")
         mfa_enabled = bool(user_profile.get('mfa_secret'))
@@ -219,12 +222,10 @@ async def delete_user(user_id: UUID, current_user: TokenData = Depends(get_curre
     Deletes a user account and all related data. (Admin only)
     """
     try:
-        # First delete user_roles entries
-        supabase.from_('aaa_user_roles').delete().eq('user_id', str(user_id)).execute()
-        
-        # Delete the user profile
-        delete_response = supabase.from_('aaa_profiles').delete().eq('id', str(user_id)).execute()
-        if delete_response.count == 0:
+        # Delete the user profile (this will also handle user_roles deletion)
+        repo = get_repository()
+        success = await repo.delete_user(user_id)
+        if not success:
             logger.warning(f"User not found for deletion: {user_id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
             
@@ -246,12 +247,13 @@ async def create_role(role_data: RoleCreate, current_user: TokenData = Depends(g
     Creates a new role entry in the database. (Admin only)
     """
     try:
-        response = supabase.from_('aaa_roles').insert(role_data.model_dump()).execute()
-        if response.count == 0:
+        repo = get_repository()
+        created_role = await repo.create_role(role_data.model_dump())
+        if not created_role:
             logger.error(f"Failed to create role: {role_data.name}")
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create role.")
         logger.info(f"Role created: {role_data.name}")
-        return RoleInDB(**response.data[0])
+        return RoleInDB(**created_role)
     except HTTPException:
         raise
     except Exception as e:
@@ -265,12 +267,13 @@ async def get_all_roles(current_user: TokenData = Depends(get_current_admin_user
     Retrieves a list of all defined roles. (Admin only)
     """
     try:
-        response = supabase.from_('aaa_roles').select('*').execute()
-        if not response.data:
+        repo = get_repository()
+        roles_data = await repo.get_all_roles()
+        if not roles_data:
             logger.warning("No roles found.")
             return []
-        logger.info(f"Fetched {len(response.data)} roles.")
-        return [RoleInDB(**item) for item in response.data]
+        logger.info(f"Fetched {len(roles_data)} roles.")
+        return [RoleInDB(**item) for item in roles_data]
     except HTTPException:
         raise
     except Exception as e:
@@ -284,12 +287,16 @@ async def update_role(role_id: UUID, role_data: RoleUpdate, current_user: TokenD
     Updates an existing role by ID. (Admin only)
     """
     try:
-        response = supabase.from_('aaa_roles').update(role_data.model_dump()).eq('id', str(role_id)).execute() # Convert UUID to str
-        if response.count == 0:
+        repo = get_repository()
+        success = await repo.update_role(role_id, role_data.model_dump())
+        if not success:
             logger.error(f"Role not found or failed to update: {role_id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found or failed to update.")
         logger.info(f"Role updated: {role_id}")
-        return RoleInDB(**response.data[0])
+        # Get updated role data to return
+        updated_roles = await repo.get_all_roles()
+        updated_role = next((r for r in updated_roles if str(r['id']) == str(role_id)), None)
+        return RoleInDB(**updated_role) if updated_role else None
     except HTTPException:
         raise
     except Exception as e:
@@ -303,8 +310,9 @@ async def delete_role(role_id: UUID, current_user: TokenData = Depends(get_curre
     Deletes a role by ID. (Admin only)
     """
     try:
-        response = supabase.from_('aaa_roles').delete().eq('id', str(role_id)).execute() # Convert UUID to str
-        if response.count == 0:
+        repo = get_repository()
+        success = await repo.delete_role(role_id)
+        if not success:
             logger.error(f"Role not found or failed to delete: {role_id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found or failed to delete.")
         logger.info(f"Role deleted: {role_id}")
@@ -324,30 +332,16 @@ async def assign_roles_to_user_by_names(user_id: UUID, role_names: List[str]):
     Deletes existing roles for the user and inserts the new set.
     """
     try:
-        if not role_names:
-            # If no role names are provided, delete all existing roles for the user
-            supabase.from_('aaa_user_roles').delete().eq('user_id', str(user_id)).execute() # Convert UUID to str
-            logger.info(f"All roles removed for user {user_id}")
-            return
-
-        # Fetch role IDs for the given role names
-        roles_response = supabase.from_('aaa_roles').select('id, name').in_('name', role_names).execute()
-        if not roles_response.data or len(roles_response.data) != len(role_names):
-            # If some roles were not found, raise an error
-            found_role_names = {item['name'] for item in roles_response.data}
-            missing_roles = set(role_names) - found_role_names
-            logger.warning(f"One or more specified roles not found for user {user_id}: {missing_roles}")
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"One or more specified roles not found: {', '.join(missing_roles)}.")
-
-        role_ids = [item['id'] for item in roles_response.data]
-
-        # Delete all existing roles for the user before assigning new ones
-        supabase.from_('aaa_user_roles').delete().eq('user_id', str(user_id)).execute() # Convert UUID to str
-
-        insert_data = [{"user_id": str(user_id), "role_id": str(role_id)} for role_id in role_ids]
-        if insert_data: # Only insert if there's data to insert
-            supabase.from_('aaa_user_roles').insert(insert_data).execute()
+        repo = get_repository()
+        success = await repo.assign_user_roles(user_id, role_names)
+        if not success:
+            logger.error(f"Failed to assign roles to user {user_id}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to assign roles")
+        
+        if role_names:
             logger.info(f"Roles {role_names} assigned to user {user_id}")
+        else:
+            logger.info(f"All roles removed for user {user_id}")
     except HTTPException:
         raise
     except Exception as e:

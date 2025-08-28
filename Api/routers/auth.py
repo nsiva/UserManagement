@@ -13,11 +13,16 @@ import logging
 from dotenv import load_dotenv
 import logging
 import secrets
+import warnings
+
+# Suppress bcrypt version warning from passlib
+import passlib.handlers.bcrypt
+warnings.filterwarnings("ignore", module="passlib.handlers.bcrypt")
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-from database import supabase
+from database import get_repository
 from models import LoginRequest, MFARequest, PasswordResetRequest, TokenResponse, TokenData, UserInDB, ClientTokenRequest, ClientTokenResponse, ClientTokenData, ForgotPasswordRequest, SetNewPasswordRequest, VerifyResetTokenResponse
 
 load_dotenv()
@@ -131,23 +136,9 @@ async def send_reset_email(email: str, reset_token: str) -> bool:
 async def validate_reset_token(token: str) -> tuple[bool, Optional[str]]:
     """Validate reset token and return (is_valid, user_email)"""
     try:
-        response = supabase.from_('aaa_password_reset_tokens').select(
-            'user_id, expires_at, used, aaa_profiles(email)'
-        ).eq('token', token).eq('used', False).limit(1).execute()
-        
-        if not response.data:
-            return False, None
-            
-        token_data = response.data[0]
-        
-        # Check if token is expired
-        expires_at = datetime.fromisoformat(token_data['expires_at'].replace('Z', '+00:00'))
-        if datetime.now(timezone.utc) > expires_at:
-            return False, None
-            
-        user_email = token_data['aaa_profiles']['email'] if token_data['aaa_profiles'] else None
-        return True, user_email
-        
+        repo = get_repository()
+        is_valid, user_email = await repo.validate_reset_token(token)
+        return is_valid, user_email
     except Exception as e:
         logger.error(f"Error validating reset token: {e}")
         return False, None
@@ -164,10 +155,11 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 async def get_user_by_email(email: str):
     try:
-        response = supabase.from_('aaa_profiles').select('*').eq('email', email).limit(1).execute()
-        if response.data:
+        repo = get_repository()
+        user_data = await repo.get_user_by_email(email)
+        if user_data:
             logger.info(f"User found for email: {email}")
-            return UserInDB(**response.data[0])
+            return UserInDB(**user_data)
         logger.warning(f"No user found for email: {email}")
         return None
     except HTTPException:
@@ -178,13 +170,11 @@ async def get_user_by_email(email: str):
 
 async def get_user_roles(user_id: str) -> List[str]:
     try:
-        response = supabase.from_('aaa_user_roles').select('role_id,aaa_roles(name)').eq('user_id', user_id).execute()
-        if response.data:
-            roles = [item['aaa_roles']['name'] for item in response.data if item['aaa_roles']]
-            logger.info(f"Roles for user_id {user_id}: {roles}")
-            return roles
-        logger.warning(f"No roles found for user_id: {user_id}")
-        return []
+        from uuid import UUID
+        repo = get_repository()
+        roles = await repo.get_user_roles(UUID(user_id))
+        logger.info(f"Roles for user_id {user_id}: {roles}")
+        return roles
     except HTTPException:
         raise
     except Exception as e:
@@ -307,15 +297,15 @@ async def get_current_client(
 async def get_client_token(request: ClientTokenRequest):
     # Retrieve client from database
     try:
-        response = supabase.from_('aaa_clients').select('*').eq('client_id', request.client_id).limit(1).execute()
-        if not response.data:
+        repo = get_repository()
+        client_in_db = await repo.get_client_by_id(request.client_id)
+        if not client_in_db:
             logger.warning(f"Client not found: {request.client_id}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid client ID or secret",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        client_in_db = response.data[0]
         if client_in_db['client_secret'] != request.client_secret:
             logger.warning(f"Invalid client secret for client_id: {request.client_id}")
             raise HTTPException(
@@ -440,8 +430,9 @@ async def setup_mfa(email: str, current_user: TokenData = Depends(get_current_us
         provisioning_uri = pyotp.totp.TOTP(secret).provisioning_uri(
             name=user.email, issuer_name="YourAppName"
         )
-        update_response = supabase.from_('aaa_profiles').update({'mfa_secret': secret}).eq('id', str(user.id)).execute()
-        if update_response.count == 0:
+        repo = get_repository()
+        success = await repo.update_mfa_secret(user.id, secret)
+        if not success:
             logger.error(f"Failed to save MFA secret for user {user.email}")
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to save MFA secret.")
         img = qrcode.make(provisioning_uri)
@@ -473,8 +464,9 @@ async def remove_mfa(email: str, current_user: TokenData = Depends(get_current_a
             return {"message": "MFA is not enabled for this user."}
         
         # Remove MFA secret
-        update_response = supabase.from_('aaa_profiles').update({'mfa_secret': None}).eq('id', str(user.id)).execute()
-        if update_response.count == 0:
+        repo = get_repository()
+        success = await repo.update_mfa_secret(user.id, None)
+        if not success:
             logger.error(f"Failed to remove MFA for user {user.email}")
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to remove MFA.")
         
@@ -528,12 +520,12 @@ async def reset_password(
         new_password_hash = get_password_hash(request.new_password)
         
         # Update password in database
-        update_response = supabase.from_('aaa_profiles').update({
-            'password_hash': new_password_hash,
-            'updated_at': datetime.now(timezone.utc).isoformat()
-        }).eq('id', str(user.id)).execute()
+        repo = get_repository()
+        success = await repo.update_user(user.id, {
+            'password_hash': new_password_hash
+        })
         
-        if update_response.count == 0:
+        if not success:
             logger.error(f"Failed to update password for user {current_user.email}")
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update password")
         
@@ -565,14 +557,15 @@ async def forgot_password(request: ForgotPasswordRequest):
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
         
         # Store token in database
-        insert_response = supabase.from_('aaa_password_reset_tokens').insert({
+        repo = get_repository()
+        success = await repo.create_reset_token({
             'user_id': str(user.id),
             'token': reset_token,
-            'expires_at': expires_at.isoformat(),
+            'expires_at': expires_at,
             'used': False
-        }).execute()
+        })
         
-        if not insert_response.data:
+        if not success:
             logger.error(f"Failed to store reset token for user {mask_email(request.email)}")
             # Still return success to prevent information disclosure
             return {"message": "If the email exists in our system, a password reset link will be sent."}
@@ -641,12 +634,12 @@ async def set_new_password(request: SetNewPasswordRequest):
         new_password_hash = get_password_hash(request.new_password)
         
         # Update password in database
-        update_response = supabase.from_('aaa_profiles').update({
-            'password_hash': new_password_hash,
-            'updated_at': datetime.now(timezone.utc).isoformat()
-        }).eq('id', str(user.id)).execute()
+        repo = get_repository()
+        success = await repo.update_user(user.id, {
+            'password_hash': new_password_hash
+        })
         
-        if update_response.count == 0:
+        if not success:
             logger.error(f"Failed to update password for user {mask_email(user_email)}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -654,11 +647,10 @@ async def set_new_password(request: SetNewPasswordRequest):
             )
         
         # Mark token as used
-        token_update_response = supabase.from_('aaa_password_reset_tokens').update({
-            'used': True
-        }).eq('token', request.token).execute()
+        repo = get_repository()
+        success = await repo.mark_token_used(request.token)
         
-        if token_update_response.count == 0:
+        if not success:
             logger.warning(f"Failed to mark reset token as used for user {mask_email(user_email)}")
         
         logger.info(f"Password reset completed for user: {mask_email(user_email)}")

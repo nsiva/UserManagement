@@ -9,7 +9,7 @@ import base64 # Not needed for /profiles/me
 import qrcode # Not needed for /profiles/me
 import pyotp # Not needed for /profiles/me
 
-from database import supabase # Assuming your Supabase client is initialized here
+from database import get_repository # Updated to use repository pattern
 from routers.auth import get_current_user, TokenData # Import your authentication dependencies
 from models import ProfileResponse # Import the new ProfileResponse model
 
@@ -30,18 +30,15 @@ async def get_my_profile(
 
     try:
         # Query the profiles table for the current user's ID
-        response = supabase.from_('aaa_profiles').select(
-            'id, email, first_name, middle_name, last_name, mfa_secret' # Include mfa_secret to check if MFA is enabled
-        ).eq('id', str(current_user.user_id)).limit(1).execute()
+        repo = get_repository()
+        profile_data = await repo.get_user_by_id(current_user.user_id)
 
-        if not response.data:
+        if not profile_data:
             logger.warning(f"Profile not found for authenticated user_id: {current_user.user_id}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User profile not found."
             )
-
-        profile_data = response.data[0]
         
         # Determine if MFA is enabled (mfa_secret exists and is not null/empty)
         mfa_enabled = bool(profile_data.get('mfa_secret'))
