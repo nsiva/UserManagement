@@ -12,9 +12,13 @@ import os
 import logging
 from dotenv import load_dotenv
 import logging
+import secrets
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 from database import supabase
-from models import LoginRequest, MFARequest, PasswordResetRequest, TokenResponse, TokenData, UserInDB, ClientTokenRequest, ClientTokenResponse, ClientTokenData
+from models import LoginRequest, MFARequest, PasswordResetRequest, TokenResponse, TokenData, UserInDB, ClientTokenRequest, ClientTokenResponse, ClientTokenData, ForgotPasswordRequest, SetNewPasswordRequest, VerifyResetTokenResponse
 
 load_dotenv()
 
@@ -42,6 +46,111 @@ def get_password_hash(password):
 logger = logging.getLogger("auth")
 if not logger.hasHandlers():
     logging.basicConfig(level=logging.INFO)
+
+# Email configuration
+SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
+SMTP_USERNAME = os.environ.get("SMTP_USERNAME")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
+FROM_EMAIL = os.environ.get("FROM_EMAIL", SMTP_USERNAME)
+RESET_TOKEN_EXPIRE_MINUTES = int(os.environ.get("RESET_TOKEN_EXPIRE_MINUTES", 30))
+
+def generate_reset_token() -> str:
+    """Generate a cryptographically secure reset token"""
+    return secrets.token_urlsafe(32)
+
+def mask_email(email: str) -> str:
+    """Mask email address for security (show first char and domain)"""
+    if "@" not in email:
+        return email[:1] + "*" * (len(email) - 1)
+    username, domain = email.split("@", 1)
+    if len(username) <= 2:
+        masked_username = username[0] + "*" * (len(username) - 1)
+    else:
+        masked_username = username[0] + "*" * (len(username) - 2) + username[-1]
+    return f"{masked_username}@{domain}"
+
+async def send_reset_email(email: str, reset_token: str) -> bool:
+    """Send password reset email"""
+    try:
+        if not all([SMTP_SERVER, SMTP_USERNAME, SMTP_PASSWORD]):
+            logger.error("Email configuration missing. Check SMTP environment variables.")
+            return False
+        
+        # Create reset link (frontend should handle this route)
+        reset_link = f"http://localhost:4201/set-new-password?token={reset_token}"
+        
+        # Create email content
+        subject = "Password Reset Request"
+        html_body = f"""
+        <html>
+        <body>
+            <h2>Password Reset Request</h2>
+            <p>You requested a password reset for your account.</p>
+            <p>Click the link below to reset your password (this link will expire in {RESET_TOKEN_EXPIRE_MINUTES} minutes):</p>
+            <p><a href="{reset_link}">Reset Password</a></p>
+            <p>If you didn't request this, please ignore this email.</p>
+        </body>
+        </html>
+        """
+        
+        text_body = f"""
+        Password Reset Request
+        
+        You requested a password reset for your account.
+        
+        Click the link below to reset your password (this link will expire in {RESET_TOKEN_EXPIRE_MINUTES} minutes):
+        {reset_link}
+        
+        If you didn't request this, please ignore this email.
+        """
+        
+        # Create message
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = FROM_EMAIL
+        msg["To"] = email
+        
+        # Add both plain text and HTML parts
+        msg.attach(MIMEText(text_body, "plain"))
+        msg.attach(MIMEText(html_body, "html"))
+        
+        # Send email
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.send_message(msg)
+            
+        logger.info(f"Password reset email sent to {mask_email(email)}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to send reset email to {mask_email(email)}: {e}")
+        return False
+
+async def validate_reset_token(token: str) -> tuple[bool, Optional[str]]:
+    """Validate reset token and return (is_valid, user_email)"""
+    try:
+        response = supabase.from_('aaa_password_reset_tokens').select(
+            'user_id, expires_at, used, aaa_profiles(email)'
+        ).eq('token', token).eq('used', False).limit(1).execute()
+        
+        if not response.data:
+            return False, None
+            
+        token_data = response.data[0]
+        
+        # Check if token is expired
+        expires_at = datetime.fromisoformat(token_data['expires_at'].replace('Z', '+00:00'))
+        if datetime.now(timezone.utc) > expires_at:
+            return False, None
+            
+        user_email = token_data['aaa_profiles']['email'] if token_data['aaa_profiles'] else None
+        return True, user_email
+        
+    except Exception as e:
+        logger.error(f"Error validating reset token: {e}")
+        return False, None
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -405,3 +514,130 @@ async def reset_password(
     except Exception as e:
         logger.error(f"Error in reset_password: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+
+@auth_router.post("/forgot-password", summary="Request password reset via email")
+async def forgot_password(request: ForgotPasswordRequest):
+    """
+    Initiate password reset process by sending reset link to user's email.
+    Always returns success to prevent email enumeration attacks.
+    """
+    try:
+        # Check if user exists
+        user = await get_user_by_email(request.email)
+        if not user:
+            # Return success even if user doesn't exist (security: prevent email enumeration)
+            logger.info(f"Password reset requested for non-existent email: {mask_email(request.email)}")
+            return {"message": "If the email exists in our system, a password reset link will be sent."}
+        
+        # Generate reset token
+        reset_token = generate_reset_token()
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
+        
+        # Store token in database
+        insert_response = supabase.from_('aaa_password_reset_tokens').insert({
+            'user_id': str(user.id),
+            'token': reset_token,
+            'expires_at': expires_at.isoformat(),
+            'used': False
+        }).execute()
+        
+        if not insert_response.data:
+            logger.error(f"Failed to store reset token for user {mask_email(request.email)}")
+            # Still return success to prevent information disclosure
+            return {"message": "If the email exists in our system, a password reset link will be sent."}
+        
+        # Send reset email
+        email_sent = await send_reset_email(request.email, reset_token)
+        if not email_sent:
+            logger.error(f"Failed to send reset email to {mask_email(request.email)}")
+            # Don't reveal email sending failure to user for security
+            
+        logger.info(f"Password reset initiated for user: {mask_email(request.email)}")
+        return {"message": "If the email exists in our system, a password reset link will be sent."}
+        
+    except Exception as e:
+        logger.error(f"Error in forgot_password: {e}")
+        # Return success even on error to prevent information disclosure
+        return {"message": "If the email exists in our system, a password reset link will be sent."}
+
+@auth_router.get("/verify-reset-token/{token}", response_model=VerifyResetTokenResponse, summary="Verify reset token validity")
+async def verify_reset_token_endpoint(token: str):
+    """
+    Verify if a password reset token is valid and not expired.
+    Returns masked email for valid tokens.
+    """
+    try:
+        is_valid, user_email = await validate_reset_token(token)
+        
+        if is_valid and user_email:
+            masked_email = mask_email(user_email)
+            logger.info(f"Reset token verified for user: {masked_email}")
+            return VerifyResetTokenResponse(valid=True, email=masked_email)
+        else:
+            logger.warning("Invalid or expired reset token verification attempt")
+            return VerifyResetTokenResponse(valid=False)
+            
+    except Exception as e:
+        logger.error(f"Error in verify_reset_token: {e}")
+        return VerifyResetTokenResponse(valid=False)
+
+@auth_router.post("/set-new-password", summary="Set new password using reset token")
+async def set_new_password(request: SetNewPasswordRequest):
+    """
+    Complete password reset process using a valid reset token.
+    Sets new password and invalidates the token.
+    """
+    try:
+        # Validate token
+        is_valid, user_email = await validate_reset_token(request.token)
+        if not is_valid or not user_email:
+            logger.warning("Invalid or expired token used for password reset")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired reset token"
+            )
+        
+        # Get user by email
+        user = await get_user_by_email(user_email)
+        if not user:
+            logger.error(f"User not found during password reset: {mask_email(user_email)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid reset token"
+            )
+        
+        # Hash new password
+        new_password_hash = get_password_hash(request.new_password)
+        
+        # Update password in database
+        update_response = supabase.from_('aaa_profiles').update({
+            'password_hash': new_password_hash,
+            'updated_at': datetime.now(timezone.utc).isoformat()
+        }).eq('id', str(user.id)).execute()
+        
+        if update_response.count == 0:
+            logger.error(f"Failed to update password for user {mask_email(user_email)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update password"
+            )
+        
+        # Mark token as used
+        token_update_response = supabase.from_('aaa_password_reset_tokens').update({
+            'used': True
+        }).eq('token', request.token).execute()
+        
+        if token_update_response.count == 0:
+            logger.warning(f"Failed to mark reset token as used for user {mask_email(user_email)}")
+        
+        logger.info(f"Password reset completed for user: {mask_email(user_email)}")
+        return {"message": "Password has been reset successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in set_new_password: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )

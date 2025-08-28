@@ -78,6 +78,10 @@ export class LoginComponent {
   }
 
 
+  onForgotPassword(): void {
+    this.router.navigate(['/forgot-password']);
+  }
+
   private handleError = (error: HttpErrorResponse) => {
     this.isError = true;
     if (error.error instanceof ErrorEvent) {

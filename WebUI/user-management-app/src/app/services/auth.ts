@@ -15,6 +15,19 @@ interface LoginResponse {
   roles: string[];
 }
 
+interface ForgotPasswordResponse {
+  message: string;
+}
+
+interface VerifyResetTokenResponse {
+  valid: boolean;
+  email?: string;
+}
+
+interface SetNewPasswordResponse {
+  message: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -99,5 +112,21 @@ export class AuthService {
 
   isLoggedIn(): boolean {
     return this.hasToken();
+  }
+
+  // Forgot Password Methods
+  forgotPassword(email: string): Observable<ForgotPasswordResponse> {
+    return this.http.post<ForgotPasswordResponse>(`${this.apiUrl}${API_PATHS.forgotPassword}`, { email });
+  }
+
+  verifyResetToken(token: string): Observable<VerifyResetTokenResponse> {
+    return this.http.get<VerifyResetTokenResponse>(`${this.apiUrl}${API_PATHS.verifyResetToken}/${token}`);
+  }
+
+  setNewPassword(token: string, newPassword: string): Observable<SetNewPasswordResponse> {
+    return this.http.post<SetNewPasswordResponse>(`${this.apiUrl}${API_PATHS.setNewPassword}`, {
+      token,
+      new_password: newPassword
+    });
   }
 }

@@ -43,6 +43,17 @@
       </button>
     </form>
 
+    <!-- Forgot Password Link -->
+    <div class="mt-4 text-center">
+      <button
+        type="button"
+        (click)="onForgotPassword()"
+        class="text-sm text-blue-600 hover:text-blue-500 focus:outline-none focus:underline"
+      >
+        Forgot your password?
+      </button>
+    </div>
+
 
       <div *ngIf="message" [ngClass]="{'text-red-600': isError, 'text-green-600': !isError}" class="mt-4 text-center text-sm">
         {{ message }}

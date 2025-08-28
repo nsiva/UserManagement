@@ -15,6 +15,17 @@ class PasswordResetRequest(BaseModel):
     current_password: str
     new_password: str
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class SetNewPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+class VerifyResetTokenResponse(BaseModel):
+    valid: bool
+    email: Optional[str] = None  # Masked email for valid tokens
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str

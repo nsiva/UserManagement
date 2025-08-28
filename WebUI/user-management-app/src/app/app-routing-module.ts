@@ -7,6 +7,8 @@ import { AuthGuard } from './guards/auth-guard';
 import { MfaComponent } from './components/mfa/mfa';
 import { ProfileComponent } from './components/profile/profile';
 import { ResetPasswordComponent } from './components/reset-password/reset-password';
+import { ForgotPasswordComponent } from './components/forgot-password/forgot-password';
+import { SetNewPasswordComponent } from './components/set-new-password/set-new-password';
 
 
 export const routes: Routes = [
@@ -17,6 +19,8 @@ export const routes: Routes = [
   { path: '', redirectTo: '/login', pathMatch: 'full' },
   { path: 'profile', component: ProfileComponent, canActivate: [AuthGuard] },
   { path: 'reset-password', component: ResetPasswordComponent, canActivate: [AuthGuard] },
+  { path: 'forgot-password', component: ForgotPasswordComponent },
+  { path: 'set-new-password', component: SetNewPasswordComponent },
   { path: 'mfa', component: MfaComponent },
   { path: '**', redirectTo: '/login' } // Redirect any unknown paths to login
 ];
