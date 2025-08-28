@@ -1,5 +1,6 @@
 export const API_PATHS = {
   mfaVerify: '/auth/mfa/verify',
+  mfaSetup: '/auth/mfa/setup',
   login: '/auth/login',
   userProfile: '/profiles/me',
   resetPassword: '/auth/reset_password',

@@ -2,7 +2,7 @@ import { Component, OnInit, HostListener } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth';
 import { UserService } from '../../services/user';
-import { UserProfileService } from '../../services/user-profile.service';
+import { UserProfileService, UserProfile } from '../../services/user-profile.service';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 
@@ -13,8 +13,9 @@ import { CommonModule } from '@angular/common';
   styleUrls: ['./profile.scss']
 })
 export class ProfileComponent implements OnInit {
-  user: any;
+  user: UserProfile | null = null;
   showDropdown = false;
+  mfaPromptDismissed = false;
 
   constructor(
     private authService: AuthService,
@@ -28,11 +29,16 @@ export class ProfileComponent implements OnInit {
         this.router.navigate(['/login']);
         return;
       }
+      
+      // Check if MFA prompt was previously dismissed
+      this.mfaPromptDismissed = localStorage.getItem('mfa_prompt_dismissed') === 'true';
+      
       const userId = this.authService.getUserId();
       if (userId) {
         try {
           const user = await import('rxjs').then(rxjs => rxjs.firstValueFrom(this.userProfileService.getCurrentUserProfile()));
           this.user = user;
+          // Debug logging removed for production
         } catch (error) {
           console.error('Error fetching user profile:', error);
           this.router.navigate(['/login']);
@@ -60,6 +66,23 @@ export class ProfileComponent implements OnInit {
 
   navigateToResetPassword(): void {
     this.router.navigate(['/reset-password']);
+  }
+
+  navigateToSetMfa(): void {
+    this.showDropdown = false;
+    this.router.navigate(['/set-mfa']);
+  }
+
+  dismissMfaPrompt(): void {
+    this.mfaPromptDismissed = true;
+    // Optionally store this in localStorage to persist across sessions
+    localStorage.setItem('mfa_prompt_dismissed', 'true');
+  }
+
+  // Method to reset MFA prompt dismissal (useful for testing)
+  resetMfaPromptDismissal(): void {
+    this.mfaPromptDismissed = false;
+    localStorage.removeItem('mfa_prompt_dismissed');
   }
 
   isAdmin(): boolean {

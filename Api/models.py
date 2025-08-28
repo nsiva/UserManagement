@@ -129,5 +129,6 @@ class ProfileResponse(BaseModel):
     first_name: Optional[str] = None
     middle_name: Optional[str] = None
     last_name: Optional[str] = None
+    mfa_enabled: bool = False  # Indicates whether MFA is set up (without exposing the secret)
     # Add any other non-sensitive profile fields you want to return
     # is_admin: bool # You might include this if you want the client to know their admin status

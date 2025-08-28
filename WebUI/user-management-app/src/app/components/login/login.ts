@@ -8,6 +8,7 @@ import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { API_PATHS } from '../../api-paths';
 import { AuthService } from '../../services/auth';
+import { UserProfileService } from '../../services/user-profile.service';
 
 @Component({
   selector: 'app-login',
@@ -22,7 +23,12 @@ export class LoginComponent {
   isError = false;
   private apiUrl = environment.apiUrl;
 
-  constructor(private http: HttpClient, private router: Router, private authService: AuthService) { }
+  constructor(
+    private http: HttpClient, 
+    private router: Router, 
+    private authService: AuthService,
+    private userProfileService: UserProfileService
+  ) { }
 
   onLogin(): void {
     this.message = null;
@@ -44,18 +50,14 @@ export class LoginComponent {
           sessionStorage.setItem('mfa_user_id', response.user_id || '');
           this.router.navigate(['/mfa']);
         } else {
-          // No MFA required - complete login
+          // No MFA required for this login - complete login and check MFA setup
           this.message = 'Login successful! Welcome.';
           this.isError = false;
           this.email = '';
           this.password = '';
           
-          // Redirect based on user type
-          if (this.authService.isAdmin()) {
-            this.router.navigate(['/admin']);
-          } else {
-            this.router.navigate(['/profile']);
-          }
+          // Check if user has MFA set up for future
+          this.checkMfaStatusAndRedirect();
         }
       },
       error: (error: HttpErrorResponse) => {
@@ -80,6 +82,39 @@ export class LoginComponent {
 
   onForgotPassword(): void {
     this.router.navigate(['/forgot-password']);
+  }
+
+  private async checkMfaStatusAndRedirect(): Promise<void> {
+    try {
+      // Get user profile to check MFA status
+      const userProfile = await import('rxjs').then(rxjs => 
+        rxjs.firstValueFrom(this.userProfileService.getCurrentUserProfile())
+      );
+      
+      if (!userProfile.mfa_enabled) {
+        // User doesn't have MFA enabled - redirect to setup every time
+        console.log('User does not have MFA enabled, redirecting to setup');
+        this.router.navigate(['/set-mfa']);
+        return;
+      }
+      
+      // User has MFA enabled - redirect to normal landing page
+      this.redirectToLandingPage();
+      
+    } catch (error) {
+      console.error('Error checking MFA status:', error);
+      // On error, just redirect to normal landing page
+      this.redirectToLandingPage();
+    }
+  }
+
+  private redirectToLandingPage(): void {
+    // Redirect based on user type
+    if (this.authService.isAdmin()) {
+      this.router.navigate(['/admin']);
+    } else {
+      this.router.navigate(['/profile']);
+    }
   }
 
   private handleError = (error: HttpErrorResponse) => {

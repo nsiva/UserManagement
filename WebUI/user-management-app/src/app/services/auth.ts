@@ -28,6 +28,12 @@ interface SetNewPasswordResponse {
   message: string;
 }
 
+interface MfaSetupResponse {
+  qr_code_base64: string;
+  secret: string;
+  provisioning_uri: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -127,6 +133,20 @@ export class AuthService {
     return this.http.post<SetNewPasswordResponse>(`${this.apiUrl}${API_PATHS.setNewPassword}`, {
       token,
       new_password: newPassword
+    });
+  }
+
+  // MFA Setup Methods
+  setupMfa(email?: string): Observable<MfaSetupResponse> {
+    const currentUserEmail = email || this.getUserEmail();
+    if (!currentUserEmail) {
+      throw new Error('No user email available for MFA setup');
+    }
+    
+    return this.http.post<MfaSetupResponse>(`${this.apiUrl}${API_PATHS.mfaSetup}?email=${encodeURIComponent(currentUserEmail)}`, {}, {
+      headers: {
+        'Authorization': `Bearer ${this.getToken()}`
+      }
     });
   }
 }

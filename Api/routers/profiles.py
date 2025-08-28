@@ -31,7 +31,7 @@ async def get_my_profile(
     try:
         # Query the profiles table for the current user's ID
         response = supabase.from_('aaa_profiles').select(
-            'id, email, first_name, middle_name, last_name' # Select non-sensitive fields including names
+            'id, email, first_name, middle_name, last_name, mfa_secret' # Include mfa_secret to check if MFA is enabled
         ).eq('id', str(current_user.user_id)).limit(1).execute()
 
         if not response.data:
@@ -42,11 +42,24 @@ async def get_my_profile(
             )
 
         profile_data = response.data[0]
+        
+        # Determine if MFA is enabled (mfa_secret exists and is not null/empty)
+        mfa_enabled = bool(profile_data.get('mfa_secret'))
+        
+        # Prepare profile data without the sensitive mfa_secret
+        safe_profile_data = {
+            'id': profile_data['id'],
+            'email': profile_data['email'],
+            'first_name': profile_data.get('first_name'),
+            'middle_name': profile_data.get('middle_name'),
+            'last_name': profile_data.get('last_name'),
+            'mfa_enabled': mfa_enabled
+        }
 
         try:
             # Use Pydantic model for validation and structuring the response
-            profile = ProfileResponse(**profile_data)
-            logger.info(f"Successfully retrieved profile for user_id: {current_user.user_id}")
+            profile = ProfileResponse(**safe_profile_data)
+            logger.info(f"Successfully retrieved profile for user_id: {current_user.user_id}, MFA enabled: {mfa_enabled}")
             return profile
         except ValidationError as e:
             logger.error(f"Data validation error for profile {current_user.user_id}: {e}")
