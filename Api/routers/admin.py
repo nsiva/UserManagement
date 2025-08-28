@@ -97,7 +97,8 @@ async def create_user(
         middle_name=user_data.middle_name,
         last_name=user_data.last_name,
         is_admin=user_data.is_admin, 
-        roles=roles
+        roles=roles,
+        mfa_enabled=False  # New users don't have MFA setup by default
     )
 
 
@@ -107,13 +108,14 @@ async def get_all_users(current_admin_user: TokenData = Depends(get_current_admi
     Retrieves all user profiles with their assigned roles. (Admin only)
     """
     try:
-        response = supabase.from_('aaa_profiles').select('id, email, first_name, middle_name, last_name, is_admin').execute()
+        response = supabase.from_('aaa_profiles').select('id, email, first_name, middle_name, last_name, is_admin, mfa_secret').execute()
         if not response.data:
             logger.warning("No users found in profiles table.")
             return []
         users_with_roles = []
         for user_profile in response.data:
             roles = await get_user_roles(str(user_profile['id']))
+            mfa_enabled = bool(user_profile.get('mfa_secret'))
             users_with_roles.append(UserWithRoles(
                 id=user_profile['id'],
                 email=user_profile['email'],
@@ -121,7 +123,8 @@ async def get_all_users(current_admin_user: TokenData = Depends(get_current_admi
                 middle_name=user_profile.get('middle_name'),
                 last_name=user_profile.get('last_name'),
                 is_admin=user_profile['is_admin'],
-                roles=roles
+                roles=roles,
+                mfa_enabled=mfa_enabled
             ))
         logger.info(f"Fetched {len(users_with_roles)} users.")
         return users_with_roles
@@ -185,13 +188,14 @@ async def get_user_by_id(user_id: UUID): # Removed unused current_user argument
     (Internal use or can be exposed as a separate admin.get("/users/{user_id}") endpoint)
     """
     try:
-        response = supabase.from_('aaa_profiles').select('id, email, first_name, middle_name, last_name, is_admin').eq('id', str(user_id)).limit(1).execute()
+        response = supabase.from_('aaa_profiles').select('id, email, first_name, middle_name, last_name, is_admin, mfa_secret').eq('id', str(user_id)).limit(1).execute()
         if not response.data:
             logger.warning(f"User not found for user_id: {user_id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
         user_profile = response.data[0]
         roles = await get_user_roles(str(user_id))
         logger.info(f"Fetched user {user_id} with roles: {roles}")
+        mfa_enabled = bool(user_profile.get('mfa_secret'))
         return UserWithRoles(
             id=user_profile['id'], 
             email=user_profile['email'], 
@@ -199,7 +203,8 @@ async def get_user_by_id(user_id: UUID): # Removed unused current_user argument
             middle_name=user_profile.get('middle_name'),
             last_name=user_profile.get('last_name'),
             is_admin=user_profile['is_admin'], 
-            roles=roles
+            roles=roles,
+            mfa_enabled=mfa_enabled
         )
     except HTTPException:
         raise

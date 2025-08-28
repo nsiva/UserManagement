@@ -309,12 +309,34 @@ export class AdminDashboardComponent implements OnInit {
         this.mfaProvisioningUri = response.provisioning_uri;
         this.showMfaSetupModal = true;
         this.showSuccess(`MFA setup initiated for ${user.email}.`);
+        this.loadUsers(); // Refresh users to update MFA status
       },
       error: (err: HttpErrorResponse) => {
         this.showError(err.error.detail || 'Failed to setup MFA.');
         console.error('Error setting up MFA:', err);
       }
     });
+  }
+
+  // --- MFA Removal ---
+  removeMfa(user: User): void {
+    this.showConfirm(
+      'Remove MFA',
+      `Are you sure you want to remove MFA for ${user.email}? This will disable two-factor authentication for this user.`,
+      'Remove MFA',
+      () => {
+        this.userService.removeMfaForUser(user.email).subscribe({
+          next: (response) => {
+            this.showSuccess(`MFA removed for ${user.email}.`);
+            this.loadUsers(); // Refresh users to update MFA status
+          },
+          error: (err: HttpErrorResponse) => {
+            this.showError(err.error.detail || 'Failed to remove MFA.');
+            console.error('Error removing MFA:', err);
+          }
+        });
+      }
+    );
   }
 
   closeMfaSetupModal(): void {

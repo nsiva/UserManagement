@@ -221,7 +221,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
 async def get_current_admin_user(current_user: TokenData = Depends(get_current_user)):
     try:
-        if not current_user.is_admin:
+        # Check if user has admin role instead of is_admin flag
+        if not current_user.is_admin and 'admin' not in current_user.roles:
             logger.warning(f"User {current_user.email} does not have admin permissions.")
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
         logger.info(f"Admin user authenticated: {current_user.email}")
@@ -453,6 +454,36 @@ async def setup_mfa(email: str, current_user: TokenData = Depends(get_current_us
         raise
     except Exception as e:
         logger.error(f"Error in setup_mfa: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+
+@auth_router.delete("/mfa/remove", summary="Remove MFA for a user (Admin only)")
+async def remove_mfa(email: str, current_user: TokenData = Depends(get_current_admin_user)):
+    """
+    Remove MFA for a user by setting their mfa_secret to NULL.
+    This endpoint is protected by admin role.
+    """
+    try:
+        user = await get_user_by_email(email)
+        if not user:
+            logger.warning(f"MFA removal failed: User not found for {email}")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+        
+        if not user.mfa_secret:
+            logger.info(f"MFA removal: User {email} already has no MFA setup")
+            return {"message": "MFA is not enabled for this user."}
+        
+        # Remove MFA secret
+        update_response = supabase.from_('aaa_profiles').update({'mfa_secret': None}).eq('id', str(user.id)).execute()
+        if update_response.count == 0:
+            logger.error(f"Failed to remove MFA for user {user.email}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to remove MFA.")
+        
+        logger.info(f"MFA removed for user {user.email}")
+        return {"message": "MFA has been successfully removed."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in remove_mfa: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
 
 @auth_router.post("/validate-token")

@@ -79,6 +79,7 @@ class UserWithRoles(UserBase):
     id: UUID
     is_admin: bool
     roles: List[str] # List of role names
+    mfa_enabled: bool = False  # Indicates whether MFA is set up
 
     class Config:
         from_attributes = True

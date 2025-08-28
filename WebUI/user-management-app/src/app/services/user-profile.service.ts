@@ -12,6 +12,7 @@ export interface UserProfile {
   email: string;
   first_name: string | null;
   last_name: string | null;
+  mfa_enabled: boolean;
 }
 
 @Injectable({
@@ -54,7 +55,8 @@ export class UserProfileService {
           id: resp.id,
           email: resp.email,
           first_name: resp.first_name,
-          last_name: resp.last_name
+          last_name: resp.last_name,
+          mfa_enabled: resp.mfa_enabled || false
         } as UserProfile)),
         catchError(
             (error) => throwError(() => error))

@@ -11,6 +11,7 @@ export interface User {
   first_name?: string;
   last_name?: string;
   roles: string[];
+  mfa_enabled: boolean;
 }
 
 export interface UserCreate {
@@ -118,6 +119,14 @@ export class UserService {
     // Note: This is an admin-triggered MFA setup. The backend endpoint is protected.
     return this.http.post<{ qr_code_base64: string, secret: string, provisioning_uri: string }>(
       environment.apiUrl + `/auth/mfa/setup?email=${email}`, {}, { headers: this.getAuthHeaders() }
+    );
+  }
+
+  // --- MFA Removal (Admin triggered for a user) ---
+  removeMfaForUser(email: string): Observable<{ message: string }> {
+    // Note: This is an admin-triggered MFA removal. The backend endpoint is protected.
+    return this.http.delete<{ message: string }>(
+      environment.apiUrl + `/auth/mfa/remove?email=${email}`, { headers: this.getAuthHeaders() }
     );
   }
 }
