@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
 from uuid import UUID
+from datetime import datetime
 
 # --- Auth Models ---
 class LoginRequest(BaseModel):
@@ -69,8 +70,8 @@ class UserInDB(UserBase):
     is_admin: bool
     password_hash: str # Stored hashed password
     mfa_secret: Optional[str] = None # Only for backend use
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
