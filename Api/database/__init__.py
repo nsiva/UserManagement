@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 
 from .base_repository import BaseRepository
 from .supabase_repository import SupabaseRepository
-from .postgres_repository import PostgresRepository
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -51,8 +50,11 @@ class RepositoryFactory:
         return SupabaseRepository(supabase_client)
     
     @classmethod
-    def _create_postgres_repository(cls) -> PostgresRepository:
+    def _create_postgres_repository(cls) -> BaseRepository:
         """Create PostgreSQL repository instance."""
+        # Import only when needed to avoid asyncpg dependency when using Supabase
+        from .postgres_repository import PostgresRepository
+        
         connection_string = os.environ.get("POSTGRES_CONNECTION_STRING")
         
         if not connection_string:

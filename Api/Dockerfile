@@ -19,11 +19,12 @@ RUN pip install uv
 # Set work directory
 WORKDIR /app
 
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
+# Copy dependency files and README (required by pyproject.toml)
+COPY pyproject.toml uv.lock CLAUDE.md ./
 
-# Install Python dependencies using UV
-RUN uv sync --frozen --no-dev
+# Create virtual environment and install dependencies
+RUN uv venv --python 3.11 && \
+    uv sync --frozen --no-dev
 
 # Production stage
 FROM python:3.11-slim as production
@@ -48,11 +49,14 @@ WORKDIR /app
 # Copy virtual environment from builder stage
 COPY --from=builder /app/.venv /app/.venv
 
-# Copy application code
-COPY . .
+# Copy application code (specific files to avoid overwriting .venv)
+COPY main.py models.py database.py ./
+COPY routers/ ./routers/
+COPY database/ ./database/
+COPY migrations/ ./migrations/
 
 # Remove unnecessary files
-RUN rm -rf .git .env.example scripts/install.sh scripts/test_*.sh env/ __pycache__/ *.pyc
+RUN rm -rf .git .env.example scripts/install.sh scripts/test_*.sh env/ __pycache__/ *.pyc || true
 
 # Change ownership to non-root user
 RUN chown -R appuser:appuser /app
@@ -68,4 +72,4 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8001/ || exit 1
 
 # Run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["/app/.venv/bin/python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
