@@ -7,8 +7,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production --silent
+# Install dependencies (including dev dependencies needed for build)
+RUN npm ci --silent
 
 # Copy source code
 COPY . .
@@ -19,7 +19,7 @@ RUN npm run build
 # Production stage with Nginx
 FROM nginx:alpine as production
 
-# Copy custom nginx configuration
+# Copy custom nginx configuration for standalone use
 COPY <<EOF /etc/nginx/conf.d/default.conf
 server {
     listen 80;
@@ -40,24 +40,15 @@ server {
     }
 
     # Cache static assets
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)\$ {
         expires 1y;
         add_header Cache-Control "public, immutable";
-    }
-
-    # API proxy to backend (optional, can be handled by external load balancer)
-    location /api/ {
-        proxy_pass http://backend:8001/;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 
     # Health check endpoint
     location /health {
         access_log off;
-        return 200 "healthy\n";
+        return 200 "healthy\\n";
         add_header Content-Type text/plain;
     }
 }
@@ -66,23 +57,12 @@ EOF
 # Copy built Angular app from builder stage
 COPY --from=builder /app/dist/user-management-app/browser /usr/share/nginx/html
 
-# Create non-root user
-RUN addgroup -g 1001 -S nginx-user && \
-    adduser -S -D -H -u 1001 -h /var/cache/nginx -s /sbin/nologin -G nginx-user -g nginx-user nginx-user && \
-    chown -R nginx-user:nginx-user /usr/share/nginx/html && \
-    chown -R nginx-user:nginx-user /var/cache/nginx && \
-    chown -R nginx-user:nginx-user /var/log/nginx && \
-    chown -R nginx-user:nginx-user /etc/nginx/conf.d
-
-# Switch to non-root user
-USER nginx-user
-
 # Expose port
 EXPOSE 80
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost/health || exit 1
 
-# Start Nginx
+# Start Nginx (run as root for simplicity)
 CMD ["nginx", "-g", "daemon off;"]
