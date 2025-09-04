@@ -4,14 +4,23 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth';
+import { HeaderComponent } from '../../shared/components/header/header.component';
+import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
+import { APP_NAME, PAGES } from '../../shared/constants/app-constants';
 
 @Component({
   selector: 'app-mfa',
-  imports: [FormsModule, CommonModule],
+  imports: [FormsModule, CommonModule, HeaderComponent],
   templateUrl: './mfa.html',
   styleUrls: ['./mfa.scss']
 })
 export class MfaComponent {
+  // Header configuration for MFA page
+  headerConfig: HeaderConfig = {
+    title: APP_NAME,
+    subtitle: PAGES.MFA,
+    showUserMenu: false
+  };
   mfaCode = '';
   userEmail: string | null = null;
   userName: string | null = null;
@@ -83,4 +92,9 @@ export class MfaComponent {
       }
     });
   }
+
+  // Header event handlers (not used but required by template)
+  onProfileClick(): void {}
+  onAdminClick(): void {}
+  onLogoutClick(): void {}
 }

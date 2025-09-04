@@ -9,14 +9,23 @@ import { environment } from '../../../environments/environment';
 import { API_PATHS } from '../../api-paths';
 import { AuthService } from '../../services/auth';
 import { UserProfileService } from '../../services/user-profile.service';
+import { HeaderComponent } from '../../shared/components/header/header.component';
+import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
+import { APP_NAME, PAGES } from '../../shared/constants/app-constants';
 
 @Component({
   selector: 'app-login',
-  imports: [FormsModule, CommonModule],
+  imports: [FormsModule, CommonModule, HeaderComponent],
   templateUrl: './login.html',
   styleUrls: ['./login.scss']
 })
 export class LoginComponent {
+  // Header configuration for login page
+  headerConfig: HeaderConfig = {
+    title: APP_NAME,
+    subtitle: PAGES.LOGIN,
+    showUserMenu: false
+  };
   email = '';
   password = '';
   message: string | null = null;
@@ -133,4 +142,9 @@ export class LoginComponent {
     }
     return throwError(() => new Error(this.message || 'Something bad happened; please try again later.'));
   };
+
+  // Header event handlers (not used but required by template)
+  onProfileClick(): void {}
+  onAdminClick(): void {}
+  onLogoutClick(): void {}
 }

@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../../services/auth';
 import { HeaderConfig } from '../../interfaces/header-config.interface';
+import { APP_NAME } from '../../constants/app-constants';
 
 @Component({
   selector: 'app-header',
@@ -13,7 +14,7 @@ import { HeaderConfig } from '../../interfaces/header-config.interface';
 })
 export class HeaderComponent {
   @Input() config: HeaderConfig = {
-    title: 'User Management Application',
+    title: APP_NAME,
     subtitle: '',
     showUserMenu: true
   };

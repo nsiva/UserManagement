@@ -4,14 +4,24 @@ import { AuthService } from '../../services/auth';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { HeaderComponent } from '../../shared/components/header/header.component';
+import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
+import { APP_NAME, PAGES } from '../../shared/constants/app-constants';
 
 @Component({
   selector: 'app-set-new-password',
-  imports: [FormsModule, CommonModule],
+  imports: [FormsModule, CommonModule, HeaderComponent],
   templateUrl: './set-new-password.html',
   styleUrl: './set-new-password.scss'
 })
 export class SetNewPasswordComponent implements OnInit {
+  // Header configuration for set-new-password page
+  headerConfig: HeaderConfig = {
+    title: APP_NAME,
+    subtitle: PAGES.SET_NEW_PASSWORD,
+    showUserMenu: false
+  };
+
   token: string = '';
   newPassword: string = '';
   confirmPassword: string = '';
@@ -154,4 +164,9 @@ export class SetNewPasswordComponent implements OnInit {
   onBackToLogin(): void {
     this.router.navigate(['/login']);
   }
+
+  // Header event handlers (not used but required by template)
+  onProfileClick(): void {}
+  onAdminClick(): void {}
+  onLogoutClick(): void {}
 }

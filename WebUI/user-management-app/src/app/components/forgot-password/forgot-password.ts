@@ -4,14 +4,23 @@ import { AuthService } from '../../services/auth';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { HeaderComponent } from '../../shared/components/header/header.component';
+import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
+import { APP_NAME, PAGES } from '../../shared/constants/app-constants';
 
 @Component({
   selector: 'app-forgot-password',
-  imports: [FormsModule, CommonModule],
+  imports: [FormsModule, CommonModule, HeaderComponent],
   templateUrl: './forgot-password.html',
   styleUrl: './forgot-password.scss'
 })
 export class ForgotPasswordComponent {
+  // Header configuration for forgot-password page
+  headerConfig: HeaderConfig = {
+    title: APP_NAME,
+    subtitle: PAGES.FORGOT_PASSWORD,
+    showUserMenu: false
+  };
   email = '';
   message: string | null = null;
   isError = false;
@@ -66,4 +75,9 @@ export class ForgotPasswordComponent {
   onBackToLogin(): void {
     this.router.navigate(['/login']);
   }
+
+  // Header event handlers (not used but required by template)
+  onProfileClick(): void {}
+  onAdminClick(): void {}
+  onLogoutClick(): void {}
 }

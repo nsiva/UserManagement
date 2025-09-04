@@ -8,15 +8,25 @@ import { catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { HeaderComponent } from '../../shared/components/header/header.component';
+import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
+import { APP_NAME, PAGES } from '../../shared/constants/app-constants';
 
 @Component({
   selector: 'app-reset-password',
   standalone: true,
-  imports: [FormsModule, CommonModule],
+  imports: [FormsModule, CommonModule, HeaderComponent],
   templateUrl: './reset-password.html',
   styleUrl: './reset-password.scss'
 })
 export class ResetPasswordComponent implements OnInit, OnDestroy {
+  // Header configuration for reset-password page
+  headerConfig: HeaderConfig = {
+    title: APP_NAME,  
+    subtitle: PAGES.RESET_PASSWORD,
+    showUserMenu: true
+  };
+  
   currentPassword: string = '';
   newPassword: string = '';
   confirmPassword: string = '';
@@ -175,4 +185,9 @@ export class ResetPasswordComponent implements OnInit, OnDestroy {
         }
       });
   }
+
+  // Header event handlers (not used but required by template)
+  onProfileClick(): void {}
+  onAdminClick(): void {}
+  onLogoutClick(): void {}
 }

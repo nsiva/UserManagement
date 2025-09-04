@@ -10,28 +10,29 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { HeaderComponent } from '../../shared/components/header/header.component';
 import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
+import { AlertComponent, AlertType } from '../../shared/components/alert/alert.component';
+import { APP_NAME, PAGES } from '../../shared/constants/app-constants';
 
 @Component({
   selector: 'app-user-form',
   standalone: true,
-  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent],
+  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent],
   templateUrl: './user-form.html',
   styleUrl: './user-form.scss'
 })
 export class UserFormComponent implements OnInit, OnDestroy {
   // Header configuration
   headerConfig: HeaderConfig = {
-    title: 'User Management Application',
-    subtitle: 'Create New User',
+    title: APP_NAME,
+    subtitle: PAGES.USER_FORM,
     showUserMenu: true
   };
   userForm: FormGroup;
   userRolesOptions: Role[] = [];
   selectedUserRole: string = 'user';
-  errorMessage: string | null = null;
-  successMessage: string | null = null;
-  showDropdown = false;
-  currentUser: any = null;
+  // Alert properties
+  alertMessage: string | null = null;
+  alertType: AlertType = 'info';
   isEditMode = false;
   userId: string | null = null;
   userToEdit: User | null = null;
@@ -67,7 +68,6 @@ export class UserFormComponent implements OnInit, OnDestroy {
       this.resetComponent();
       this.checkMode();
       this.loadRoles();
-      this.loadCurrentUser();
     });
   }
 
@@ -141,8 +141,8 @@ export class UserFormComponent implements OnInit, OnDestroy {
         
         this.selectedUserRole = user.roles.length > 0 ? user.roles[0] : 'user';
         
-        // Clear any previous error messages
-        this.errorMessage = null;
+        // Clear any previous alert messages
+        this.alertMessage = null;
         
         
         this.isLoading = false;
@@ -169,25 +169,14 @@ export class UserFormComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadCurrentUser(): void {
-    this.userProfileService.getCurrentUserProfile().subscribe({
-      next: (user) => {
-        this.currentUser = user;
-      },
-      error: (err: HttpErrorResponse) => {
-        console.error('Error loading current user profile:', err);
-        // Don't show error to user as this is background loading
-      }
-    });
-  }
 
   loadRoles(): void {
     this.userService.getRoles().subscribe({
       next: (data) => {
         this.userRolesOptions = data;
-        // Only clear error message if it's not a user loading error
-        if (this.errorMessage && !this.errorMessage.includes('load user')) {
-          this.errorMessage = null;
+        // Only clear alert message if it's not a user loading error
+        if (this.alertMessage && !this.alertMessage.includes('load user')) {
+          this.alertMessage = null;
         }
       },
       error: (err: HttpErrorResponse) => {
@@ -266,58 +255,30 @@ export class UserFormComponent implements OnInit, OnDestroy {
   }
 
   showError(message: string): void {
-    this.errorMessage = message;
-    this.successMessage = null;
+    this.alertMessage = message;
+    this.alertType = 'error';
   }
 
   showSuccess(message: string): void {
-    this.successMessage = message;
-    this.errorMessage = null;
+    this.alertMessage = message;
+    this.alertType = 'success';
+  }
+
+  onAlertDismissed(): void {
+    this.alertMessage = null;
   }
 
   // Navigation methods for dropdown
-  toggleDropdown(): void {
-    this.showDropdown = !this.showDropdown;
-  }
-
+  // Header event handlers  
   navigateToProfile(): void {
-    this.showDropdown = false;
     this.router.navigate(['/profile']);
   }
 
   navigateToAdmin(): void {
-    this.showDropdown = false;
     this.router.navigate(['/admin']);
   }
 
-  isAdmin(): boolean {
-    return this.authService.isAdmin();
-  }
-
-  getUserInitials(): string {
-    // If current user data is loaded and has first/last name, use them
-    if (this.currentUser && this.currentUser.first_name && this.currentUser.last_name) {
-      return (this.currentUser.first_name.charAt(0) + this.currentUser.last_name.charAt(0)).toUpperCase();
-    }
-    
-    // If only first name is available
-    if (this.currentUser && this.currentUser.first_name) {
-      return (this.currentUser.first_name.charAt(0) + (this.currentUser.first_name.charAt(1) || 'U')).toUpperCase();
-    }
-    
-    // Fall back to email from auth service
-    const email = this.authService.getUserEmail();
-    if (!email) return 'U';
-    
-    const emailParts = email.split('@')[0];
-    if (emailParts.length >= 2) {
-      return emailParts.substring(0, 2).toUpperCase();
-    }
-    return emailParts.substring(0, 1).toUpperCase() + 'U';
-  }
-
   logout(): void {
-    this.showDropdown = false;
     this.authService.logout();
   }
 
@@ -325,10 +286,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
     console.log('UserFormComponent: Resetting component state');
     
     // Reset all component state
-    this.errorMessage = null;
-    this.successMessage = null;
-    this.showDropdown = false;
-    this.currentUser = null;
+    this.alertMessage = null;
     this.isEditMode = false;
     this.userId = null;
     this.userToEdit = null;

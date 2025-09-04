@@ -3,21 +3,29 @@ import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth';
+import { HeaderComponent } from '../../shared/components/header/header.component';
+import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
+import { APP_NAME, PAGES } from '../../shared/constants/app-constants';
 
 @Component({
   selector: 'app-set-mfa',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HeaderComponent],
   templateUrl: './set-mfa.html',
   styleUrl: './set-mfa.scss'
 })
 export class SetMfaComponent implements OnInit {
+  // Header configuration for set-mfa page
+  headerConfig: HeaderConfig = {
+    title: APP_NAME,
+    subtitle: PAGES.SET_MFA,
+    showUserMenu: true
+  };
   qrCodeBase64: string | null = null;
   secret: string | null = null;
   provisioningUri: string | null = null;
   loading = false;
   error: string | null = null;
   success = false;
-  showDropdown = false;
   userEmail: string | null = null;
   showPrompt = true; // Start with prompt instead of auto-generating
 
@@ -65,26 +73,18 @@ export class SetMfaComponent implements OnInit {
     }
   }
 
-  toggleDropdown(): void {
-    this.showDropdown = !this.showDropdown;
-  }
-
-  getUserInitials(): string {
-    if (this.userEmail) {
-      return this.userEmail.charAt(0).toUpperCase();
-    }
-    return 'U';
-  }
-
-  navigateToProfile(): void {
+  // Header event handlers
+  onProfileClick(): void {
     this.router.navigate(['/profile']);
   }
-
-  navigateToAdmin(): void {
-    this.router.navigate(['/admin']);
+  
+  onAdminClick(): void {
+    if (this.isAdmin()) {
+      this.router.navigate(['/admin']);
+    }
   }
-
-  logout(): void {
+  
+  onLogoutClick(): void {
     this.authService.logout();
   }
 

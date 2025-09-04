@@ -1,10 +1,10 @@
 <div class="min-h-screen bg-gray-100 flex flex-col">
-  <header class="bg-blue-600 text-white p-4 shadow-md">
-    <div>
-      <h1 class="text-xl font-semibold">User Management Application</h1>
-      <h2 class="text-sm text-blue-100">MFA Verification</h2>
-    </div>
-  </header>
+  <app-header 
+    [config]="headerConfig"
+    (profileClick)="onProfileClick()"
+    (adminClick)="onAdminClick()"
+    (logoutClick)="onLogoutClick()">
+  </app-header>
 
   <main class="flex-grow flex items-center justify-center p-4">
     <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">

@@ -7,6 +7,7 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { HeaderComponent } from '../../shared/components/header/header.component';
 import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
+import { APP_NAME, PAGES } from '../../shared/constants/app-constants';
 
 @Component({
   selector: 'app-profile',
@@ -17,12 +18,11 @@ import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
 export class ProfileComponent implements OnInit {
   // Header configuration
   headerConfig: HeaderConfig = {
-    title: 'User Management Application',
-    subtitle: 'Profile Page',
+    title: APP_NAME,
+    subtitle: PAGES.PROFILE,
     showUserMenu: true
   };
   user: UserProfile | null = null;
-  showDropdown = false;
   mfaPromptDismissed = false;
 
   constructor(
@@ -64,17 +64,12 @@ export class ProfileComponent implements OnInit {
     })();
   }
 
-  toggleDropdown(): void {
-    this.showDropdown = !this.showDropdown;
-  }
-
+  // Header event handlers
   navigateToProfile(): void {
-    this.showDropdown = false;
-    // Already on profile page, just close dropdown
+    // Already on profile page, no navigation needed
   }
 
   navigateToAdmin(): void {
-    this.showDropdown = false;
     this.router.navigate(['/admin']);
   }
 
@@ -83,7 +78,6 @@ export class ProfileComponent implements OnInit {
   }
 
   navigateToSetMfa(): void {
-    this.showDropdown = false;
     this.router.navigate(['/set-mfa']);
   }
 
@@ -103,38 +97,8 @@ export class ProfileComponent implements OnInit {
     return this.authService.isAdmin();
   }
 
-  getUserInitials(): string {
-    // If user data is loaded and has first/last name, use them
-    if (this.user && this.user.first_name && this.user.last_name) {
-      return (this.user.first_name.charAt(0) + this.user.last_name.charAt(0)).toUpperCase();
-    }
-    
-    // If only first name is available
-    if (this.user && this.user.first_name) {
-      return (this.user.first_name.charAt(0) + (this.user.first_name.charAt(1) || 'U')).toUpperCase();
-    }
-    
-    // Fall back to email from auth service
-    const email = this.authService.getUserEmail();
-    if (!email) return 'U';
-    
-    const emailParts = email.split('@')[0];
-    if (emailParts.length >= 2) {
-      return emailParts.substring(0, 2).toUpperCase();
-    }
-    return emailParts.substring(0, 1).toUpperCase() + 'U';
-  }
-
-  @HostListener('document:click', ['$event'])
-  onDocumentClick(event: Event): void {
-    const target = event.target as HTMLElement;
-    if (!target.closest('.relative')) {
-      this.showDropdown = false;
-    }
-  }
 
   logout(): void {
-    this.showDropdown = false;
     this.authService.logout();
   }
 }

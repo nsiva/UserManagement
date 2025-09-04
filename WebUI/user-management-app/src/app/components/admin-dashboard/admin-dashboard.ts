@@ -11,10 +11,12 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule } from '@angular/forms';
 import { HeaderComponent } from '../../shared/components/header/header.component';
 import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
+import { AlertComponent, AlertType } from '../../shared/components/alert/alert.component';
+import { APP_NAME, PAGES } from '../../shared/constants/app-constants';
 
 @Component({
   selector: 'app-admin-dashboard',
-  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent],
+  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent],
   templateUrl: './admin-dashboard.html',
   styleUrls: ['./admin-dashboard.scss']
 
@@ -22,8 +24,8 @@ import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
 export class AdminDashboardComponent implements OnInit {
   // Header configuration
   headerConfig: HeaderConfig = {
-    title: 'User Management Application',
-    subtitle: 'Admin Dashboard',
+    title: APP_NAME,
+    subtitle: PAGES.ADMIN_DASHBOARD,
     showUserMenu: true
   };
 
@@ -58,10 +60,9 @@ export class AdminDashboardComponent implements OnInit {
   confirmCallback: (() => void) | null = null;
 
 
-  errorMessage: string | null = null;
-  successMessage: string | null = null;
-  showDropdown = false;
-  currentUser: any = null;
+  // Alert properties
+  alertMessage: string | null = null;
+  alertType: AlertType = 'info';
 
   constructor(
     private authService: AuthService,
@@ -85,14 +86,12 @@ export class AdminDashboardComponent implements OnInit {
   ngOnInit(): void {
     this.loadUsers();
     this.loadRoles();
-    this.loadCurrentUser();
   }
 
   // --- General UI ---
   selectTab(tab: 'users' | 'roles'): void {
     this.activeTab = tab;
-    this.errorMessage = null;
-    this.successMessage = null;
+    this.alertMessage = null;
     this.resetForms();
   }
 
@@ -108,13 +107,17 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   showError(message: string): void {
-    this.errorMessage = message;
-    this.successMessage = null;
+    this.alertMessage = message;
+    this.alertType = 'error';
   }
 
   showSuccess(message: string): void {
-    this.successMessage = message;
-    this.errorMessage = null;
+    this.alertMessage = message;
+    this.alertType = 'success';
+  }
+
+  onAlertDismissed(): void {
+    this.alertMessage = null;
   }
 
   // --- User Management ---
@@ -122,7 +125,6 @@ export class AdminDashboardComponent implements OnInit {
     this.userService.getUsers().subscribe({
       next: (data) => {
         this.users = data;
-        this.errorMessage = null;
       },
       error: (err: HttpErrorResponse) => {
         this.showError(err.error.detail || 'Failed to load users.');
@@ -136,7 +138,6 @@ export class AdminDashboardComponent implements OnInit {
       next: (data) => {
         this.roles = data;
         this.userRolesOptions = data; // Populate roles for user assignment
-        this.errorMessage = null;
       },
       error: (err: HttpErrorResponse) => {
         this.showError(err.error.detail || 'Failed to load roles.');
@@ -145,17 +146,6 @@ export class AdminDashboardComponent implements OnInit {
     });
   }
 
-  loadCurrentUser(): void {
-    this.userProfileService.getCurrentUserProfile().subscribe({
-      next: (user) => {
-        this.currentUser = user;
-      },
-      error: (err: HttpErrorResponse) => {
-        console.error('Error loading current user profile:', err);
-        // Don't show error to user as this is background loading
-      }
-    });
-  }
 
   onUserSubmit(): void {
     if (this.userForm.invalid) {
@@ -410,56 +400,20 @@ export class AdminDashboardComponent implements OnInit {
     });
   }
 
-  toggleDropdown(): void {
-    this.showDropdown = !this.showDropdown;
-  }
-
+  // Header event handlers
   navigateToProfile(): void {
-    this.showDropdown = false;
     this.router.navigate(['/profile']);
   }
 
   navigateToAdmin(): void {
-    this.showDropdown = false;
-    // Already on admin page, just close dropdown
+    // Already on admin page, no navigation needed
   }
 
   navigateToCreateUser(): void {
     this.router.navigate(['/admin/create-user']);
   }
 
-  getUserInitials(): string {
-    // If current user data is loaded and has first/last name, use them
-    if (this.currentUser && this.currentUser.first_name && this.currentUser.last_name) {
-      return (this.currentUser.first_name.charAt(0) + this.currentUser.last_name.charAt(0)).toUpperCase();
-    }
-    
-    // If only first name is available
-    if (this.currentUser && this.currentUser.first_name) {
-      return (this.currentUser.first_name.charAt(0) + (this.currentUser.first_name.charAt(1) || 'U')).toUpperCase();
-    }
-    
-    // Fall back to email from auth service
-    const email = this.authService.getUserEmail();
-    if (!email) return 'U';
-    
-    const emailParts = email.split('@')[0];
-    if (emailParts.length >= 2) {
-      return emailParts.substring(0, 2).toUpperCase();
-    }
-    return emailParts.substring(0, 1).toUpperCase() + 'U';
-  }
-
-  @HostListener('document:click', ['$event'])
-  onDocumentClick(event: Event): void {
-    const target = event.target as HTMLElement;
-    if (!target.closest('.relative')) {
-      this.showDropdown = false;
-    }
-  }
-
   logout(): void {
-    this.showDropdown = false;
     this.authService.logout();
   }
 
