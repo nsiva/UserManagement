@@ -12,11 +12,13 @@ import { HeaderComponent } from '../../shared/components/header/header.component
 import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
 import { AlertComponent, AlertType } from '../../shared/components/alert/alert.component';
 import { APP_NAME, PAGES } from '../../shared/constants/app-constants';
+import { PasswordValidationService, PasswordRequirements } from '../../shared/services/password-validation.service';
+import { PasswordRequirementsComponent } from '../../shared/components/password-requirements/password-requirements.component';
 
 @Component({
   selector: 'app-user-form',
   standalone: true,
-  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent],
+  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent, PasswordRequirementsComponent],
   templateUrl: './user-form.html',
   styleUrl: './user-form.scss'
 })
@@ -30,6 +32,23 @@ export class UserFormComponent implements OnInit, OnDestroy {
     if (typeof value === 'string' && value.trim().length === 0) {
       return { whitespace: true };
     }
+    return null;
+  }
+
+  // Strict email validator
+  private static strictEmailValidator(control: AbstractControl): ValidationErrors | null {
+    const value = control.value;
+    if (!value) {
+      return null; // Let required validator handle empty values
+    }
+    
+    // More strict email pattern that requires proper domain format
+    const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    
+    if (!emailPattern.test(value)) {
+      return { strictEmail: true };
+    }
+    
     return null;
   }
   // Header configuration
@@ -49,6 +68,15 @@ export class UserFormComponent implements OnInit, OnDestroy {
   userToEdit: User | null = null;
   isLoading = false;
   private routeSubscription: Subscription | null = null;
+  
+  // Password requirements tracking
+  passwordRequirements: PasswordRequirements = {
+    minLength: false,
+    hasUppercase: false,
+    hasLowercase: false,
+    hasNumber: false,
+    hasSpecialChar: false
+  };
 
   constructor(
     private fb: FormBuilder,
@@ -61,8 +89,8 @@ export class UserFormComponent implements OnInit, OnDestroy {
     this.userForm = this.fb.group({
       firstName: ['', UserFormComponent.noWhitespaceValidator],
       lastName: ['', UserFormComponent.noWhitespaceValidator],
-      email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.minLength(6)]] // Password optional for edit
+      email: ['', [Validators.required, UserFormComponent.strictEmailValidator]],
+      password: ['', [PasswordValidationService.validatePassword]] // Password with full validation
     });
   }
 
@@ -109,7 +137,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
       this.loadUserForEdit(this.userId);
     } else {
       // Password required for create mode
-      this.userForm.get('password')?.setValidators([Validators.required, Validators.minLength(6)]);
+      this.userForm.get('password')?.setValidators([Validators.required, PasswordValidationService.validatePassword]);
       this.userForm.get('password')?.updateValueAndValidity();
       
       // Ensure form is blank for create mode
@@ -134,6 +162,18 @@ export class UserFormComponent implements OnInit, OnDestroy {
       
       console.log('UserFormComponent: Create mode - form reset to blank values:', this.userForm.value);
     }
+    
+    // Initialize password requirements validation
+    this.validatePasswordRequirements();
+  }
+  
+  onPasswordChange(): void {
+    this.validatePasswordRequirements();
+  }
+  
+  validatePasswordRequirements(): void {
+    const password = this.userForm.get('password')?.value || '';
+    this.passwordRequirements = PasswordValidationService.getPasswordRequirements(password);
   }
 
   loadUserForEdit(userId: string): void {
@@ -205,6 +245,14 @@ export class UserFormComponent implements OnInit, OnDestroy {
     if (this.userForm.invalid) {
       this.showError('Please fill in all required user fields correctly.');
       return;
+    }
+
+    // Additional password validation for create mode and edit mode when password is provided
+    if ((!this.isEditMode || this.userForm.value.password) && this.userForm.value.password) {
+      if (!PasswordValidationService.areAllRequirementsMet(this.userForm.value.password)) {
+        this.showError('Please ensure your password meets all the requirements below.');
+        return;
+      }
     }
 
     if (this.isEditMode && this.userId) {

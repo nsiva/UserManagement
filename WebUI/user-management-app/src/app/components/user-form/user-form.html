@@ -57,19 +57,27 @@
                    'bg-gray-100 cursor-not-allowed': isEditMode
                  }">
           <div *ngIf="userForm.get('email')?.invalid && userForm.get('email')?.touched" class="text-red-500 text-xs mt-1">
-            Valid email is required.
+            <span *ngIf="userForm.get('email')?.errors?.['required']">Email is required.</span>
+            <span *ngIf="userForm.get('email')?.errors?.['strictEmail']">Please enter a valid email address with a proper domain (e.g., user@example.com).</span>
           </div>
         </div>
         
         <div>
           <label for="password" class="block text-sm font-medium text-gray-700">Password {{ isEditMode ? '(leave blank to keep current)' : '*' }}</label>
           <input type="password" id="password" formControlName="password" autocomplete="new-password"
+                 (input)="onPasswordChange()"
                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                  [ngClass]="{'border-red-500': userForm.get('password')?.invalid && userForm.get('password')?.touched}">
           <div *ngIf="userForm.get('password')?.invalid && userForm.get('password')?.touched" class="text-red-500 text-xs mt-1">
-            <span *ngIf="!isEditMode">Password is required and must be at least 6 characters.</span>
-            <span *ngIf="isEditMode && userForm.get('password')?.value">Password must be at least 6 characters.</span>
+            <span *ngIf="userForm.get('password')?.errors?.['required'] && !isEditMode">Password is required.</span>
+            <span *ngIf="userForm.get('password')?.errors?.['passwordRequirements']">{{ userForm.get('password')?.value ? 'Password must meet all the requirements below' : 'Password is required' }}</span>
           </div>
+          
+          <!-- Password Requirements Display -->
+          <app-password-requirements 
+            *ngIf="!isEditMode || userForm.get('password')?.value" 
+            [passwordRequirements]="passwordRequirements">
+          </app-password-requirements>
         </div>
         
         <div>
