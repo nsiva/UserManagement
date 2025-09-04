@@ -8,15 +8,23 @@ import { UserProfileService } from '../../services/user-profile.service';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { HeaderComponent } from '../../shared/components/header/header.component';
+import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
 
 @Component({
   selector: 'app-user-form',
   standalone: true,
-  imports: [FormsModule, CommonModule, ReactiveFormsModule],
+  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent],
   templateUrl: './user-form.html',
   styleUrl: './user-form.scss'
 })
 export class UserFormComponent implements OnInit, OnDestroy {
+  // Header configuration
+  headerConfig: HeaderConfig = {
+    title: 'User Management Application',
+    subtitle: 'Create New User',
+    showUserMenu: true
+  };
   userForm: FormGroup;
   userRolesOptions: Role[] = [];
   selectedUserRole: string = 'user';
@@ -72,6 +80,12 @@ export class UserFormComponent implements OnInit, OnDestroy {
   checkMode(): void {
     this.userId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.userId;
+    
+    // Update header subtitle based on mode
+    this.headerConfig = {
+      ...this.headerConfig,
+      subtitle: this.isEditMode ? 'Edit User' : 'Create New User'
+    };
     
     console.log('UserFormComponent: checkMode - userId:', this.userId, 'isEditMode:', this.isEditMode);
     

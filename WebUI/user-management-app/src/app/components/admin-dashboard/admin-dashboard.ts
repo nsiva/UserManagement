@@ -9,15 +9,24 @@ import { NgModule } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule } from '@angular/forms';
+import { HeaderComponent } from '../../shared/components/header/header.component';
+import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
 
 @Component({
   selector: 'app-admin-dashboard',
-  imports: [FormsModule,CommonModule, ReactiveFormsModule],
+  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent],
   templateUrl: './admin-dashboard.html',
   styleUrls: ['./admin-dashboard.scss']
 
 })
 export class AdminDashboardComponent implements OnInit {
+  // Header configuration
+  headerConfig: HeaderConfig = {
+    title: 'User Management Application',
+    subtitle: 'Admin Dashboard',
+    showUserMenu: true
+  };
+
   activeTab: 'users' | 'roles' = 'users';
 
   // User Management

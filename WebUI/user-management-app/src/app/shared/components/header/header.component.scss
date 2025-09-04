@@ -1,0 +1,18 @@
+// Header component styles
+// Using Tailwind classes, but this file allows for component-specific overrides if needed
+
+.header-dropdown {
+  // Additional styles for dropdown if needed
+  z-index: 1000;
+}
+
+// Smooth transitions for dropdown menu
+.dropdown-menu {
+  transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+
+// Focus styles for accessibility
+button:focus {
+  outline: 2px solid white;
+  outline-offset: 2px;
+}

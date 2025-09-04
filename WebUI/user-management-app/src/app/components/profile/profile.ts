@@ -5,14 +5,22 @@ import { UserService } from '../../services/user';
 import { UserProfileService, UserProfile } from '../../services/user-profile.service';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { HeaderComponent } from '../../shared/components/header/header.component';
+import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
 
 @Component({
   selector: 'app-profile',
-  imports: [FormsModule, CommonModule],
+  imports: [FormsModule, CommonModule, HeaderComponent],
   templateUrl: './profile.html',
   styleUrls: ['./profile.scss']
 })
 export class ProfileComponent implements OnInit {
+  // Header configuration
+  headerConfig: HeaderConfig = {
+    title: 'User Management Application',
+    subtitle: 'Profile Page',
+    showUserMenu: true
+  };
   user: UserProfile | null = null;
   showDropdown = false;
   mfaPromptDismissed = false;
@@ -24,6 +32,12 @@ export class ProfileComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // Update header config based on admin status
+    this.headerConfig = {
+      ...this.headerConfig,
+      showAdminMenuItem: this.isAdmin()
+    };
+
     (async () => {
       if (!this.authService.isLoggedIn()) {
         this.router.navigate(['/login']);
