@@ -11,6 +11,7 @@ from models import (
     UserCreate, UserUpdate, UserWithRoles, RoleCreate, RoleUpdate, RoleInDB,
     UserRoleAssignment, TokenData, ClientTokenData
 )
+from exceptions import UserManagementError, DuplicateEmailError, ConstraintViolationError, DatabaseConnectionError, UserNotFoundError
 # Assuming get_password_hash is not used directly in admin.py functions.
 # get_current_admin_user, get_user_roles, get_current_client are needed.
 from routers.auth import get_current_admin_user, get_user_roles, get_current_client, get_password_hash
@@ -57,6 +58,13 @@ async def create_user(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Client lacks 'manage:users' scope for user creation.")
 
     try:
+        # Check if user with email already exists before attempting to create
+        repo = get_repository()
+        existing_user = await repo.get_user_by_email(user_data.email)
+        if existing_user:
+            logger.warning(f"Attempt to create user with existing email: {user_data.email}")
+            raise DuplicateEmailError(user_data.email)
+        
         # Generate UUID for new user
         import uuid
         user_id = str(uuid.uuid4())
@@ -75,16 +83,30 @@ async def create_user(
             "is_admin": user_data.is_admin,
             "mfa_secret": None
         }
-        repo = get_repository()
         created_user = await repo.create_user(profile_data)
         if not created_user:
             logger.error(f"Failed to create user profile for email: {user_data.email}")
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create user profile.")
     except HTTPException:
         raise
+    except UserManagementError as e:
+        # Custom user management exceptions - already logged in repository layer
+        # Return user-friendly message to the client
+        if isinstance(e, DuplicateEmailError):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=e.user_message)
+        elif isinstance(e, ConstraintViolationError):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.user_message)
+        elif isinstance(e, DatabaseConnectionError):
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=e.user_message)
+        else:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.user_message)
     except Exception as e:
-        logger.error(f"User creation failed for {user_data.email}: {e}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"User creation failed: {e}")
+        # Unexpected errors - log with full details and return generic message
+        logger.error(f"Unexpected error during user creation for {user_data.email}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail="An unexpected error occurred. Please try again later."
+        )
 
     if user_data.roles:
         await assign_roles_to_user_by_names(user_id, user_data.roles)

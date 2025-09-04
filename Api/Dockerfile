@@ -50,7 +50,7 @@ WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 
 # Copy application code (specific files to avoid overwriting .venv)
-COPY main.py models.py database.py ./
+COPY main.py models.py database.py exceptions.py ./
 COPY routers/ ./routers/
 COPY database/ ./database/
 COPY migrations/ ./migrations/

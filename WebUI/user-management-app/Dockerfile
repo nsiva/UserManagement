@@ -1,6 +1,9 @@
 # Multi-stage build for Angular application
 FROM node:20-slim as builder
 
+# Build argument for API URL
+ARG API_URL=http://localhost:8001
+
 # Set working directory
 WORKDIR /app
 
@@ -12,6 +15,9 @@ RUN npm ci --silent
 
 # Copy source code
 COPY . .
+
+# Create environment file with build-time API URL
+RUN echo "window.__env = { apiUrl: '${API_URL}' };" > src/assets/env.js
 
 # Build the Angular app for production
 RUN npm run build

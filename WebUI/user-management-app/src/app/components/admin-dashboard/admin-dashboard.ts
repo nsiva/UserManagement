@@ -170,8 +170,32 @@ export class AdminDashboardComponent implements OnInit {
           this.resetForms();
         },
         error: (err: HttpErrorResponse) => {
-          this.showError(err.error.detail || 'Failed to update user.');
           console.error('Error updating user:', err);
+          
+          // Handle different HTTP status codes with specific messages
+          let errorMessage = 'Failed to update user.';
+          
+          if (err.status === 409) {
+            // Conflict - typically duplicate email
+            errorMessage = err.error?.detail || 'A user with this email address already exists. Please use a different email.';
+          } else if (err.status === 400) {
+            // Bad request - validation or constraint violations
+            errorMessage = err.error?.detail || 'Invalid user data. Please check all fields and try again.';
+          } else if (err.status === 404) {
+            // User not found
+            errorMessage = 'User not found. Please refresh the page and try again.';
+          } else if (err.status === 503) {
+            // Service unavailable - database connection issues
+            errorMessage = err.error?.detail || 'Service is temporarily unavailable. Please try again in a few moments.';
+          } else if (err.status === 500) {
+            // Internal server error
+            errorMessage = err.error?.detail || 'An unexpected error occurred. Please contact support if the problem persists.';
+          } else if (err.error?.detail) {
+            // Use backend-provided message if available
+            errorMessage = err.error.detail;
+          }
+          
+          this.showError(errorMessage);
         }
       });
     } else {
@@ -186,8 +210,29 @@ export class AdminDashboardComponent implements OnInit {
           this.resetForms();
         },
         error: (err: HttpErrorResponse) => {
-          this.showError(err.error.detail || 'Failed to create user.');
           console.error('Error creating user:', err);
+          
+          // Handle different HTTP status codes with specific messages
+          let errorMessage = 'Failed to create user.';
+          
+          if (err.status === 409) {
+            // Conflict - typically duplicate email
+            errorMessage = err.error?.detail || 'A user with this email address already exists. Please use a different email.';
+          } else if (err.status === 400) {
+            // Bad request - validation or constraint violations
+            errorMessage = err.error?.detail || 'Invalid user data. Please check all fields and try again.';
+          } else if (err.status === 503) {
+            // Service unavailable - database connection issues
+            errorMessage = err.error?.detail || 'Service is temporarily unavailable. Please try again in a few moments.';
+          } else if (err.status === 500) {
+            // Internal server error
+            errorMessage = err.error?.detail || 'An unexpected error occurred. Please contact support if the problem persists.';
+          } else if (err.error?.detail) {
+            // Use backend-provided message if available
+            errorMessage = err.error.detail;
+          }
+          
+          this.showError(errorMessage);
         }
       });
     }
