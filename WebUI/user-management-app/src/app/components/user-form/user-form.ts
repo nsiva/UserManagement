@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth';
@@ -21,6 +21,17 @@ import { APP_NAME, PAGES } from '../../shared/constants/app-constants';
   styleUrl: './user-form.scss'
 })
 export class UserFormComponent implements OnInit, OnDestroy {
+  // Custom validator for non-whitespace text
+  private static noWhitespaceValidator(control: AbstractControl): ValidationErrors | null {
+    const value = control.value;
+    if (!value) {
+      return { required: true };
+    }
+    if (typeof value === 'string' && value.trim().length === 0) {
+      return { whitespace: true };
+    }
+    return null;
+  }
   // Header configuration
   headerConfig: HeaderConfig = {
     title: APP_NAME,
@@ -48,8 +59,8 @@ export class UserFormComponent implements OnInit, OnDestroy {
     private userProfileService: UserProfileService
   ) {
     this.userForm = this.fb.group({
-      firstName: ['', Validators.required],
-      lastName: ['', Validators.required],
+      firstName: ['', UserFormComponent.noWhitespaceValidator],
+      lastName: ['', UserFormComponent.noWhitespaceValidator],
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.minLength(6)]] // Password optional for edit
     });
