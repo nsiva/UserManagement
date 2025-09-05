@@ -1,4 +1,4 @@
-<div class="min-h-screen bg-gray-100 flex flex-col">
+<div class="min-h-screen bg-theme-background flex flex-col">
   <app-header 
     [config]="headerConfig"
     (profileClick)="navigateToProfile()"
@@ -13,11 +13,11 @@
       (dismissed)="onAlertDismissed()">
     </app-alert>
 
-    <div class="bg-white rounded-lg shadow-md p-6">
+    <div class="bg-theme-surface rounded-lg shadow-md p-6 border border-theme-border">
       <!-- User Management Section -->
       <div class="flex justify-between items-center mb-6">
-        <h3 class="text-xl font-semibold text-gray-800">Existing Users</h3>
-        <button (click)="navigateToCreateUser()" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+        <h3 class="text-xl font-semibold text-theme-text">Existing Users</h3>
+        <button (click)="navigateToCreateUser()" class="w-auto flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-theme-primary-text bg-theme-primary hover:bg-theme-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-theme-border-focus transition-colors">
           <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
           </svg>
@@ -25,9 +25,9 @@
         </button>
       </div>
         <div class="overflow-x-auto">
-          <table class="min-w-full bg-white border border-gray-200 rounded-md">
+          <table class="min-w-full bg-theme-surface border border-theme-border rounded-md">
             <thead>
-              <tr class="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <tr class="bg-theme-surface-hover text-left text-xs font-medium text-theme-text-secondary uppercase tracking-wider">
                 <th class="py-3 px-6">Name</th>
                 <th class="py-3 px-6">Email</th>
                 <th class="py-3 px-6">Admin</th>
@@ -35,38 +35,38 @@
                 <th class="py-3 px-6">Actions</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200">
-              <tr *ngFor="let user of users; let i = index" [ngClass]="{'bg-gray-50': i % 2 === 1}">
-                <td class="py-4 px-6 whitespace-nowrap text-sm text-gray-900">
+            <tbody class="divide-y divide-theme-border">
+              <tr *ngFor="let user of users; let i = index" [ngClass]="{'bg-theme-surface-hover': i % 2 === 1}">
+                <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">
                   {{ (user.first_name && user.last_name) ? (user.first_name + ' ' + user.last_name) : (user.first_name || user.last_name || '-') }}
                 </td>
-                <td class="py-4 px-6 whitespace-nowrap text-sm text-gray-900">{{ user.email }}</td>
-                <td class="py-4 px-6 whitespace-nowrap text-sm text-gray-900">{{ user.roles.includes('admin') ? 'Yes' : 'No' }}</td>
-                <td class="py-4 px-6 whitespace-nowrap text-sm text-gray-900">
+                <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">{{ user.email }}</td>
+                <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">{{ user.roles.includes('admin') ? 'Yes' : 'No' }}</td>
+                <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">
                   <span *ngIf="user.roles.length > 0">{{ user.roles[0] }}</span>
-                  <span *ngIf="user.roles.length === 0" class="text-gray-500">None</span>
+                  <span *ngIf="user.roles.length === 0" class="text-theme-text-muted">None</span>
                 </td>
                 <td class="py-4 px-6 whitespace-nowrap text-sm font-medium">
-                  <button (click)="editUser(user)" class="inline-flex items-center text-indigo-600 hover:text-indigo-900 mr-4 p-1">
+                  <button (click)="editUser(user)" class="inline-flex items-center text-theme-primary hover:text-theme-primary-hover mr-4 p-1 transition-colors">
                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                     </svg>
                     <span class="text-xs">Edit</span>
                   </button>
-                  <button (click)="deleteUser(user.id)" class="inline-flex items-center text-red-600 hover:text-red-900 mr-4 p-1">
+                  <button (click)="deleteUser(user.id)" class="inline-flex items-center text-theme-error hover:text-theme-error/80 mr-4 p-1 transition-colors">
                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                     </svg>
                     <span class="text-xs">Delete</span>
                   </button>
                   <!-- Conditional MFA Button -->
-                  <button *ngIf="!user.mfa_enabled" (click)="setupMfa(user)" class="inline-flex items-center text-blue-600 hover:text-blue-900 p-1">
+                  <button *ngIf="!user.mfa_enabled" (click)="setupMfa(user)" class="inline-flex items-center text-theme-primary hover:text-theme-primary-hover p-1 transition-colors">
                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                     </svg>
                     <span class="text-xs">Setup MFA</span>
                   </button>
-                  <button *ngIf="user.mfa_enabled" (click)="removeMfa(user)" class="inline-flex items-center text-red-600 hover:text-red-900 p-1">
+                  <button *ngIf="user.mfa_enabled" (click)="removeMfa(user)" class="inline-flex items-center text-theme-error hover:text-theme-error/80 p-1 transition-colors">
                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -75,7 +75,7 @@
                 </td>
               </tr>
               <tr *ngIf="users.length === 0">
-                <td colspan="5" class="py-4 px-6 text-center text-gray-500">No users found.</td>
+                <td colspan="5" class="py-4 px-6 text-center text-theme-text-muted">No users found.</td>
               </tr>
             </tbody>
           </table>
@@ -84,19 +84,19 @@
   </main>
 
   <!-- Confirmation Modal -->
-  <div *ngIf="showConfirmModal" class="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50" (click)="closeConfirmModal()">
-    <div class="relative top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 border w-11/12 md:w-96 shadow-xl rounded-lg bg-white overflow-hidden" (click)="$event.stopPropagation()">
+  <div *ngIf="showConfirmModal" class="fixed inset-0 bg-theme-modal-overlay overflow-y-auto h-full w-full z-50" (click)="closeConfirmModal()">
+    <div class="relative top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 border border-theme-border w-11/12 md:w-96 shadow-xl rounded-lg bg-theme-surface overflow-hidden" (click)="$event.stopPropagation()">
       <!-- Modal Header -->
-      <div class="bg-blue-600 text-white p-4 flex items-center justify-between">
+      <div class="bg-theme-primary text-theme-primary-text p-4 flex items-center justify-between">
         <div class="flex items-center space-x-3">
-          <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
-            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="w-8 h-8 rounded-full bg-theme-primary-hover flex items-center justify-center">
+            <svg class="w-5 h-5 text-theme-primary-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
             </svg>
           </div>
-          <h3 class="text-lg font-semibold text-white">{{ confirmTitle }}</h3>
+          <h3 class="text-lg font-semibold text-theme-primary-text">{{ confirmTitle }}</h3>
         </div>
-        <button (click)="closeConfirmModal()" class="text-blue-100 hover:text-white focus:outline-none">
+        <button (click)="closeConfirmModal()" class="text-theme-primary-text/80 hover:text-theme-primary-text focus:outline-none transition-colors">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
           </svg>
@@ -105,14 +105,14 @@
       
       <!-- Modal Body -->
       <div class="p-6">
-        <p class="text-sm text-gray-600 mb-6">{{ confirmMessage }}</p>
+        <p class="text-sm text-theme-text-secondary mb-6">{{ confirmMessage }}</p>
         
         <!-- Modal Footer -->
         <div class="flex justify-end space-x-3">
-          <button (click)="closeConfirmModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
+          <button (click)="closeConfirmModal()" class="px-4 py-2 bg-theme-secondary text-theme-primary-text rounded-md hover:bg-theme-secondary-hover transition-colors">
             Cancel
           </button>
-          <button (click)="confirmAction()" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">
+          <button (click)="confirmAction()" class="px-4 py-2 bg-theme-error text-theme-primary-text rounded-md hover:bg-theme-error/80 transition-colors">
             {{ confirmButtonText }}
           </button>
         </div>
@@ -121,12 +121,12 @@
   </div>
 
   <!-- MFA Setup Modal -->
-  <div *ngIf="showMfaSetupModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" (click)="closeMfaSetupModal()">
-    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white" (click)="$event.stopPropagation()">
+  <div *ngIf="showMfaSetupModal" class="fixed inset-0 bg-theme-modal-overlay overflow-y-auto h-full w-full z-50" (click)="closeMfaSetupModal()">
+    <div class="relative top-20 mx-auto p-5 border border-theme-border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-theme-surface" (click)="$event.stopPropagation()">
       <!-- Modal Header -->
-      <div class="flex items-center justify-between pb-4 border-b">
-        <h3 class="text-lg font-semibold text-gray-900">MFA Setup</h3>
-        <button (click)="closeMfaSetupModal()" class="text-gray-400 hover:text-gray-600 focus:outline-none">
+      <div class="flex items-center justify-between pb-4 border-b border-theme-border">
+        <h3 class="text-lg font-semibold text-theme-text">MFA Setup</h3>
+        <button (click)="closeMfaSetupModal()" class="text-theme-text-muted hover:text-theme-text-secondary focus:outline-none transition-colors">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
           </svg>
@@ -136,18 +136,18 @@
       <!-- Modal Body -->
       <div class="py-4">
         <div class="mb-6">
-          <p class="text-sm text-gray-600 mb-4">
+          <p class="text-sm text-theme-text-secondary mb-4">
             Set up Multi-Factor Authentication for <strong>{{ selectedUserForMfa?.email }}</strong>
           </p>
         </div>
         
         <!-- Secret Key Section -->
         <div class="mb-6">
-          <label class="block text-sm font-medium text-gray-700 mb-2">Secret Key</label>
-          <div class="bg-gray-50 border border-gray-200 rounded-md p-3">
+          <label class="block text-sm font-medium text-theme-text-secondary mb-2">Secret Key</label>
+          <div class="bg-theme-surface-hover border border-theme-border rounded-md p-3">
             <div class="flex items-center justify-between">
-              <code class="text-sm text-gray-900 break-all">{{ mfaSecret }}</code>
-              <button (click)="copyToClipboard(mfaSecret || '')" class="ml-2 text-blue-600 hover:text-blue-800 text-sm">
+              <code class="text-sm text-theme-text break-all">{{ mfaSecret }}</code>
+              <button (click)="copyToClipboard(mfaSecret || '')" class="ml-2 text-theme-primary hover:text-theme-primary-hover text-sm transition-colors">
                 Copy
               </button>
             </div>
@@ -156,19 +156,19 @@
         
         <!-- QR Code Section -->
         <div class="mb-6">
-          <label class="block text-sm font-medium text-gray-700 mb-2">QR Code</label>
-          <div class="flex justify-center bg-gray-50 border border-gray-200 rounded-md p-4">
+          <label class="block text-sm font-medium text-theme-text-secondary mb-2">QR Code</label>
+          <div class="flex justify-center bg-theme-surface-hover border border-theme-border rounded-md p-4">
             <img [src]="'data:image/png;base64,' + mfaQrCodeBase64" alt="MFA QR Code" class="max-w-64 max-h-64" />
           </div>
-          <p class="text-xs text-gray-500 mt-2 text-center">
+          <p class="text-xs text-theme-text-muted mt-2 text-center">
             Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
           </p>
         </div>
       </div>
       
       <!-- Modal Footer -->
-      <div class="flex justify-end pt-4 border-t">
-        <button (click)="closeMfaSetupModal()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+      <div class="flex justify-end pt-4 border-t border-theme-border">
+        <button (click)="closeMfaSetupModal()" class="w-auto flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-theme-primary-text bg-theme-primary hover:bg-theme-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-theme-border-focus transition-colors">
           Close
         </button>
       </div>

@@ -6,6 +6,7 @@ import { throwError } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { ThemeService } from './services/theme.service';
 
 @Component({
   selector: 'app-root', // The HTML tag to use this component
@@ -36,7 +37,12 @@ export class App {
   // Base URL for your FastAPI backend
   private apiUrl = environment.apiUrl;
 
-  constructor(private http: HttpClient) { } // Inject HttpClient for making API calls
+  constructor(
+    private http: HttpClient,
+    private themeService: ThemeService
+  ) { 
+    // Initialize theme service to load saved theme
+  } // Inject HttpClient for making API calls
 
   /**
    * Handles the login form submission.

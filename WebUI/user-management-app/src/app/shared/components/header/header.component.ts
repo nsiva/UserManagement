@@ -4,11 +4,12 @@ import { CommonModule } from '@angular/common';
 import { AuthService } from '../../../services/auth';
 import { HeaderConfig } from '../../interfaces/header-config.interface';
 import { APP_NAME } from '../../constants/app-constants';
+import { ThemeSwitcher } from '../theme-switcher/theme-switcher';
 
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ThemeSwitcher],
   templateUrl: './header.component.html',
   styleUrls: ['./header.component.scss']
 })
