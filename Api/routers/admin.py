@@ -8,9 +8,10 @@ import logging
 
 from database import get_repository
 from models import (
-    UserCreate, UserUpdate, UserWithRoles, RoleCreate, RoleUpdate, RoleInDB,
+    UserCreate, UserUpdate, UserWithRoles,
     UserRoleAssignment, TokenData, ClientTokenData
 )
+from role import RoleCreate, RoleUpdate, RoleInDB
 from exceptions import UserManagementError, DuplicateEmailError, ConstraintViolationError, DatabaseConnectionError, UserNotFoundError
 # Assuming get_password_hash is not used directly in admin.py functions.
 # get_current_admin_user, get_user_roles, get_current_client are needed.

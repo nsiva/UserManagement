@@ -85,21 +85,6 @@ class UserWithRoles(UserBase):
     class Config:
         from_attributes = True
 
-# --- Role Management Models ---
-class RoleBase(BaseModel):
-    name: str
-
-class RoleCreate(RoleBase):
-    pass
-
-class RoleUpdate(RoleBase):
-    pass
-
-class RoleInDB(RoleBase):
-    id: UUID
-
-    class Config:
-        from_attributes = True
 
 # --- User Role Assignment Model ---
 class UserRoleAssignment(BaseModel):
@@ -134,3 +119,5 @@ class ProfileResponse(BaseModel):
     mfa_enabled: bool = False  # Indicates whether MFA is set up (without exposing the secret)
     # Add any other non-sensitive profile fields you want to return
     # is_admin: bool # You might include this if you want the client to know their admin status
+
+

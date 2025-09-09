@@ -101,3 +101,30 @@ class BaseRepository(ABC):
     async def mark_token_used(self, token: str) -> bool:
         """Mark reset token as used."""
         pass
+    
+    # Firm Management
+    @abstractmethod
+    async def create_firm(self, firm_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new firm."""
+        pass
+    
+    @abstractmethod
+    async def get_firm_by_id(self, firm_id: UUID) -> Optional[Dict[str, Any]]:
+        """Get firm by ID."""
+        pass
+    
+    
+    @abstractmethod
+    async def get_all_firms(self) -> List[Dict[str, Any]]:
+        """Get all firms."""
+        pass
+    
+    @abstractmethod
+    async def update_firm(self, firm_id: UUID, update_data: Dict[str, Any]) -> bool:
+        """Update firm. Returns True if successful."""
+        pass
+    
+    @abstractmethod
+    async def delete_firm(self, firm_id: UUID) -> bool:
+        """Delete firm. Returns True if successful."""
+        pass

@@ -51,3 +51,19 @@ class DBPasswordResetToken(BaseModel):
     expires_at: datetime
     used: bool = False
     created_at: datetime
+
+
+class DBFirm(BaseModel):
+    """Database firm entity model."""
+    id: UUID
+    company_name: str
+    address_1: Optional[str] = None
+    address_2: Optional[str] = None
+    city_town: Optional[str] = None
+    state: Optional[str] = None
+    zip: Optional[str] = None
+    country: Optional[str] = None
+    email: Optional[str] = None
+    phone_number: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
