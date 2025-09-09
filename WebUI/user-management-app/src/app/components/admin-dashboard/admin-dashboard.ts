@@ -2,6 +2,22 @@ import { Component, OnInit, HostListener } from '@angular/core';
 import { AuthService } from '../../services/auth';
 import { UserService, User, UserCreate, UserUpdate, Role, RoleCreate, RoleUpdate } from '../../services/user';
 import { UserProfileService } from '../../services/user-profile.service';
+
+// Organization interface
+export interface Organization {
+  id: string;
+  company_name: string;
+  address_1?: string;
+  address_2?: string;
+  city_town?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+  email?: string;
+  phone_number?: string;
+  created_at: string;
+  updated_at?: string;
+}
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
@@ -29,7 +45,7 @@ export class AdminDashboardComponent implements OnInit {
     showUserMenu: true
   };
 
-  activeTab: 'users' | 'roles' = 'users';
+  activeTab: 'users' | 'organizations' = 'users';
 
   // User Management
   users: User[] = [];
@@ -44,6 +60,9 @@ export class AdminDashboardComponent implements OnInit {
   roleForm: FormGroup;
   isEditModeRole = false;
   selectedRoleId: string | null = null;
+
+  // Organizations Management
+  organizations: Organization[] = [];
 
   // MFA Setup
   showMfaSetupModal = false;
@@ -89,10 +108,13 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   // --- General UI ---
-  selectTab(tab: 'users' | 'roles'): void {
+  selectTab(tab: 'users' | 'organizations'): void {
     this.activeTab = tab;
     this.alertMessage = null;
     this.resetForms();
+    if (tab === 'organizations') {
+      this.loadOrganizations();
+    }
   }
 
   resetForms(): void {
@@ -439,6 +461,36 @@ export class AdminDashboardComponent implements OnInit {
       this.confirmCallback();
     }
     this.closeConfirmModal();
+  }
+
+  // --- Tab Management ---
+  setActiveTab(tab: 'users' | 'organizations'): void {
+    this.activeTab = tab;
+    if (tab === 'organizations') {
+      this.loadOrganizations();
+    }
+  }
+
+  // --- Organizations Management ---
+  loadOrganizations(): void {
+    // TODO: Implement organization service call
+    // This is a placeholder - you'll need to create an OrganizationService
+    this.organizations = [];
+  }
+
+  navigateToCreateOrganization(): void {
+    // TODO: Implement navigation to create organization page
+    console.log('Navigate to create organization');
+  }
+
+  editOrganization(org: Organization): void {
+    // TODO: Implement organization editing
+    console.log('Edit organization:', org);
+  }
+
+  deleteOrganization(orgId: string): void {
+    // TODO: Implement organization deletion
+    console.log('Delete organization:', orgId);
   }
 }
 

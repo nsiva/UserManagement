@@ -343,18 +343,18 @@ class PostgresRepository(BaseRepository):
                 logger.error(f"Failed to mark token as used: {e}")
                 return False
     
-    # Firm Management
-    async def create_firm(self, firm_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a new firm."""
+    # Organization Management
+    async def create_organization(self, organization_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new organization."""
         pool = await self.get_connection_pool()
         async with pool.acquire() as conn:
             try:
-                columns = ', '.join(firm_data.keys())
-                placeholders = ', '.join(f'${i+1}' for i in range(len(firm_data)))
-                values = list(firm_data.values())
+                columns = ', '.join(organization_data.keys())
+                placeholders = ', '.join(f'${i+1}' for i in range(len(organization_data)))
+                values = list(organization_data.values())
                 
                 query = f"""
-                    INSERT INTO aaa_firms ({columns})
+                    INSERT INTO aaa_organizations ({columns})
                     VALUES ({placeholders})
                     RETURNING *
                 """
@@ -363,59 +363,59 @@ class PostgresRepository(BaseRepository):
                 return dict(result) if result else {}
                 
             except Exception as e:
-                logger.error(f"Failed to create firm: {e}")
+                logger.error(f"Failed to create organization: {e}")
                 raise
     
-    async def get_firm_by_id(self, firm_id: UUID) -> Optional[Dict[str, Any]]:
-        """Get firm by ID."""
+    async def get_organization_by_id(self, organization_id: UUID) -> Optional[Dict[str, Any]]:
+        """Get organization by ID."""
         pool = await self.get_connection_pool()
         async with pool.acquire() as conn:
             try:
-                query = "SELECT * FROM aaa_firms WHERE id = $1 LIMIT 1"
-                result = await conn.fetchrow(query, str(firm_id))
+                query = "SELECT * FROM aaa_organizations WHERE id = $1 LIMIT 1"
+                result = await conn.fetchrow(query, str(organization_id))
                 return dict(result) if result else None
             except Exception as e:
-                logger.error(f"Failed to get firm by ID {firm_id}: {e}")
+                logger.error(f"Failed to get organization by ID {organization_id}: {e}")
                 return None
     
     
-    async def get_all_firms(self) -> List[Dict[str, Any]]:
-        """Get all firms."""
+    async def get_all_organizations(self) -> List[Dict[str, Any]]:
+        """Get all organizations."""
         pool = await self.get_connection_pool()
         async with pool.acquire() as conn:
             try:
-                query = "SELECT * FROM aaa_firms ORDER BY company_name"
+                query = "SELECT * FROM aaa_organizations ORDER BY company_name"
                 results = await conn.fetch(query)
                 return [dict(row) for row in results]
             except Exception as e:
-                logger.error(f"Failed to get all firms: {e}")
+                logger.error(f"Failed to get all organizations: {e}")
                 return []
     
-    async def update_firm(self, firm_id: UUID, update_data: Dict[str, Any]) -> bool:
-        """Update firm. Returns True if successful."""
+    async def update_organization(self, organization_id: UUID, update_data: Dict[str, Any]) -> bool:
+        """Update organization. Returns True if successful."""
         pool = await self.get_connection_pool()
         async with pool.acquire() as conn:
             try:
                 update_data['updated_at'] = datetime.now(timezone.utc)
                 
                 set_clauses = ', '.join(f"{key} = ${i+2}" for i, key in enumerate(update_data.keys()))
-                values = [str(firm_id)] + list(update_data.values())
+                values = [str(organization_id)] + list(update_data.values())
                 
-                query = f"UPDATE aaa_firms SET {set_clauses} WHERE id = $1"
+                query = f"UPDATE aaa_organizations SET {set_clauses} WHERE id = $1"
                 result = await conn.execute(query, *values)
                 return "UPDATE 1" in result
             except Exception as e:
-                logger.error(f"Failed to update firm {firm_id}: {e}")
+                logger.error(f"Failed to update organization {organization_id}: {e}")
                 return False
     
-    async def delete_firm(self, firm_id: UUID) -> bool:
-        """Delete firm. Returns True if successful."""
+    async def delete_organization(self, organization_id: UUID) -> bool:
+        """Delete organization. Returns True if successful."""
         pool = await self.get_connection_pool()
         async with pool.acquire() as conn:
             try:
-                query = "DELETE FROM aaa_firms WHERE id = $1"
-                result = await conn.execute(query, str(firm_id))
+                query = "DELETE FROM aaa_organizations WHERE id = $1"
+                result = await conn.execute(query, str(organization_id))
                 return "DELETE 1" in result
             except Exception as e:
-                logger.error(f"Failed to delete firm {firm_id}: {e}")
+                logger.error(f"Failed to delete organization {organization_id}: {e}")
                 return False

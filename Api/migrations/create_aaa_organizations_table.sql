@@ -1,5 +1,5 @@
--- Firms table for company/firm management
-CREATE TABLE aaa_firms (
+-- Organizations table for company/organization management
+CREATE TABLE aaa_organizations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     company_name TEXT NOT NULL,
     address_1 TEXT,
@@ -14,9 +14,9 @@ CREATE TABLE aaa_firms (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Disable RLS on firms table
-ALTER TABLE aaa_firms DISABLE ROW LEVEL SECURITY;
+-- Disable RLS on organizations table
+ALTER TABLE aaa_organizations DISABLE ROW LEVEL SECURITY;
 
 -- Create indexes for better performance
-CREATE INDEX idx_aaa_firms_company_name ON aaa_firms(company_name);
-CREATE INDEX idx_aaa_firms_email ON aaa_firms(email);
+CREATE INDEX idx_aaa_organizations_company_name ON aaa_organizations(company_name);
+CREATE INDEX idx_aaa_organizations_email ON aaa_organizations(email);

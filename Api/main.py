@@ -8,7 +8,7 @@ from routers.auth import auth_router
 from routers.admin import admin_router
 from dotenv import load_dotenv
 from routers.profiles import profiles_router # <-- ADD THIS LINE
-from routers.firms import firms_router
+from routers.organizations import organizations_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ try:
     app.include_router(auth_router)
     app.include_router(admin_router)
     app.include_router(profiles_router)
-    app.include_router(firms_router)
+    app.include_router(organizations_router)
     logger.info("Routers included successfully.")
 except Exception as e:
     logger.error(f"Error including routers: {e}")

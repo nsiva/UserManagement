@@ -53,8 +53,8 @@ class DBPasswordResetToken(BaseModel):
     created_at: datetime
 
 
-class DBFirm(BaseModel):
-    """Database firm entity model."""
+class DBOrganization(BaseModel):
+    """Database organization entity model."""
     id: UUID
     company_name: str
     address_1: Optional[str] = None

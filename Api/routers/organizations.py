@@ -1,0 +1,164 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Optional
+from uuid import UUID
+import logging
+
+from database import get_repository
+from organization import OrganizationCreate, OrganizationUpdate, OrganizationResponse
+from models import TokenData
+from routers.auth import get_current_user
+
+organizations_router = APIRouter(prefix="/organizations", tags=["organizations"])
+logger = logging.getLogger("organizations")
+if not logger.hasHandlers():
+    logging.basicConfig(level=logging.INFO)
+
+
+async def get_current_admin_or_superuser(current_user: TokenData = Depends(get_current_user)):
+    """Dependency to ensure current user has admin or superuser role."""
+    try:
+        if 'super_user' not in current_user.roles and 'admin' not in current_user.roles:
+            logger.warning(f"User {current_user.email} does not have admin or super_user permissions.")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin or super user access required")
+        logger.info(f"Admin/Super user authenticated: {current_user.email}")
+        return current_user
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error checking admin/super user permissions: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+
+
+@organizations_router.post("/", response_model=OrganizationResponse, status_code=status.HTTP_201_CREATED)
+async def create_organization(
+    organization_data: OrganizationCreate,
+    current_admin_user: TokenData = Depends(get_current_admin_or_superuser)
+):
+    """Create a new organization. Accessible to admin and super users."""
+    try:
+        repo = get_repository()
+        
+        # Create organization data dict
+        organization_dict = organization_data.dict()
+        
+        created_organization = await repo.create_organization(organization_dict)
+        if not created_organization:
+            logger.error(f"Failed to create organization: {organization_data.company_name}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create organization")
+        
+        logger.info(f"Organization created successfully: {created_organization.get('company_name')} by user {current_admin_user.email}")
+        return OrganizationResponse(**created_organization)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating organization: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+
+
+@organizations_router.get("/", response_model=List[OrganizationResponse])
+async def get_all_organizations(current_admin_user: TokenData = Depends(get_current_admin_or_superuser)):
+    """Get all organizations. Accessible to admin and super users."""
+    try:
+        repo = get_repository()
+        organizations = await repo.get_all_organizations()
+        
+        logger.info(f"Retrieved {len(organizations)} organizations for user {current_admin_user.email}")
+        return [OrganizationResponse(**organization) for organization in organizations]
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving organizations: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+
+
+@organizations_router.get("/{organization_id}", response_model=OrganizationResponse)
+async def get_organization(
+    organization_id: UUID,
+    current_user: TokenData = Depends(get_current_user)
+):
+    """Get a specific organization by ID. Accessible to any authenticated user."""
+    try:
+        repo = get_repository()
+        organization = await repo.get_organization_by_id(organization_id)
+        
+        if not organization:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
+        
+        logger.info(f"Retrieved organization {organization_id} for user {current_user.email}")
+        return OrganizationResponse(**organization)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving organization {organization_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+
+
+
+
+@organizations_router.put("/{organization_id}", response_model=OrganizationResponse)
+async def update_organization(
+    organization_id: UUID,
+    organization_data: OrganizationUpdate,
+    current_admin_user: TokenData = Depends(get_current_admin_or_superuser)
+):
+    """Update an organization. Accessible to admin and super users."""
+    try:
+        repo = get_repository()
+        
+        # Check if organization exists
+        existing_organization = await repo.get_organization_by_id(organization_id)
+        if not existing_organization:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
+        
+        # Only include non-None values in update
+        update_dict = {k: v for k, v in organization_data.dict().items() if v is not None}
+        
+        if not update_dict:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid fields provided for update")
+        
+        success = await repo.update_organization(organization_id, update_dict)
+        if not success:
+            logger.error(f"Failed to update organization {organization_id}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update organization")
+        
+        # Return updated organization
+        updated_organization = await repo.get_organization_by_id(organization_id)
+        logger.info(f"Organization {organization_id} updated successfully by user {current_admin_user.email}")
+        return OrganizationResponse(**updated_organization)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating organization {organization_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+
+
+@organizations_router.delete("/{organization_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_organization(
+    organization_id: UUID,
+    current_admin_user: TokenData = Depends(get_current_admin_or_superuser)
+):
+    """Delete an organization. Accessible to admin and super users."""
+    try:
+        repo = get_repository()
+        
+        # Check if organization exists
+        existing_organization = await repo.get_organization_by_id(organization_id)
+        if not existing_organization:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
+        
+        success = await repo.delete_organization(organization_id)
+        if not success:
+            logger.error(f"Failed to delete organization {organization_id}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete organization")
+        
+        logger.info(f"Organization {organization_id} deleted successfully by user {current_admin_user.email}")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting organization {organization_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")

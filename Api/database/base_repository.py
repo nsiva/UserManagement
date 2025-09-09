@@ -102,29 +102,28 @@ class BaseRepository(ABC):
         """Mark reset token as used."""
         pass
     
-    # Firm Management
+    # Organization Management
     @abstractmethod
-    async def create_firm(self, firm_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a new firm."""
+    async def create_organization(self, organization_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new organization."""
         pass
     
     @abstractmethod
-    async def get_firm_by_id(self, firm_id: UUID) -> Optional[Dict[str, Any]]:
-        """Get firm by ID."""
-        pass
-    
-    
-    @abstractmethod
-    async def get_all_firms(self) -> List[Dict[str, Any]]:
-        """Get all firms."""
+    async def get_organization_by_id(self, organization_id: UUID) -> Optional[Dict[str, Any]]:
+        """Get organization by ID."""
         pass
     
     @abstractmethod
-    async def update_firm(self, firm_id: UUID, update_data: Dict[str, Any]) -> bool:
-        """Update firm. Returns True if successful."""
+    async def get_all_organizations(self) -> List[Dict[str, Any]]:
+        """Get all organizations."""
         pass
     
     @abstractmethod
-    async def delete_firm(self, firm_id: UUID) -> bool:
-        """Delete firm. Returns True if successful."""
+    async def update_organization(self, organization_id: UUID, update_data: Dict[str, Any]) -> bool:
+        """Update organization. Returns True if successful."""
+        pass
+    
+    @abstractmethod
+    async def delete_organization(self, organization_id: UUID) -> bool:
+        """Delete organization. Returns True if successful."""
         pass
