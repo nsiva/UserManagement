@@ -2,11 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Optional
 from uuid import UUID
 import logging
+from pydantic import ValidationError
 
 from database import get_repository
 from organization import OrganizationCreate, OrganizationUpdate, OrganizationResponse
 from models import TokenData
 from routers.auth import get_current_user
+from validators.organization_validator import OrganizationValidator, OrganizationValidationError
 
 organizations_router = APIRouter(prefix="/organizations", tags=["organizations"])
 logger = logging.getLogger("organizations")
@@ -41,7 +43,22 @@ async def create_organization(
         # Create organization data dict
         organization_dict = organization_data.dict()
         
-        created_organization = await repo.create_organization(organization_dict)
+        # Additional custom validation using our validator
+        try:
+            validated_data = OrganizationValidator.validate_for_create(organization_dict)
+        except OrganizationValidationError as validation_error:
+            logger.warning(f"Organization validation failed: {validation_error.errors}")
+            # Format validation errors for user-friendly response
+            error_messages = []
+            for field, errors in validation_error.errors.items():
+                error_messages.extend([f"{field}: {error}" for error in errors])
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, 
+                detail={"message": "Validation failed", "errors": validation_error.errors}
+            )
+        
+        # Use validated data for creation
+        created_organization = await repo.create_organization(validated_data)
         if not created_organization:
             logger.error(f"Failed to create organization: {organization_data.company_name}")
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create organization")
@@ -119,7 +136,17 @@ async def update_organization(
         if not update_dict:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid fields provided for update")
         
-        success = await repo.update_organization(organization_id, update_dict)
+        # Additional custom validation using our validator
+        try:
+            validated_data = OrganizationValidator.validate_for_update(update_dict)
+        except OrganizationValidationError as validation_error:
+            logger.warning(f"Organization update validation failed: {validation_error.errors}")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, 
+                detail={"message": "Validation failed", "errors": validation_error.errors}
+            )
+        
+        success = await repo.update_organization(organization_id, validated_data)
         if not success:
             logger.error(f"Failed to update organization {organization_id}")
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update organization")

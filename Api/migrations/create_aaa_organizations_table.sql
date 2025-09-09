@@ -2,14 +2,14 @@
 CREATE TABLE aaa_organizations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     company_name TEXT NOT NULL,
-    address_1 TEXT,
+    address_1 TEXT NOT NULL,
     address_2 TEXT,
     city_town TEXT,
-    state TEXT,
-    zip TEXT,
-    country TEXT,
-    email TEXT,
-    phone_number TEXT,
+    state TEXT NOT NULL,
+    zip TEXT NOT NULL,
+    country TEXT NOT NULL,
+    email TEXT NOT NULL,
+    phone_number TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

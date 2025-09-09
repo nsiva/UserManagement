@@ -2,22 +2,7 @@ import { Component, OnInit, HostListener } from '@angular/core';
 import { AuthService } from '../../services/auth';
 import { UserService, User, UserCreate, UserUpdate, Role, RoleCreate, RoleUpdate } from '../../services/user';
 import { UserProfileService } from '../../services/user-profile.service';
-
-// Organization interface
-export interface Organization {
-  id: string;
-  company_name: string;
-  address_1?: string;
-  address_2?: string;
-  city_town?: string;
-  state?: string;
-  zip?: string;
-  country?: string;
-  email?: string;
-  phone_number?: string;
-  created_at: string;
-  updated_at?: string;
-}
+import { OrganizationService, Organization, OrganizationCreate, OrganizationUpdate } from '../../services/organization';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
@@ -87,6 +72,7 @@ export class AdminDashboardComponent implements OnInit {
     private authService: AuthService,
     private userService: UserService,
     private userProfileService: UserProfileService,
+    private organizationService: OrganizationService,
     private fb: FormBuilder,
     private router: Router
   ) {
@@ -471,26 +457,80 @@ export class AdminDashboardComponent implements OnInit {
     }
   }
 
+  // --- Role Checking ---
+  hasAdminOrSuperUserRole(): boolean {
+    const roles = this.authService.getUserRoles();
+    return roles.includes('admin') || roles.includes('super_user');
+  }
+
   // --- Organizations Management ---
   loadOrganizations(): void {
-    // TODO: Implement organization service call
-    // This is a placeholder - you'll need to create an OrganizationService
-    this.organizations = [];
+    this.organizationService.getOrganizations().subscribe({
+      next: (data) => {
+        this.organizations = data;
+      },
+      error: (err: HttpErrorResponse) => {
+        this.showError(err.error.detail || 'Failed to load organizations.');
+        console.error('Error loading organizations:', err);
+      }
+    });
   }
 
   navigateToCreateOrganization(): void {
-    // TODO: Implement navigation to create organization page
-    console.log('Navigate to create organization');
+    this.router.navigate(['/admin/create-firm']);
+  }
+
+  createOrganization(organizationData: OrganizationCreate): void {
+    this.organizationService.createOrganization(organizationData).subscribe({
+      next: (createdOrganization) => {
+        this.showSuccess('Organization created successfully!');
+        this.loadOrganizations(); // Refresh the list
+      },
+      error: (err: HttpErrorResponse) => {
+        this.showError(err.error.detail || 'Failed to create organization.');
+        console.error('Error creating organization:', err);
+      }
+    });
   }
 
   editOrganization(org: Organization): void {
-    // TODO: Implement organization editing
-    console.log('Edit organization:', org);
+    this.router.navigate(['/admin/edit-firm', org.id]);
+  }
+
+  updateOrganization(organizationId: string, organizationData: OrganizationUpdate): void {
+    this.organizationService.updateOrganization(organizationId, organizationData).subscribe({
+      next: (updatedOrganization) => {
+        this.showSuccess('Organization updated successfully!');
+        this.loadOrganizations(); // Refresh the list
+      },
+      error: (err: HttpErrorResponse) => {
+        this.showError(err.error.detail || 'Failed to update organization.');
+        console.error('Error updating organization:', err);
+      }
+    });
   }
 
   deleteOrganization(orgId: string): void {
-    // TODO: Implement organization deletion
-    console.log('Delete organization:', orgId);
+    const organization = this.organizations.find(org => org.id === orgId);
+    const orgName = organization?.company_name || 'this organization';
+    
+    this.showConfirm(
+      'Delete Organization',
+      `Are you sure you want to delete "${orgName}"? This action cannot be undone.`,
+      'Delete',
+      () => {
+        this.organizationService.deleteOrganization(orgId).subscribe({
+          next: () => {
+            this.showSuccess('Organization deleted successfully!');
+            this.loadOrganizations(); // Refresh the list
+          },
+          error: (err: HttpErrorResponse) => {
+            this.showError(err.error.detail || 'Failed to delete organization.');
+            console.error('Error deleting organization:', err);
+          }
+        });
+      }
+    );
   }
 }
 

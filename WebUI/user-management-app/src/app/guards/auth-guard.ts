@@ -15,6 +15,7 @@ export class AuthGuard implements CanActivate {
     state: RouterStateSnapshot): Observable<boolean | UrlTree> | Promise<boolean | UrlTree> | boolean | UrlTree {
 
     const requiredRoles = route.data['roles'] as Array<string>;
+    const currentPath = state.url;
 
     // Step 2: AuthGuard checks session using AuthService.isLoggedIn()
     if (this.authService.isLoggedIn()) {

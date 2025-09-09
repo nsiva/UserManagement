@@ -7,5 +7,8 @@ export const API_PATHS = {
   forgotPassword: '/auth/forgot-password',
   verifyResetToken: '/auth/verify-reset-token',
   setNewPassword: '/auth/set-new-password',
+  // Organization endpoints
+  organizations: '/organizations',
+  organizationById: (id: string) => `/organizations/${id}`,
   // Add other endpoints as needed
 };
