@@ -477,7 +477,7 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   navigateToCreateOrganization(): void {
-    this.router.navigate(['/admin/create-firm']);
+    this.router.navigate(['/admin/create-organization']);
   }
 
   createOrganization(organizationData: OrganizationCreate): void {
@@ -494,7 +494,7 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   editOrganization(org: Organization): void {
-    this.router.navigate(['/admin/edit-firm', org.id]);
+    this.router.navigate(['/admin/edit-organization', org.id]);
   }
 
   updateOrganization(organizationId: string, organizationData: OrganizationUpdate): void {
