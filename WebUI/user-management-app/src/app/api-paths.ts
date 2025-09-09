@@ -10,5 +10,9 @@ export const API_PATHS = {
   // Organization endpoints
   organizations: '/organizations',
   organizationById: (id: string) => `/organizations/${id}`,
+  // Business Unit endpoints
+  businessUnits: '/business-units',
+  businessUnitById: (id: string) => `/business-units/${id}`,
+  businessUnitHierarchy: (organizationId: string) => `/business-units/hierarchy/${organizationId}`,
   // Add other endpoints as needed
 };

@@ -9,6 +9,7 @@ from routers.admin import admin_router
 from dotenv import load_dotenv
 from routers.profiles import profiles_router # <-- ADD THIS LINE
 from routers.organizations import organizations_router
+from routers.business_units import router as business_units_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -41,6 +42,7 @@ try:
     app.include_router(admin_router)
     app.include_router(profiles_router)
     app.include_router(organizations_router)
+    app.include_router(business_units_router)
     logger.info("Routers included successfully.")
 except Exception as e:
     logger.error(f"Error including routers: {e}")

@@ -127,3 +127,44 @@ class BaseRepository(ABC):
     async def delete_organization(self, organization_id: UUID) -> bool:
         """Delete organization. Returns True if successful."""
         pass
+    
+    # Business Unit Management
+    @abstractmethod
+    async def create_business_unit(self, business_unit_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new business unit."""
+        pass
+    
+    @abstractmethod
+    async def get_business_unit_by_id(self, business_unit_id: UUID) -> Optional[Dict[str, Any]]:
+        """Get business unit by ID."""
+        pass
+    
+    @abstractmethod
+    async def get_business_units_by_organization(self, organization_id: UUID) -> List[Dict[str, Any]]:
+        """Get all business units for an organization."""
+        pass
+    
+    @abstractmethod
+    async def get_all_business_units(self) -> List[Dict[str, Any]]:
+        """Get all business units."""
+        pass
+    
+    @abstractmethod
+    async def update_business_unit(self, business_unit_id: UUID, update_data: Dict[str, Any]) -> bool:
+        """Update business unit. Returns True if successful."""
+        pass
+    
+    @abstractmethod
+    async def delete_business_unit(self, business_unit_id: UUID) -> bool:
+        """Delete business unit. Returns True if successful."""
+        pass
+    
+    @abstractmethod
+    async def get_business_unit_hierarchy(self, organization_id: UUID, parent_id: Optional[UUID] = None) -> List[Dict[str, Any]]:
+        """Get business unit hierarchy for an organization."""
+        pass
+    
+    @abstractmethod
+    async def validate_business_unit_hierarchy(self, business_unit_id: UUID, parent_unit_id: UUID) -> bool:
+        """Validate that parent-child relationship doesn't create circular dependency."""
+        pass

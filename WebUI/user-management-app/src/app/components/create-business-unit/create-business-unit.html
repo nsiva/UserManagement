@@ -1,0 +1,222 @@
+<div class="min-h-screen bg-theme-background flex flex-col">
+  <app-header 
+    [config]="headerConfig"
+    (profileClick)="navigateToProfile()"
+    (adminClick)="navigateToAdmin()"
+    (logoutClick)="logout()">
+  </app-header>
+
+  <main class="flex-grow p-6">
+    <app-alert 
+      [message]="alertMessage" 
+      [type]="alertType"
+      (dismissed)="onAlertDismissed()">
+    </app-alert>
+
+    <div class="bg-theme-surface rounded-lg shadow-md p-6 max-w-4xl mx-auto border border-theme-border">
+      <h3 class="text-xl font-semibold text-theme-text mb-6">{{ isEditMode ? 'Edit Business Unit' : 'Create New Business Unit' }}</h3>
+      
+      <!-- Loading indicator -->
+      <div *ngIf="isLoading" class="flex justify-center items-center py-8">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <span class="ml-3 text-gray-600">Loading business unit data...</span>
+      </div>
+      
+      <form *ngIf="!isLoading" [formGroup]="businessUnitForm" (ngSubmit)="onSubmit()" class="space-y-6" autocomplete="off">
+        <!-- Organization Selection Section -->
+        <div class="border-b border-theme-border pb-6">
+          <h4 class="text-lg font-medium text-theme-text mb-4">Organization Information</h4>
+          <div>
+            <label for="organization_id" class="block text-sm font-medium text-theme-text-secondary mb-1">
+              Organization <span class="text-theme-error">*</span>
+            </label>
+            <select 
+              id="organization_id" 
+              formControlName="organization_id"
+              class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+              [class.border-theme-error]="isFieldInvalid('organization_id')"
+              (change)="onOrganizationChange()"
+            >
+              <option value="">Select Organization</option>
+              <option *ngFor="let org of availableOrganizations" [value]="org.id">{{ org.company_name }}</option>
+            </select>
+            <div *ngIf="isFieldInvalid('organization_id')" class="text-theme-error text-xs mt-1">
+              {{ getFieldError('organization_id') }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Basic Information Section -->
+        <div class="border-b border-theme-border pb-6">
+          <h4 class="text-lg font-medium text-theme-text mb-4">Basic Information</h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="md:col-span-2">
+              <label for="name" class="block text-sm font-medium text-theme-text-secondary">Business Unit Name *</label>
+              <input type="text" id="name" formControlName="name"
+                     class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+                     [ngClass]="{'border-theme-error': isFieldInvalid('name')}"
+                     placeholder="Enter business unit name">
+              <div *ngIf="isFieldInvalid('name')" class="text-theme-error text-xs mt-1">
+                {{ getFieldError('name') }}
+              </div>
+            </div>
+
+            <div>
+              <label for="code" class="block text-sm font-medium text-theme-text-secondary">Internal Code</label>
+              <input type="text" id="code" formControlName="code"
+                     class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+                     [ngClass]="{'border-theme-error': isFieldInvalid('code')}"
+                     placeholder="e.g., SALES_001">
+              <div *ngIf="isFieldInvalid('code')" class="text-theme-error text-xs mt-1">
+                {{ getFieldError('code') }}
+              </div>
+            </div>
+
+            <div>
+              <label for="parent_unit_id" class="block text-sm font-medium text-theme-text-secondary">Parent Business Unit</label>
+              <select 
+                id="parent_unit_id" 
+                formControlName="parent_unit_id"
+                class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+                [disabled]="!selectedOrganizationId"
+              >
+                <option value="">No Parent Unit (Root Level)</option>
+                <option *ngFor="let unit of availableParentUnits" [value]="unit.id">{{ unit.name }}</option>
+              </select>
+              <div *ngIf="!selectedOrganizationId" class="text-theme-text-muted text-xs mt-1">
+                Select an organization first to see available parent units.
+              </div>
+            </div>
+
+            <div class="md:col-span-2">
+              <label for="description" class="block text-sm font-medium text-theme-text-secondary">Description</label>
+              <textarea 
+                id="description" 
+                formControlName="description"
+                rows="3"
+                class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+                [ngClass]="{'border-theme-error': isFieldInvalid('description')}"
+                placeholder="Enter business unit description (optional)">
+              </textarea>
+              <div *ngIf="isFieldInvalid('description')" class="text-theme-error text-xs mt-1">
+                {{ getFieldError('description') }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Management Information Section -->
+        <div class="border-b border-theme-border pb-6">
+          <h4 class="text-lg font-medium text-theme-text mb-4">Management Information</h4>
+          <div>
+            <label for="manager_id" class="block text-sm font-medium text-theme-text-secondary">Manager</label>
+            <select 
+              id="manager_id" 
+              formControlName="manager_id"
+              class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+            >
+              <option value="">No Manager Assigned</option>
+              <option *ngFor="let user of availableManagers" [value]="user.id">
+                {{ user.first_name && user.last_name ? (user.first_name + ' ' + user.last_name) : user.email }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Location Information Section -->
+        <div class="border-b border-theme-border pb-6">
+          <h4 class="text-lg font-medium text-theme-text mb-4">Location Information</h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="md:col-span-2">
+              <label for="location" class="block text-sm font-medium text-theme-text-secondary">Location</label>
+              <input type="text" id="location" formControlName="location"
+                     class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+                     placeholder="Physical location or address">
+            </div>
+            
+            <div>
+              <label for="country" class="block text-sm font-medium text-theme-text-secondary">Country</label>
+              <input type="text" id="country" formControlName="country"
+                     class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+                     [ngClass]="{'border-theme-error': isFieldInvalid('country')}"
+                     placeholder="Operating country">
+              <div *ngIf="isFieldInvalid('country')" class="text-theme-error text-xs mt-1">
+                {{ getFieldError('country') }}
+              </div>
+            </div>
+            
+            <div>
+              <label for="region" class="block text-sm font-medium text-theme-text-secondary">Region</label>
+              <input type="text" id="region" formControlName="region"
+                     class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+                     placeholder="Operating region or territory">
+            </div>
+          </div>
+        </div>
+
+        <!-- Contact Information Section -->
+        <div class="border-b border-theme-border pb-6">
+          <h4 class="text-lg font-medium text-theme-text mb-4">Contact Information</h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="email" class="block text-sm font-medium text-theme-text-secondary">Email</label>
+              <input type="email" id="email" formControlName="email"
+                     class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+                     [ngClass]="{'border-theme-error': isFieldInvalid('email')}"
+                     placeholder="contact@example.com">
+              <div *ngIf="isFieldInvalid('email')" class="text-theme-error text-xs mt-1">
+                {{ getFieldError('email') }}
+              </div>
+            </div>
+            
+            <div>
+              <label for="phone_number" class="block text-sm font-medium text-theme-text-secondary">Phone Number</label>
+              <input type="tel" id="phone_number" formControlName="phone_number"
+                     class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+                     [ngClass]="{'border-theme-error': isFieldInvalid('phone_number')}"
+                     placeholder="+1 (555) 123-4567">
+              <div *ngIf="isFieldInvalid('phone_number')" class="text-theme-error text-xs mt-1">
+                {{ getFieldError('phone_number') }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Status Information Section -->
+        <div>
+          <h4 class="text-lg font-medium text-theme-text mb-4">Status</h4>
+          <div class="flex items-center">
+            <input 
+              type="checkbox" 
+              id="is_active" 
+              formControlName="is_active"
+              class="h-4 w-4 text-theme-primary focus:ring-theme-primary border-theme-border rounded"
+            />
+            <label for="is_active" class="ml-2 block text-sm text-theme-text">
+              Active (business unit is operational)
+            </label>
+          </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="flex justify-end space-x-3 pt-6 border-t border-theme-border">
+          <button type="button" (click)="navigateToAdmin()" 
+                  class="px-4 py-2 border border-theme-border rounded-md shadow-sm text-sm font-medium text-theme-text bg-theme-background hover:bg-theme-surface-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-theme-primary transition-colors">
+            Cancel
+          </button>
+          <button type="submit" [disabled]="businessUnitForm.invalid || isSubmitting"
+                  class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-theme-primary-text bg-theme-primary hover:bg-theme-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-theme-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+            <span *ngIf="isSubmitting" class="inline-flex items-center">
+              <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-theme-primary-text" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {{ isEditMode ? 'Updating...' : 'Creating...' }}
+            </span>
+            <span *ngIf="!isSubmitting">{{ isEditMode ? 'Update Business Unit' : 'Create Business Unit' }}</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </main>
+</div>

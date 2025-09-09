@@ -4,6 +4,7 @@ import { LoginComponent } from './components/login/login';
 import { AdminDashboardComponent } from './components/admin-dashboard/admin-dashboard';
 import { UserFormComponent } from './components/user-form/user-form';
 import { CreateOrganizationComponent } from './components/create-organization/create-organization';
+import { CreateBusinessUnitComponent } from './components/create-business-unit/create-business-unit';
 import { AuthGuard } from './guards/auth-guard';
 import { MfaComponent } from './components/mfa/mfa';
 import { ProfileComponent } from './components/profile/profile';
@@ -20,6 +21,8 @@ export const routes: Routes = [
   { path: 'admin/edit-user/:id', component: UserFormComponent, canActivate: [AuthGuard], data: { roles: ['admin'] } },
   { path: 'admin/create-organization', component: CreateOrganizationComponent, canActivate: [AuthGuard] },
   { path: 'admin/edit-organization/:id', component: CreateOrganizationComponent, canActivate: [AuthGuard] },
+  { path: 'admin/create-business-unit', component: CreateBusinessUnitComponent, canActivate: [AuthGuard] },
+  { path: 'admin/edit-business-unit/:id', component: CreateBusinessUnitComponent, canActivate: [AuthGuard] },
   { path: '', redirectTo: '/login', pathMatch: 'full' },
   { path: 'profile', component: ProfileComponent, canActivate: [AuthGuard] },
   { path: 'set-mfa', component: SetMfaComponent, canActivate: [AuthGuard] },

@@ -3,6 +3,7 @@ import { AuthService } from '../../services/auth';
 import { UserService, User, UserCreate, UserUpdate, Role, RoleCreate, RoleUpdate } from '../../services/user';
 import { UserProfileService } from '../../services/user-profile.service';
 import { OrganizationService, Organization, OrganizationCreate, OrganizationUpdate } from '../../services/organization';
+import { BusinessUnitService, BusinessUnit, BusinessUnitCreate, BusinessUnitUpdate } from '../../services/business-unit';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
@@ -30,7 +31,7 @@ export class AdminDashboardComponent implements OnInit {
     showUserMenu: true
   };
 
-  activeTab: 'users' | 'organizations' = 'users';
+  activeTab: 'users' | 'organizations' | 'business-units' = 'users';
 
   // User Management
   users: User[] = [];
@@ -48,6 +49,9 @@ export class AdminDashboardComponent implements OnInit {
 
   // Organizations Management
   organizations: Organization[] = [];
+
+  // Business Units Management
+  businessUnits: BusinessUnit[] = [];
 
   // MFA Setup
   showMfaSetupModal = false;
@@ -73,6 +77,7 @@ export class AdminDashboardComponent implements OnInit {
     private userService: UserService,
     private userProfileService: UserProfileService,
     private organizationService: OrganizationService,
+    private businessUnitService: BusinessUnitService,
     private fb: FormBuilder,
     private router: Router
   ) {
@@ -86,6 +91,7 @@ export class AdminDashboardComponent implements OnInit {
     this.roleForm = this.fb.group({
       name: ['', Validators.required]
     });
+
   }
 
   ngOnInit(): void {
@@ -94,12 +100,14 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   // --- General UI ---
-  selectTab(tab: 'users' | 'organizations'): void {
+  selectTab(tab: 'users' | 'organizations' | 'business-units'): void {
     this.activeTab = tab;
     this.alertMessage = null;
     this.resetForms();
     if (tab === 'organizations') {
       this.loadOrganizations();
+    } else if (tab === 'business-units') {
+      this.loadBusinessUnits();
     }
   }
 
@@ -112,6 +120,7 @@ export class AdminDashboardComponent implements OnInit {
     this.roleForm.reset();
     this.isEditModeRole = false;
     this.selectedRoleId = null;
+
   }
 
   showError(message: string): void {
@@ -450,10 +459,12 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   // --- Tab Management ---
-  setActiveTab(tab: 'users' | 'organizations'): void {
+  setActiveTab(tab: 'users' | 'organizations' | 'business-units'): void {
     this.activeTab = tab;
     if (tab === 'organizations') {
       this.loadOrganizations();
+    } else if (tab === 'business-units') {
+      this.loadBusinessUnits();
     }
   }
 
@@ -461,6 +472,12 @@ export class AdminDashboardComponent implements OnInit {
   hasAdminOrSuperUserRole(): boolean {
     const roles = this.authService.getUserRoles();
     return roles.includes('admin') || roles.includes('super_user');
+  }
+
+  hasBusinessUnitAccess(): boolean {
+    const roles = this.authService.getUserRoles();
+    return roles.includes('admin') || roles.includes('super_user') || 
+           roles.includes('firm_admin') || roles.includes('group_admin');
   }
 
   // --- Organizations Management ---
@@ -532,6 +549,76 @@ export class AdminDashboardComponent implements OnInit {
       }
     );
   }
+
+  // --- Business Units Management ---
+  loadBusinessUnits(): void {
+    // Get organization context for firm admins
+    const roles = this.authService.getUserRoles();
+    const userOrgId = roles.includes('firm_admin') ? this.getUserOrganizationId() : null;
+    const organizationId = userOrgId || undefined;
+    
+    this.businessUnitService.getBusinessUnits(organizationId).subscribe({
+      next: (response) => {
+        this.businessUnits = response.business_units;
+      },
+      error: (err: HttpErrorResponse) => {
+        this.showError(err.error.detail || 'Failed to load business units.');
+        console.error('Error loading business units:', err);
+      }
+    });
+  }
+
+
+  getUserOrganizationId(): string | null {
+    // This would need to be implemented based on how user's organization is stored
+    // For now, returning null - implement based on your user profile structure
+    return null;
+  }
+
+  navigateToCreateBusinessUnit(): void {
+    this.router.navigate(['/admin/create-business-unit']);
+  }
+
+  navigateToEditBusinessUnit(businessUnit: BusinessUnit): void {
+    this.router.navigate(['/admin/edit-business-unit', businessUnit.id]);
+  }
+
+
+  deleteBusinessUnit(businessUnitId: string): void {
+    const businessUnit = this.businessUnits.find(unit => unit.id === businessUnitId);
+    const unitName = businessUnit?.name || 'this business unit';
+    
+    this.showConfirm(
+      'Delete Business Unit',
+      `Are you sure you want to delete "${unitName}"? This action cannot be undone and may affect child business units.`,
+      'Delete',
+      () => {
+        this.businessUnitService.deleteBusinessUnit(businessUnitId).subscribe({
+          next: () => {
+            this.showSuccess('Business unit deleted successfully!');
+            this.loadBusinessUnits();
+          },
+          error: (err: HttpErrorResponse) => {
+            let errorMessage = 'Failed to delete business unit.';
+            
+            if (err.status === 400) {
+              errorMessage = err.error?.detail || 'Cannot delete business unit that has child units. Delete or reassign child units first.';
+            } else if (err.status === 404) {
+              errorMessage = 'Business unit not found.';
+            } else if (err.status === 403) {
+              errorMessage = err.error?.detail || 'You do not have permission to delete this business unit.';
+            } else if (err.error?.detail) {
+              errorMessage = err.error.detail;
+            }
+            
+            this.showError(errorMessage);
+            console.error('Error deleting business unit:', err);
+          }
+        });
+      }
+    );
+  }
+
 }
 
 @NgModule({
