@@ -518,8 +518,16 @@ class PostgresRepository(BaseRepository):
             try:
                 update_data['updated_at'] = datetime.now(timezone.utc)
                 
+                # Debug logging for is_active field
+                if 'is_active' in update_data:
+                    logger.info(f"Updating business unit {business_unit_id} - is_active value: {update_data['is_active']} (type: {type(update_data['is_active'])})")
+                
                 set_clauses = ', '.join(f"{key} = ${i+2}" for i, key in enumerate(update_data.keys()))
                 values = [str(business_unit_id)] + list(update_data.values())
+                
+                # Debug logging for SQL values
+                logger.info(f"SQL Query: UPDATE aaa_business_units SET {set_clauses} WHERE id = $1")
+                logger.info(f"SQL Values: {values}")
                 
                 query = f"UPDATE aaa_business_units SET {set_clauses} WHERE id = $1"
                 result = await conn.execute(query, *values)

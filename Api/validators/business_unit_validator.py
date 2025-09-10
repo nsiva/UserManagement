@@ -84,6 +84,22 @@ class BusinessUnitValidator:
                 errors.setdefault(field_name, []).append(f"{field_name} is required.")
                 continue
             
+            # Special handling for boolean fields (False is a valid value, not "empty")
+            if field_name == 'is_active':
+                if value is not None:  # Process if explicitly provided (including False)
+                    field_errors = cls._validate_field(field_name, value, constraints)
+                    if field_errors:
+                        errors[field_name] = field_errors
+                    else:
+                        cleaned_data[field_name] = cls._clean_field(field_name, value)
+                elif is_update:
+                    # For updates, skip if not provided
+                    continue
+                else:
+                    # For creates, use default value if not provided
+                    cleaned_data[field_name] = True
+                continue
+            
             # Skip validation for empty optional fields in updates
             if is_update and not value and not constraints['required']:
                 continue
@@ -127,8 +143,20 @@ class BusinessUnitValidator:
         
         # Handle boolean fields
         if field_name == 'is_active':
-            if not isinstance(value, bool):
-                errors.append("is_active must be true or false.")
+            # More strict boolean validation
+            if value is None:
+                errors.append("is_active cannot be null.")
+            elif not isinstance(value, bool):
+                # Try to convert string values
+                if isinstance(value, str):
+                    if value.lower() in ['true', '1', 'yes']:
+                        value = True
+                    elif value.lower() in ['false', '0', 'no']:
+                        value = False
+                    else:
+                        errors.append("is_active must be true or false.")
+                else:
+                    errors.append("is_active must be true or false.")
             return errors
         
         # Convert to string and strip whitespace for text fields
@@ -182,6 +210,15 @@ class BusinessUnitValidator:
         
         # Handle boolean fields
         if field_name == 'is_active':
+            # Explicit boolean handling to ensure correct values
+            if isinstance(value, bool):
+                return value
+            elif isinstance(value, str):
+                if value.lower() in ['true', '1', 'yes']:
+                    return True
+                elif value.lower() in ['false', '0', 'no']:
+                    return False
+            # If we get here, value should already be validated as boolean
             return bool(value)
         
         # Handle text fields

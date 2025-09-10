@@ -481,6 +481,11 @@ async def update_business_unit(
         # Convert update model to dict
         update_data = business_unit_update.model_dump(exclude_unset=True)
         
+        # Debug logging for received data
+        logger.info(f"Business unit update received - data: {update_data}")
+        if 'is_active' in update_data:
+            logger.info(f"is_active field received: {update_data['is_active']} (type: {type(update_data['is_active'])})")
+        
         # Add audit fields
         if current_user:
             user_id = current_user.user_id if hasattr(current_user, 'user_id') else None
@@ -492,6 +497,11 @@ async def update_business_unit(
             update_data,
             organization_context=organization_context
         )
+        
+        # Debug logging for validated data
+        logger.info(f"Business unit update validated - data: {validated_data}")
+        if 'is_active' in validated_data:
+            logger.info(f"is_active field after validation: {validated_data['is_active']} (type: {type(validated_data['is_active'])})")
         
         # Validate parent-child hierarchy if parent is being changed
         if 'parent_unit_id' in validated_data and validated_data['parent_unit_id']:

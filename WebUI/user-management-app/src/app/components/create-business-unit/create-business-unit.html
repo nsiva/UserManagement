@@ -189,7 +189,8 @@
             <input 
               type="checkbox" 
               id="is_active" 
-              formControlName="is_active"
+              [checked]="businessUnitForm.get('is_active')?.value"
+              (change)="onActiveStatusChange($event)"
               class="h-4 w-4 text-theme-primary focus:ring-theme-primary border-theme-border rounded"
             />
             <label for="is_active" class="ml-2 block text-sm text-theme-text">

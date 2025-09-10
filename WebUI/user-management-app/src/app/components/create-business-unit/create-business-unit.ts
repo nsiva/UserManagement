@@ -139,7 +139,7 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
       region: ['', [Validators.maxLength(100)]],
       email: ['', [CreateBusinessUnitComponent.emailValidator, Validators.maxLength(255)]],
       phone_number: ['', [CreateBusinessUnitComponent.phoneValidator, Validators.maxLength(50)]],
-      is_active: [true]
+      is_active: [true, [Validators.required]]
     });
   }
 
@@ -331,7 +331,20 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
     this.availableParentUnits = [];
     
     // Reset form
-    this.businessUnitForm.reset();
+    this.businessUnitForm.reset({
+      organization_id: '',
+      name: '',
+      parent_unit_id: '',
+      code: '',
+      description: '',
+      manager_id: '',
+      location: '',
+      country: '',
+      region: '',
+      email: '',
+      phone_number: '',
+      is_active: true
+    });
     this.businessUnitForm.markAsPristine();
     this.businessUnitForm.markAsUntouched();
   }
@@ -357,6 +370,19 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
     this.alertMessage = null;
 
     const formData = this.businessUnitForm.value;
+    console.log('=== FORM DATA DEBUG ===');
+    console.log('Raw form data:', formData);
+    console.log('is_active raw value:', formData.is_active);
+    console.log('is_active type:', typeof formData.is_active);
+    console.log('is_active === true:', formData.is_active === true);
+    console.log('is_active === false:', formData.is_active === false);
+    console.log('is_active === null:', formData.is_active === null);
+    console.log('is_active === undefined:', formData.is_active === undefined);
+    
+    const convertedBoolean = this.ensureBoolean(formData.is_active);
+    console.log('Converted boolean value:', convertedBoolean);
+    console.log('=====================');
+    
     const businessUnitData = {
       organization_id: formData.organization_id,
       name: formData.name.trim(),
@@ -369,8 +395,10 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
       region: formData.region ? formData.region.trim() : undefined,
       email: formData.email ? formData.email.trim() : undefined,
       phone_number: formData.phone_number ? formData.phone_number.trim() : undefined,
-      is_active: formData.is_active
+      is_active: convertedBoolean
     };
+    
+    console.log('Final business unit data being sent:', businessUnitData);
 
     if (this.isEditMode && this.businessUnitId) {
       // Edit mode - update existing business unit
@@ -452,6 +480,21 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
     this.alertMessage = null;
   }
 
+  onActiveStatusChange(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    const isChecked = target.checked;
+    console.log('=== CHECKBOX CHANGE EVENT ===');
+    console.log('Checkbox state:', isChecked);
+    console.log('Event target:', target);
+    
+    // Explicitly set the form control value
+    this.businessUnitForm.get('is_active')?.setValue(isChecked);
+    
+    console.log('Form control value after update:', this.businessUnitForm.get('is_active')?.value);
+    console.log('Form control value type:', typeof this.businessUnitForm.get('is_active')?.value);
+    console.log('============================');
+  }
+
   // Header event handlers
   navigateToProfile(): void {
     this.router.navigate(['/profile']);
@@ -527,5 +570,23 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
       is_active: 'Active Status'
     };
     return labels[fieldName] || fieldName;
+  }
+
+  /**
+   * Ensures a value is converted to a proper boolean
+   * Handles null, undefined, and string values properly
+   */
+  private ensureBoolean(value: any): boolean {
+    if (value === null || value === undefined) {
+      return false;
+    }
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    if (typeof value === 'string') {
+      return value.toLowerCase() === 'true';
+    }
+    // For any other type, convert to boolean
+    return Boolean(value);
   }
 }
