@@ -575,12 +575,8 @@ export class AdminDashboardComponent implements OnInit {
 
   // --- Business Units Management ---
   loadBusinessUnits(): void {
-    // Get organization context for firm admins
-    const roles = this.authService.getUserRoles();
-    const userOrgId = roles.includes('firm_admin') ? this.getUserOrganizationId() : null;
-    const organizationId = userOrgId || undefined;
-    
-    this.businessUnitService.getBusinessUnits(organizationId).subscribe({
+    // Backend now handles organizational filtering based on user role
+    this.businessUnitService.getBusinessUnits().subscribe({
       next: (response) => {
         this.businessUnits = response.business_units;
       },
@@ -589,13 +585,6 @@ export class AdminDashboardComponent implements OnInit {
         console.error('Error loading business units:', err);
       }
     });
-  }
-
-
-  getUserOrganizationId(): string | null {
-    // This would need to be implemented based on how user's organization is stored
-    // For now, returning null - implement based on your user profile structure
-    return null;
   }
 
   navigateToCreateBusinessUnit(): void {

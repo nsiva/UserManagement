@@ -55,6 +55,7 @@ class UserCreate(UserBase):
     password: str
     is_admin: Optional[bool] = False
     roles: Optional[List[str]] = [] # Roles by name
+    business_unit_id: Optional[UUID] = None  # Optional for backward compatibility
 
 class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
@@ -64,6 +65,7 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
     is_admin: Optional[bool] = None
     roles: Optional[List[str]] = None # Roles by name
+    business_unit_id: Optional[UUID] = None  # Optional business unit change
 
 class UserInDB(UserBase):
     id: UUID
@@ -81,6 +83,24 @@ class UserWithRoles(UserBase):
     is_admin: bool
     roles: List[str] # List of role names
     mfa_enabled: bool = False  # Indicates whether MFA is set up
+    
+    # Business Unit Information
+    business_unit_id: Optional[UUID] = None  # Current business unit assignment
+    business_unit_name: Optional[str] = None  # Business unit name for display
+    business_unit_code: Optional[str] = None  # Business unit code
+    business_unit_location: Optional[str] = None  # Business unit location
+    
+    # Organization Information
+    organization_id: Optional[UUID] = None  # Organization ID
+    organization_name: Optional[str] = None  # Organization name for display
+    organization_city: Optional[str] = None  # Organization city
+    organization_country: Optional[str] = None  # Organization country
+    
+    # Manager Information (if available)
+    business_unit_manager_name: Optional[str] = None  # Business unit manager name
+    
+    # Parent Business Unit (if available)
+    parent_business_unit_name: Optional[str] = None  # Parent business unit name
 
     class Config:
         from_attributes = True

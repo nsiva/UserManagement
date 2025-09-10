@@ -66,6 +66,15 @@ async def create_user(
             logger.warning(f"Attempt to create user with existing email: {user_data.email}")
             raise DuplicateEmailError(user_data.email)
         
+        # Validate business unit exists (if provided)
+        if user_data.business_unit_id:
+            if not await repo.validate_business_unit_exists(user_data.business_unit_id):
+                logger.warning(f"Invalid business unit ID: {user_data.business_unit_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, 
+                    detail="Invalid business unit ID. Business unit does not exist or is inactive."
+                )
+        
         # Generate UUID for new user
         import uuid
         user_id = str(uuid.uuid4())
@@ -88,6 +97,16 @@ async def create_user(
         if not created_user:
             logger.error(f"Failed to create user profile for email: {user_data.email}")
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create user profile.")
+        
+        # Assign user to business unit
+        assigned_by = UUID(current_admin_user.user_id) if current_admin_user else None
+        assignment_success = await repo.assign_user_to_business_unit(
+            UUID(user_id), user_data.business_unit_id, assigned_by
+        )
+        if not assignment_success:
+            logger.error(f"Failed to assign user {user_id} to business unit {user_data.business_unit_id}")
+            # Note: User was created but business unit assignment failed
+            # In a production system, you might want to rollback the user creation
     except HTTPException:
         raise
     except UserManagementError as e:
@@ -113,7 +132,14 @@ async def create_user(
         await assign_roles_to_user_by_names(user_id, user_data.roles)
 
     roles = await get_user_roles(str(user_id))
+    
+    # Get business unit info for response
+    business_unit_info = await repo.get_user_business_unit(UUID(user_id))
+    
     logger.info(f"User created: {user_data.email} with roles: {roles}")
+    # Get organization name for response
+    business_unit_details = await repo.get_business_unit_by_id(user_data.business_unit_id) if business_unit_info else None
+    
     return UserWithRoles(
         id=user_id, 
         email=user_data.email, 
@@ -122,21 +148,64 @@ async def create_user(
         last_name=user_data.last_name,
         is_admin=user_data.is_admin, 
         roles=roles,
-        mfa_enabled=False  # New users don't have MFA setup by default
+        mfa_enabled=False,  # New users don't have MFA setup by default
+        # Business Unit Information
+        business_unit_id=business_unit_info['business_unit_id'] if business_unit_info else None,
+        business_unit_name=business_unit_info['business_unit_name'] if business_unit_info else None,
+        business_unit_code=business_unit_details.get('code') if business_unit_details else None,
+        business_unit_location=business_unit_details.get('location') if business_unit_details else None,
+        # Organization Information
+        organization_id=UUID(business_unit_details['organization_id']) if business_unit_details and business_unit_details.get('organization_id') else None,
+        organization_name=business_unit_details.get('organization_name') if business_unit_details else None,
+        organization_city=None,  # Would need to fetch organization details separately
+        organization_country=None,  # Would need to fetch organization details separately
+        # Additional Information  
+        business_unit_manager_name=business_unit_details.get('manager_name') if business_unit_details else None,
+        parent_business_unit_name=business_unit_details.get('parent_name') if business_unit_details else None
     )
 
 
 @admin_router.get("/users", response_model=List[UserWithRoles])
 async def get_all_users(current_admin_user: TokenData = Depends(get_current_admin_user)):
     """
-    Retrieves all user profiles with their assigned roles. (Admin only)
+    Retrieves user profiles with organizational filtering based on user role.
+    - admin/super_user: See all users
+    - firm_admin: See users in their organization
+    - group_admin: See users in their business unit only
     """
     try:
         repo = get_repository()
-        users_data = await repo.get_all_users()
+        current_user_roles = current_admin_user.roles
+        
+        # Determine filtering based on user role
+        if any(role in current_user_roles for role in ['admin', 'super_user']):
+            # Admin and super_user see all users
+            users_data = await repo.get_all_users()
+            logger.info(f"Admin/Super user {current_admin_user.email} accessing all users")
+        else:
+            # Get current user's organizational context for filtering
+            user_context = await repo.get_user_organizational_context(current_admin_user.user_id)
+            
+            if not user_context:
+                logger.warning(f"No organizational context found for user {current_admin_user.email}")
+                return []
+            
+            if 'firm_admin' in current_user_roles:
+                # Firm admin sees users in their organization
+                users_data = await repo.get_users_by_organization(user_context['organization_id'])
+                logger.info(f"Firm admin {current_admin_user.email} accessing organization {user_context['organization_name']} users")
+            elif 'group_admin' in current_user_roles:
+                # Group admin sees users in their business unit only
+                users_data = await repo.get_users_by_business_unit(user_context['business_unit_id'])
+                logger.info(f"Group admin {current_admin_user.email} accessing business unit {user_context['business_unit_name']} users")
+            else:
+                logger.warning(f"User {current_admin_user.email} with roles {current_user_roles} has no user access permissions")
+                return []
+        
         if not users_data:
-            logger.warning("No users found in profiles table.")
+            logger.info("No users found for current user's scope.")
             return []
+            
         users_with_roles = []
         for user_profile in users_data:
             roles = await get_user_roles(str(user_profile['id']))
@@ -149,14 +218,27 @@ async def get_all_users(current_admin_user: TokenData = Depends(get_current_admi
                 last_name=user_profile.get('last_name'),
                 is_admin=user_profile['is_admin'],
                 roles=roles,
-                mfa_enabled=mfa_enabled
+                mfa_enabled=mfa_enabled,
+                # Business Unit Information
+                business_unit_id=user_profile.get('business_unit_id'),
+                business_unit_name=user_profile.get('business_unit_name'),
+                business_unit_code=user_profile.get('business_unit_code'),
+                business_unit_location=user_profile.get('business_unit_location'),
+                # Organization Information
+                organization_id=user_profile.get('organization_id'),
+                organization_name=user_profile.get('organization_name'),
+                organization_city=user_profile.get('organization_city'),
+                organization_country=user_profile.get('organization_country'),
+                # Additional Information
+                business_unit_manager_name=user_profile.get('business_unit_manager_name'),
+                parent_business_unit_name=user_profile.get('parent_business_unit_name')
             ))
-        logger.info(f"Fetched {len(users_with_roles)} users.")
+        logger.info(f"Fetched {len(users_with_roles)} users for {current_admin_user.email}")
         return users_with_roles
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching all users: {e}", exc_info=True) # Added exc_info for full traceback
+        logger.error(f"Error fetching all users: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
 
 
@@ -171,8 +253,19 @@ async def get_user(user_id: UUID, current_admin_user: TokenData = Depends(get_cu
 @admin_router.put("/users/{user_id}", response_model=UserWithRoles)
 async def update_user(user_id: UUID, user_data: UserUpdate, current_user: TokenData = Depends(get_current_admin_user)):
     """
-    Updates an existing user's details (email, password, admin status, first name, last name, roles). (Admin only)
+    Updates an existing user's details (email, password, admin status, first name, last name, roles, business unit). (Admin only)
     """
+    repo = get_repository()
+    
+    # Validate business unit if provided
+    if user_data.business_unit_id is not None:
+        if not await repo.validate_business_unit_exists(user_data.business_unit_id):
+            logger.warning(f"Invalid business unit ID: {user_data.business_unit_id}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="Invalid business unit ID. Business unit does not exist or is inactive."
+            )
+    
     profile_update_data = {}
     if user_data.email:
         profile_update_data["email"] = user_data.email
@@ -189,7 +282,6 @@ async def update_user(user_id: UUID, user_data: UserUpdate, current_user: TokenD
 
     if profile_update_data:
         try:
-            repo = get_repository()
             success = await repo.update_user(user_id, profile_update_data)
             if not success:
                 logger.error(f"Failed to update user profile for user_id: {user_id}")
@@ -202,6 +294,25 @@ async def update_user(user_id: UUID, user_data: UserUpdate, current_user: TokenD
 
     if user_data.roles is not None: # `is not None` allows passing empty list to clear roles
         await assign_roles_to_user_by_names(user_id, user_data.roles)
+    
+    # Update business unit assignment if provided
+    if user_data.business_unit_id is not None:
+        try:
+            assigned_by = UUID(current_user.user_id)
+            assignment_success = await repo.assign_user_to_business_unit(
+                user_id, user_data.business_unit_id, assigned_by
+            )
+            if not assignment_success:
+                logger.error(f"Failed to update business unit assignment for user {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                    detail="Failed to update business unit assignment."
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Business unit assignment update failed for user_id {user_id}: {e}", exc_info=True)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update business unit assignment.")
 
     logger.info(f"User updated: {user_id}")
     # Call get_user_by_id to return the updated user details
@@ -230,7 +341,20 @@ async def get_user_by_id(user_id: UUID): # Removed unused current_user argument
             last_name=user_profile.get('last_name'),
             is_admin=user_profile['is_admin'], 
             roles=roles,
-            mfa_enabled=mfa_enabled
+            mfa_enabled=mfa_enabled,
+            # Business Unit Information
+            business_unit_id=user_profile.get('business_unit_id'),
+            business_unit_name=user_profile.get('business_unit_name'),
+            business_unit_code=user_profile.get('business_unit_code'),
+            business_unit_location=user_profile.get('business_unit_location'),
+            # Organization Information
+            organization_id=user_profile.get('organization_id'),
+            organization_name=user_profile.get('organization_name'),
+            organization_city=user_profile.get('organization_city'),
+            organization_country=user_profile.get('organization_country'),
+            # Additional Information
+            business_unit_manager_name=user_profile.get('business_unit_manager_name'),
+            parent_business_unit_name=user_profile.get('parent_business_unit_name')
         )
     except HTTPException:
         raise

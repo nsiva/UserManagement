@@ -26,8 +26,8 @@ router = APIRouter(prefix="/business-units", tags=["business-units"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
-def get_user_organization_context(current_user: Optional[Dict[str, Any]], 
-                                current_client: Optional[Dict[str, Any]] = None) -> Optional[UUID]:
+async def get_user_organization_context(current_user: Optional[Dict[str, Any]], 
+                                      current_client: Optional[Dict[str, Any]] = None) -> Optional[UUID]:
     """
     Extract organization context from user or client for access control.
     Returns None if user is admin or super_user with global access.
@@ -36,12 +36,24 @@ def get_user_organization_context(current_user: Optional[Dict[str, Any]],
     if current_user and hasattr(current_user, 'is_admin') and current_user.is_admin:
         return None
     
+    if current_user and hasattr(current_user, 'roles'):
+        user_roles = current_user.roles
+        if any(role in user_roles for role in ['admin', 'super_user']):
+            return None
+    
     if current_client and hasattr(current_client, 'scopes') and 'manage:business_units' in current_client.scopes:
         return None
     
-    # For firm admins, extract organization context
-    # This would be extended based on user-organization relationship implementation
-    # For now, returning None to allow global access - implement org context as needed
+    # For firm_admin and group_admin, get their organizational context
+    if current_user and hasattr(current_user, 'user_id'):
+        try:
+            repo = get_repository()
+            user_context = await repo.get_user_organizational_context(current_user.user_id)
+            if user_context:
+                return UUID(user_context['organization_id'])
+        except Exception as e:
+            logger.warning(f"Failed to get user organizational context: {e}")
+    
     return None
 
 
@@ -149,7 +161,7 @@ async def create_business_unit(
                 )
         
         # Get organization context for validation
-        organization_context = get_user_organization_context(current_user, current_client)
+        organization_context = await get_user_organization_context(current_user, current_client)
         
         # Convert Pydantic model to dict and add metadata
         business_unit_data = business_unit.model_dump(exclude_unset=True)
@@ -262,7 +274,7 @@ async def get_business_unit(
             )
         
         # Check organization context for firm admins
-        organization_context = get_user_organization_context(current_user, current_client)
+        organization_context = await get_user_organization_context(current_user, current_client)
         if organization_context and business_unit['organization_id'] != str(organization_context):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -322,7 +334,7 @@ async def get_business_units(
                 )
         
         # Get organization context for filtering
-        organization_context = get_user_organization_context(current_user, current_client)
+        organization_context = await get_user_organization_context(current_user, current_client)
         
         # If user has organization context (firm_admin), override organization_id filter
         if organization_context:
@@ -399,7 +411,7 @@ async def get_business_unit_hierarchy(
                 )
         
         # Check organization context for firm admins
-        organization_context = get_user_organization_context(current_user, current_client)
+        organization_context = await get_user_organization_context(current_user, current_client)
         if organization_context and organization_id != organization_context:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -469,7 +481,7 @@ async def update_business_unit(
             )
         
         # Get organization context for validation
-        organization_context = get_user_organization_context(current_user, current_client)
+        organization_context = await get_user_organization_context(current_user, current_client)
         
         # Validate organization context if user is restricted
         if organization_context and existing_unit['organization_id'] != organization_context:
@@ -606,7 +618,7 @@ async def delete_business_unit(
             )
         
         # Get organization context for validation
-        organization_context = get_user_organization_context(current_user, current_client)
+        organization_context = await get_user_organization_context(current_user, current_client)
         
         # Validate organization context if user is restricted
         if organization_context and existing_unit['organization_id'] != organization_context:

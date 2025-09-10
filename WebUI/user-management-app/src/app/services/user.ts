@@ -9,9 +9,26 @@ export interface User {
   id: string;
   email: string;
   first_name?: string;
+  middle_name?: string;
   last_name?: string;
   roles: string[];
   mfa_enabled: boolean;
+  
+  // Business Unit Information
+  business_unit_id?: string;
+  business_unit_name?: string;
+  business_unit_code?: string;
+  business_unit_location?: string;
+  
+  // Organization Information
+  organization_id?: string;
+  organization_name?: string;
+  organization_city?: string;
+  organization_country?: string;
+  
+  // Additional Information
+  business_unit_manager_name?: string;
+  parent_business_unit_name?: string;
 }
 
 export interface UserCreate {
@@ -20,6 +37,7 @@ export interface UserCreate {
   first_name?: string;
   last_name?: string;
   roles?: string[];
+  business_unit_id?: string; // Optional for backward compatibility - will be required once UI is updated
 }
 
 export interface UserUpdate {
@@ -28,6 +46,7 @@ export interface UserUpdate {
   first_name?: string;
   last_name?: string;
   roles?: string[];
+  business_unit_id?: string; // Optional for user updates
 }
 
 export interface Role {

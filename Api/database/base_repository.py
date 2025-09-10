@@ -168,3 +168,39 @@ class BaseRepository(ABC):
     async def validate_business_unit_hierarchy(self, business_unit_id: UUID, parent_unit_id: UUID) -> bool:
         """Validate that parent-child relationship doesn't create circular dependency."""
         pass
+    
+    # User-Business Unit Relationship Management
+    @abstractmethod
+    async def validate_business_unit_exists(self, business_unit_id: UUID) -> bool:
+        """Validate that a business unit exists and is active."""
+        pass
+    
+    @abstractmethod
+    async def assign_user_to_business_unit(self, user_id: UUID, business_unit_id: UUID, assigned_by: Optional[UUID] = None) -> bool:
+        """Assign user to a business unit. Replaces existing assignment."""
+        pass
+    
+    @abstractmethod
+    async def get_user_business_unit(self, user_id: UUID) -> Optional[Dict[str, Any]]:
+        """Get the active business unit assignment for a user."""
+        pass
+    
+    @abstractmethod
+    async def remove_user_from_business_unit(self, user_id: UUID) -> bool:
+        """Remove user from all business unit assignments."""
+        pass
+    
+    @abstractmethod
+    async def get_user_organizational_context(self, user_id: UUID) -> Optional[Dict[str, Any]]:
+        """Get user's organizational context (organization_id, business_unit_id)."""
+        pass
+    
+    @abstractmethod
+    async def get_users_by_organization(self, organization_id: UUID) -> List[Dict[str, Any]]:
+        """Get all users within a specific organization."""
+        pass
+    
+    @abstractmethod
+    async def get_users_by_business_unit(self, business_unit_id: UUID) -> List[Dict[str, Any]]:
+        """Get all users within a specific business unit."""
+        pass

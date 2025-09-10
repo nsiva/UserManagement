@@ -69,6 +69,8 @@
                 <th class="py-3 px-6">Email</th>
                 <th class="py-3 px-6">Admin</th>
                 <th class="py-3 px-6">Role</th>
+                <th class="py-3 px-6">Business Unit</th>
+                <th class="py-3 px-6">Organization</th>
                 <th class="py-3 px-6">Actions</th>
               </tr>
             </thead>
@@ -82,6 +84,14 @@
                 <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">
                   <span *ngIf="user.roles.length > 0">{{ user.roles[0] }}</span>
                   <span *ngIf="user.roles.length === 0" class="text-theme-text-muted">None</span>
+                </td>
+                <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">
+                  <span *ngIf="user.business_unit_name">{{ user.business_unit_name }}</span>
+                  <span *ngIf="!user.business_unit_name" class="text-theme-text-muted">-</span>
+                </td>
+                <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">
+                  <span *ngIf="user.organization_name">{{ user.organization_name }}</span>
+                  <span *ngIf="!user.organization_name" class="text-theme-text-muted">-</span>
                 </td>
                 <td class="py-4 px-6 whitespace-nowrap text-sm font-medium">
                   <button (click)="editUser(user)" class="inline-flex items-center text-theme-primary hover:text-theme-primary-hover mr-4 p-1 transition-colors">
@@ -112,7 +122,7 @@
                 </td>
               </tr>
               <tr *ngIf="users.length === 0">
-                <td colspan="5" class="py-4 px-6 text-center text-theme-text-muted">No users found.</td>
+                <td colspan="7" class="py-4 px-6 text-center text-theme-text-muted">No users found.</td>
               </tr>
             </tbody>
           </table>

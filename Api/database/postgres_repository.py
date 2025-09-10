@@ -62,34 +62,112 @@ class PostgresRepository(BaseRepository):
                 return None
     
     async def get_user_by_id(self, user_id: UUID) -> Optional[Dict[str, Any]]:
-        """Get user by ID."""
+        """Get user by ID with complete business unit and organization information."""
         pool = await self.get_connection_pool()
         async with pool.acquire() as conn:
             try:
                 query = """
-                    SELECT id, email, first_name, middle_name, last_name, is_admin, mfa_secret
-                    FROM aaa_profiles WHERE id = $1 LIMIT 1
+                    SELECT 
+                        user_id as id,
+                        email,
+                        first_name,
+                        middle_name,
+                        last_name,
+                        is_admin,
+                        mfa_secret,
+                        business_unit_id,
+                        business_unit_name,
+                        business_unit_code,
+                        business_unit_location,
+                        organization_id,
+                        organization_name,
+                        organization_city,
+                        organization_country,
+                        business_unit_manager_name,
+                        parent_business_unit_name
+                    FROM vw_user_details 
+                    WHERE user_id = $1 
+                    LIMIT 1
                 """
                 result = await conn.fetchrow(query, str(user_id))
                 return dict(result) if result else None
             except Exception as e:
-                logger.error(f"Failed to get user by ID {user_id}: {e}")
-                return None
+                logger.error(f"Failed to get user by ID from view: {e}")
+                # Fallback to original query if view doesn't exist
+                logger.info("Falling back to original query for get_user_by_id")
+                query_fallback = """
+                    SELECT p.id, p.email, p.first_name, p.middle_name, p.last_name, 
+                           p.is_admin, p.mfa_secret,
+                           ub.business_unit_id, bu.name as business_unit_name,
+                           o.company_name as organization_name, bu.organization_id,
+                           bu.code as business_unit_code, bu.location as business_unit_location,
+                           o.city_town as organization_city, o.country as organization_country,
+                           CONCAT(mgr.first_name, ' ', mgr.last_name) as business_unit_manager_name,
+                           pbu.name as parent_business_unit_name
+                    FROM aaa_profiles p
+                    LEFT JOIN aaa_user_business_units ub ON p.id = ub.user_id AND ub.is_active = TRUE
+                    LEFT JOIN aaa_business_units bu ON ub.business_unit_id = bu.id
+                    LEFT JOIN aaa_organizations o ON bu.organization_id = o.id
+                    LEFT JOIN aaa_profiles mgr ON bu.manager_id = mgr.id
+                    LEFT JOIN aaa_business_units pbu ON bu.parent_unit_id = pbu.id
+                    WHERE p.id = $1 
+                    LIMIT 1
+                """
+                result = await conn.fetchrow(query_fallback, str(user_id))
+                return dict(result) if result else None
     
     async def get_all_users(self) -> List[Dict[str, Any]]:
-        """Get all user profiles."""
+        """Get all user profiles with complete business unit and organization information."""
         pool = await self.get_connection_pool()
         async with pool.acquire() as conn:
             try:
                 query = """
-                    SELECT id, email, first_name, middle_name, last_name, is_admin, mfa_secret
-                    FROM aaa_profiles
+                    SELECT 
+                        user_id as id,
+                        email,
+                        first_name,
+                        middle_name,
+                        last_name,
+                        is_admin,
+                        mfa_secret,
+                        business_unit_id,
+                        business_unit_name,
+                        business_unit_code,
+                        business_unit_location,
+                        organization_id,
+                        organization_name,
+                        organization_city,
+                        organization_country,
+                        business_unit_manager_name,
+                        parent_business_unit_name
+                    FROM vw_user_details
+                    ORDER BY email
                 """
                 results = await conn.fetch(query)
                 return [dict(row) for row in results]
             except Exception as e:
-                logger.error(f"Failed to get all users: {e}")
-                return []
+                logger.error(f"Failed to get all users from view: {e}")
+                # Fallback to original query if view doesn't exist
+                logger.info("Falling back to original query")
+                query_fallback = """
+                    SELECT p.id, p.email, p.first_name, p.middle_name, p.last_name, 
+                           p.is_admin, p.mfa_secret,
+                           ub.business_unit_id, bu.name as business_unit_name,
+                           o.company_name as organization_name, bu.organization_id,
+                           bu.code as business_unit_code, bu.location as business_unit_location,
+                           o.city_town as organization_city, o.country as organization_country,
+                           CONCAT(mgr.first_name, ' ', mgr.last_name) as business_unit_manager_name,
+                           pbu.name as parent_business_unit_name
+                    FROM aaa_profiles p
+                    LEFT JOIN aaa_user_business_units ub ON p.id = ub.user_id AND ub.is_active = TRUE
+                    LEFT JOIN aaa_business_units bu ON ub.business_unit_id = bu.id
+                    LEFT JOIN aaa_organizations o ON bu.organization_id = o.id
+                    LEFT JOIN aaa_profiles mgr ON bu.manager_id = mgr.id
+                    LEFT JOIN aaa_business_units pbu ON bu.parent_unit_id = pbu.id
+                    ORDER BY p.email
+                """
+                results = await conn.fetch(query_fallback)
+                return [dict(row) for row in results]
     
     async def update_user(self, user_id: UUID, update_data: Dict[str, Any]) -> bool:
         """Update user profile. Returns True if successful."""
@@ -118,6 +196,9 @@ class PostgresRepository(BaseRepository):
                 try:
                     # First delete user_roles entries
                     await conn.execute("DELETE FROM aaa_user_roles WHERE user_id = $1", str(user_id))
+                    
+                    # Delete user-business unit relationships
+                    await conn.execute("DELETE FROM aaa_user_business_units WHERE user_id = $1", str(user_id))
                     
                     # Delete the user profile
                     result = await conn.execute("DELETE FROM aaa_profiles WHERE id = $1", str(user_id))
@@ -654,3 +735,200 @@ class PostgresRepository(BaseRepository):
             except Exception as e:
                 logger.error(f"Failed to validate business unit hierarchy: {e}")
                 return False
+    
+    # User-Business Unit Relationship Management
+    async def validate_business_unit_exists(self, business_unit_id: UUID) -> bool:
+        """Validate that a business unit exists and is active."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = "SELECT EXISTS(SELECT 1 FROM aaa_business_units WHERE id = $1 AND is_active = TRUE)"
+                result = await conn.fetchrow(query, str(business_unit_id))
+                return result['exists'] if result else False
+            except Exception as e:
+                logger.error(f"Failed to validate business unit exists {business_unit_id}: {e}")
+                return False
+    
+    async def assign_user_to_business_unit(self, user_id: UUID, business_unit_id: UUID, assigned_by: Optional[UUID] = None) -> bool:
+        """Assign user to a business unit. Replaces existing assignment."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                try:
+                    # First validate that business unit exists
+                    if not await self.validate_business_unit_exists(business_unit_id):
+                        raise Exception(f"Business unit {business_unit_id} does not exist or is inactive")
+                    
+                    # Remove any existing assignment for this user
+                    await conn.execute("DELETE FROM aaa_user_business_units WHERE user_id = $1", str(user_id))
+                    
+                    # Insert new assignment
+                    query = """
+                        INSERT INTO aaa_user_business_units (user_id, business_unit_id, assigned_by, is_active)
+                        VALUES ($1, $2, $3, TRUE)
+                    """
+                    await conn.execute(query, str(user_id), str(business_unit_id), str(assigned_by) if assigned_by else None)
+                    
+                    return True
+                except Exception as e:
+                    logger.error(f"Failed to assign user {user_id} to business unit {business_unit_id}: {e}")
+                    return False
+    
+    async def get_user_business_unit(self, user_id: UUID) -> Optional[Dict[str, Any]]:
+        """Get the active business unit assignment for a user."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = """
+                    SELECT ub.business_unit_id, bu.name as business_unit_name, ub.assigned_at
+                    FROM aaa_user_business_units ub
+                    JOIN aaa_business_units bu ON ub.business_unit_id = bu.id
+                    WHERE ub.user_id = $1 AND ub.is_active = TRUE
+                    LIMIT 1
+                """
+                result = await conn.fetchrow(query, str(user_id))
+                return dict(result) if result else None
+            except Exception as e:
+                logger.error(f"Failed to get user business unit for {user_id}: {e}")
+                return None
+    
+    async def remove_user_from_business_unit(self, user_id: UUID) -> bool:
+        """Remove user from all business unit assignments."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = "DELETE FROM aaa_user_business_units WHERE user_id = $1"
+                await conn.execute(query, str(user_id))
+                return True
+            except Exception as e:
+                logger.error(f"Failed to remove user {user_id} from business units: {e}")
+                return False
+    
+    # User organizational context methods
+    async def get_user_organizational_context(self, user_id: UUID) -> Optional[Dict[str, Any]]:
+        """Get user's organizational context (organization_id, business_unit_id)."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = """
+                    SELECT bu.organization_id, ub.business_unit_id, bu.name as business_unit_name,
+                           o.company_name as organization_name
+                    FROM aaa_user_business_units ub
+                    JOIN aaa_business_units bu ON ub.business_unit_id = bu.id
+                    JOIN aaa_organizations o ON bu.organization_id = o.id
+                    WHERE ub.user_id = $1 AND ub.is_active = TRUE
+                    LIMIT 1
+                """
+                result = await conn.fetchrow(query, str(user_id))
+                return dict(result) if result else None
+            except Exception as e:
+                logger.error(f"Failed to get user organizational context for {user_id}: {e}")
+                return None
+    
+    async def get_users_by_organization(self, organization_id: UUID) -> List[Dict[str, Any]]:
+        """Get all users within a specific organization."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = """
+                    SELECT 
+                        user_id as id,
+                        email,
+                        first_name,
+                        middle_name,
+                        last_name,
+                        is_admin,
+                        mfa_secret,
+                        business_unit_id,
+                        business_unit_name,
+                        business_unit_code,
+                        business_unit_location,
+                        organization_id,
+                        organization_name,
+                        organization_city,
+                        organization_country,
+                        business_unit_manager_name,
+                        parent_business_unit_name
+                    FROM vw_user_details 
+                    WHERE organization_id = $1
+                    ORDER BY email
+                """
+                results = await conn.fetch(query, str(organization_id))
+                return [dict(row) for row in results]
+            except Exception as e:
+                logger.error(f"Failed to get users by organization from view: {e}")
+                # Fallback to original query
+                query_fallback = """
+                    SELECT p.id, p.email, p.first_name, p.middle_name, p.last_name, 
+                           p.is_admin, p.mfa_secret,
+                           ub.business_unit_id, bu.name as business_unit_name,
+                           o.company_name as organization_name, bu.organization_id,
+                           bu.code as business_unit_code, bu.location as business_unit_location,
+                           o.city_town as organization_city, o.country as organization_country,
+                           CONCAT(mgr.first_name, ' ', mgr.last_name) as business_unit_manager_name,
+                           pbu.name as parent_business_unit_name
+                    FROM aaa_profiles p
+                    LEFT JOIN aaa_user_business_units ub ON p.id = ub.user_id AND ub.is_active = TRUE
+                    LEFT JOIN aaa_business_units bu ON ub.business_unit_id = bu.id
+                    LEFT JOIN aaa_organizations o ON bu.organization_id = o.id
+                    LEFT JOIN aaa_profiles mgr ON bu.manager_id = mgr.id
+                    LEFT JOIN aaa_business_units pbu ON bu.parent_unit_id = pbu.id
+                    WHERE bu.organization_id = $1
+                    ORDER BY p.email
+                """
+                results = await conn.fetch(query_fallback, str(organization_id))
+                return [dict(row) for row in results]
+    
+    async def get_users_by_business_unit(self, business_unit_id: UUID) -> List[Dict[str, Any]]:
+        """Get all users within a specific business unit."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = """
+                    SELECT 
+                        user_id as id,
+                        email,
+                        first_name,
+                        middle_name,
+                        last_name,
+                        is_admin,
+                        mfa_secret,
+                        business_unit_id,
+                        business_unit_name,
+                        business_unit_code,
+                        business_unit_location,
+                        organization_id,
+                        organization_name,
+                        organization_city,
+                        organization_country,
+                        business_unit_manager_name,
+                        parent_business_unit_name
+                    FROM vw_user_details 
+                    WHERE business_unit_id = $1
+                    ORDER BY email
+                """
+                results = await conn.fetch(query, str(business_unit_id))
+                return [dict(row) for row in results]
+            except Exception as e:
+                logger.error(f"Failed to get users by business unit from view: {e}")
+                # Fallback to original query
+                query_fallback = """
+                    SELECT p.id, p.email, p.first_name, p.middle_name, p.last_name, 
+                           p.is_admin, p.mfa_secret,
+                           ub.business_unit_id, bu.name as business_unit_name,
+                           o.company_name as organization_name, bu.organization_id,
+                           bu.code as business_unit_code, bu.location as business_unit_location,
+                           o.city_town as organization_city, o.country as organization_country,
+                           CONCAT(mgr.first_name, ' ', mgr.last_name) as business_unit_manager_name,
+                           pbu.name as parent_business_unit_name
+                    FROM aaa_profiles p
+                    JOIN aaa_user_business_units ub ON p.id = ub.user_id AND ub.is_active = TRUE
+                    JOIN aaa_business_units bu ON ub.business_unit_id = bu.id
+                    LEFT JOIN aaa_organizations o ON bu.organization_id = o.id
+                    LEFT JOIN aaa_profiles mgr ON bu.manager_id = mgr.id
+                    LEFT JOIN aaa_business_units pbu ON bu.parent_unit_id = pbu.id
+                    WHERE ub.business_unit_id = $1
+                    ORDER BY p.email
+                """
+                results = await conn.fetch(query_fallback, str(business_unit_id))
+                return [dict(row) for row in results]
