@@ -2,6 +2,7 @@ import { Component, Input, Output, EventEmitter, HostListener } from '@angular/c
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../../services/auth';
+import { RoleService } from '../../../services/role.service';
 import { HeaderConfig } from '../../interfaces/header-config.interface';
 import { APP_NAME } from '../../constants/app-constants';
 import { ThemeSwitcher } from '../theme-switcher/theme-switcher';
@@ -28,7 +29,8 @@ export class HeaderComponent {
 
   constructor(
     private router: Router,
-    private authService: AuthService
+    private authService: AuthService,
+    private roleService: RoleService
   ) {}
 
   toggleDropdown(): void {
@@ -49,6 +51,16 @@ export class HeaderComponent {
       return emailParts.substring(0, 1).toUpperCase() + 'U';
     }
     return 'U';
+  }
+
+  hasAdminPrivileges(): boolean {
+    // Check if showAdminMenuItem is explicitly set to false
+    if (this.config.showAdminMenuItem === false) {
+      return false;
+    }
+
+    // Use centralized role service
+    return this.roleService.hasAdminPrivileges();
   }
 
   navigateToProfile(): void {

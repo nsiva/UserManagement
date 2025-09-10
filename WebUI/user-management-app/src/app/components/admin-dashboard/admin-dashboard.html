@@ -17,6 +17,7 @@
     <div class="mb-6">
       <nav class="flex space-x-8">
         <button 
+          *ngIf="hasAdminPrivileges()"
           (click)="setActiveTab('users')"
           [class]="'py-2 px-1 border-b-2 font-medium text-sm transition-colors ' + 
             (activeTab === 'users' ? 
@@ -26,7 +27,7 @@
           Users
         </button>
         <button 
-          *ngIf="hasAdminOrSuperUserRole()"
+          *ngIf="hasOrganizationAccess()"
           (click)="setActiveTab('organizations')"
           [class]="'py-2 px-1 border-b-2 font-medium text-sm transition-colors ' + 
             (activeTab === 'organizations' ? 
@@ -49,7 +50,7 @@
     </div>
 
     <!-- Users Tab Content -->
-    <div *ngIf="activeTab === 'users'" class="bg-theme-surface rounded-lg shadow-md p-6 border border-theme-border">
+    <div *ngIf="activeTab === 'users' && hasAdminPrivileges()" class="bg-theme-surface rounded-lg shadow-md p-6 border border-theme-border">
       <!-- User Management Section -->
       <div class="flex justify-between items-center mb-6">
         <h3 class="text-xl font-semibold text-theme-text">Existing Users</h3>
@@ -119,7 +120,7 @@
     </div>
 
     <!-- Organizations Tab Content -->
-    <div *ngIf="activeTab === 'organizations' && hasAdminOrSuperUserRole()" class="bg-theme-surface rounded-lg shadow-md p-6 border border-theme-border">
+    <div *ngIf="activeTab === 'organizations' && hasOrganizationAccess()" class="bg-theme-surface rounded-lg shadow-md p-6 border border-theme-border">
       <!-- Organizations Management Section -->
       <div class="flex justify-between items-center mb-6">
         <h3 class="text-xl font-semibold text-theme-text">Organizations</h3>

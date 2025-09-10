@@ -29,8 +29,13 @@ export const APP_CONSTANTS = {
   API: {
     TIMEOUT: 30000, // 30 seconds
     RETRY_ATTEMPTS: 3
+  },
+  
+  // Role definitions
+  ROLES: {
+    ADMIN_ROLES: ['admin', 'firm_admin', 'group_admin', 'super_user']
   }
 } as const;
 
 // Export individual constants for convenience
-export const { APP_NAME, PAGES, MESSAGES, API } = APP_CONSTANTS;
+export const { APP_NAME, PAGES, MESSAGES, API, ROLES } = APP_CONSTANTS;

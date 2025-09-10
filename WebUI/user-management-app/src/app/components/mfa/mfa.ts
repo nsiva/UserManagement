@@ -4,6 +4,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth';
+import { RoleService } from '../../services/role.service';
 import { HeaderComponent } from '../../shared/components/header/header.component';
 import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
 import { APP_NAME, PAGES } from '../../shared/constants/app-constants';
@@ -31,7 +32,8 @@ export class MfaComponent {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private authService: AuthService
+    private authService: AuthService,
+    private roleService: RoleService
   ) {
     // Get user info from session storage instead of query params
     this.userEmail = sessionStorage.getItem('mfa_user_email');
@@ -77,7 +79,7 @@ export class MfaComponent {
         sessionStorage.removeItem('mfa_user_name');
         
         // Redirect based on user type
-        if (this.authService.isAdmin()) {
+        if (this.roleService.hasAdminPrivileges()) {
           this.router.navigate(['/admin']);
         } else {
           this.router.navigate(['/profile']);
@@ -92,6 +94,7 @@ export class MfaComponent {
       }
     });
   }
+
 
   // Header event handlers (not used but required by template)
   onProfileClick(): void {}

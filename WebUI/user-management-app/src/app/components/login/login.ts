@@ -9,6 +9,7 @@ import { environment } from '../../../environments/environment';
 import { API_PATHS } from '../../api-paths';
 import { AuthService } from '../../services/auth';
 import { UserProfileService } from '../../services/user-profile.service';
+import { RoleService } from '../../services/role.service';
 import { HeaderComponent } from '../../shared/components/header/header.component';
 import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
 import { APP_NAME, PAGES } from '../../shared/constants/app-constants';
@@ -36,7 +37,8 @@ export class LoginComponent {
     private http: HttpClient, 
     private router: Router, 
     private authService: AuthService,
-    private userProfileService: UserProfileService
+    private userProfileService: UserProfileService,
+    private roleService: RoleService
   ) { }
 
   onLogin(): void {
@@ -119,12 +121,13 @@ export class LoginComponent {
 
   private redirectToLandingPage(): void {
     // Redirect based on user type
-    if (this.authService.isAdmin()) {
+    if (this.roleService.hasAdminPrivileges()) {
       this.router.navigate(['/admin']);
     } else {
       this.router.navigate(['/profile']);
     }
   }
+
 
   private handleError = (error: HttpErrorResponse) => {
     this.isError = true;

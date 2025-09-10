@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth';
+import { RoleService } from '../../services/role.service';
 import { HeaderComponent } from '../../shared/components/header/header.component';
 import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
 import { APP_NAME, PAGES } from '../../shared/constants/app-constants';
@@ -31,7 +32,8 @@ export class SetMfaComponent implements OnInit {
 
   constructor(
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private roleService: RoleService
   ) {}
 
   ngOnInit(): void {
@@ -79,7 +81,7 @@ export class SetMfaComponent implements OnInit {
   }
   
   onAdminClick(): void {
-    if (this.isAdmin()) {
+    if (this.roleService.hasAdminPrivileges()) {
       this.router.navigate(['/admin']);
     }
   }
@@ -88,9 +90,6 @@ export class SetMfaComponent implements OnInit {
     this.authService.logout();
   }
 
-  isAdmin(): boolean {
-    return this.authService.isAdmin();
-  }
 
   goBack(): void {
     this.router.navigate(['/profile']);
@@ -104,7 +103,7 @@ export class SetMfaComponent implements OnInit {
 
   private redirectToLandingPage(): void {
     // Redirect based on user type
-    if (this.authService.isAdmin()) {
+    if (this.roleService.hasAdminPrivileges()) {
       this.router.navigate(['/admin']);
     } else {
       this.router.navigate(['/profile']);

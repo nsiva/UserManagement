@@ -1,5 +1,6 @@
 import { Component, OnInit, HostListener } from '@angular/core';
 import { AuthService } from '../../services/auth';
+import { RoleService } from '../../services/role.service';
 import { UserService, User, UserCreate, UserUpdate, Role, RoleCreate, RoleUpdate } from '../../services/user';
 import { UserProfileService } from '../../services/user-profile.service';
 import { OrganizationService, Organization, OrganizationCreate, OrganizationUpdate } from '../../services/organization';
@@ -74,6 +75,7 @@ export class AdminDashboardComponent implements OnInit {
 
   constructor(
     private authService: AuthService,
+    private roleService: RoleService,
     private userService: UserService,
     private userProfileService: UserProfileService,
     private organizationService: OrganizationService,
@@ -95,8 +97,21 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.loadUsers();
-    this.loadRoles();
+    // Load users and roles for all admin privileged users
+    if (this.roleService.hasAdminPrivileges()) {
+      this.loadUsers();
+      this.loadRoles();
+    }
+
+    // Set default tab based on access levels
+    if (this.roleService.hasBusinessUnitAccess()) {
+      // Users with business unit access (admin, super_user, firm_admin) default to business-units
+      this.activeTab = 'business-units';
+      this.loadBusinessUnits();
+    } else {
+      // Users without business unit access (group_admin) default to users tab
+      this.activeTab = 'users';
+    }
   }
 
   // --- General UI ---
@@ -469,15 +484,23 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   // --- Role Checking ---
-  hasAdminOrSuperUserRole(): boolean {
-    const roles = this.authService.getUserRoles();
-    return roles.includes('admin') || roles.includes('super_user');
+  hasAdminPrivileges(): boolean {
+    return this.roleService.hasAdminPrivileges();
+  }
+
+  hasFullAdminAccess(): boolean {
+    // Full admin access for user management - admin and super_user only
+    return this.roleService.hasFullAdminAccess();
+  }
+
+  hasOrganizationAccess(): boolean {
+    // Organizations only accessible to admin and super_user
+    return this.roleService.hasOrganizationAccess();
   }
 
   hasBusinessUnitAccess(): boolean {
-    const roles = this.authService.getUserRoles();
-    return roles.includes('admin') || roles.includes('super_user') || 
-           roles.includes('firm_admin') || roles.includes('group_admin');
+    // Business units accessible to admin, super_user, and firm_admin only (not group_admin)
+    return this.roleService.hasBusinessUnitAccess();
   }
 
   // --- Organizations Management ---

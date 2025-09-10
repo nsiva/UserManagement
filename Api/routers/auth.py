@@ -211,9 +211,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
 async def get_current_admin_user(current_user: TokenData = Depends(get_current_user)):
     try:
-        # Check if user has admin role instead of is_admin flag
-        if not current_user.is_admin and 'admin' not in current_user.roles:
-            logger.warning(f"User {current_user.email} does not have admin permissions.")
+        # Check if user has any admin role (admin, super_user, firm_admin, group_admin)
+        admin_roles = ['admin', 'super_user', 'firm_admin', 'group_admin']
+        has_admin_role = any(role in current_user.roles for role in admin_roles)
+        
+        if not current_user.is_admin and not has_admin_role:
+            logger.warning(f"User {current_user.email} does not have admin permissions. Roles: {current_user.roles}")
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
         logger.info(f"Admin user authenticated: {current_user.email}")
         return current_user

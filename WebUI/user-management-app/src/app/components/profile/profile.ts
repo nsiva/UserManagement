@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth';
 import { UserService } from '../../services/user';
 import { UserProfileService, UserProfile } from '../../services/user-profile.service';
+import { RoleService } from '../../services/role.service';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { HeaderComponent } from '../../shared/components/header/header.component';
@@ -28,14 +29,15 @@ export class ProfileComponent implements OnInit {
   constructor(
     private authService: AuthService,
     private userProfileService: UserProfileService,
-    private router: Router
+    private router: Router,
+    private roleService: RoleService
   ) {}
 
   ngOnInit(): void {
     // Update header config based on admin status
     this.headerConfig = {
       ...this.headerConfig,
-      showAdminMenuItem: this.isAdmin()
+      showAdminMenuItem: this.roleService.hasAdminPrivileges()
     };
 
     (async () => {
@@ -93,9 +95,6 @@ export class ProfileComponent implements OnInit {
     localStorage.removeItem('mfa_prompt_dismissed');
   }
 
-  isAdmin(): boolean {
-    return this.authService.isAdmin();
-  }
 
 
   logout(): void {
