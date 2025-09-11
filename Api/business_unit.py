@@ -154,6 +154,11 @@ class BusinessUnitResponse(BusinessUnitBase):
     created_by: Optional[UUID] = None
     updated_at: Optional[datetime] = None
     updated_by: Optional[UUID] = None
+    
+    # Extended fields from joins
+    organization_name: Optional[str] = Field(None, description="Organization name")
+    parent_name: Optional[str] = Field(None, description="Parent unit name") 
+    manager_name: Optional[str] = Field(None, description="Manager full name")
 
     class Config:
         from_attributes = True
