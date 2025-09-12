@@ -99,7 +99,7 @@ async def create_user(
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create user profile.")
         
         # Assign user to business unit
-        assigned_by = UUID(current_admin_user.user_id) if current_admin_user else None
+        assigned_by = current_admin_user.user_id if current_admin_user else None
         assignment_success = await repo.assign_user_to_business_unit(
             UUID(user_id), user_data.business_unit_id, assigned_by
         )
@@ -155,7 +155,7 @@ async def create_user(
         business_unit_code=business_unit_details.get('code') if business_unit_details else None,
         business_unit_location=business_unit_details.get('location') if business_unit_details else None,
         # Organization Information
-        organization_id=UUID(business_unit_details['organization_id']) if business_unit_details and business_unit_details.get('organization_id') else None,
+        organization_id=business_unit_details['organization_id'] if business_unit_details and business_unit_details.get('organization_id') else None,
         organization_name=business_unit_details.get('organization_name') if business_unit_details else None,
         organization_city=None,  # Would need to fetch organization details separately
         organization_country=None,  # Would need to fetch organization details separately
@@ -298,7 +298,7 @@ async def update_user(user_id: UUID, user_data: UserUpdate, current_user: TokenD
     # Update business unit assignment if provided
     if user_data.business_unit_id is not None:
         try:
-            assigned_by = UUID(current_user.user_id)
+            assigned_by = current_user.user_id
             assignment_success = await repo.assign_user_to_business_unit(
                 user_id, user_data.business_unit_id, assigned_by
             )

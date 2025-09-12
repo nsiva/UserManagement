@@ -81,6 +81,21 @@
         </div>
         
         <div>
+          <label for="businessUnit" class="block text-sm font-medium text-gray-700">Business Unit *</label>
+          <select id="businessUnit" formControlName="businessUnit"
+                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  [ngClass]="{'border-red-500': userForm.get('businessUnit')?.invalid && userForm.get('businessUnit')?.touched}">
+            <option value="">Select a business unit...</option>
+            <option *ngFor="let businessUnit of businessUnitsOptions" [value]="businessUnit.id">
+              {{ businessUnit.name }}{{ businessUnit.organization_name ? ' (' + businessUnit.organization_name + ')' : '' }}
+            </option>
+          </select>
+          <div *ngIf="userForm.get('businessUnit')?.invalid && userForm.get('businessUnit')?.touched" class="text-red-500 text-xs mt-1">
+            <span *ngIf="userForm.get('businessUnit')?.errors?.['required']">Business unit is required.</span>
+          </div>
+        </div>
+        
+        <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">Role (Select one)</label>
           <div class="flex flex-wrap gap-x-4 gap-y-2">
             <div *ngFor="let role of userRolesOptions" class="flex items-center">

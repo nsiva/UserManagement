@@ -74,13 +74,48 @@ async def create_organization(
 
 
 @organizations_router.get("/", response_model=List[OrganizationResponse])
-async def get_all_organizations(current_admin_user: TokenData = Depends(get_current_admin_or_superuser)):
-    """Get all organizations. Accessible to admin and super users."""
+async def get_all_organizations(current_user: TokenData = Depends(get_current_user)):
+    """Get organizations with role-based filtering:
+    - admin/super_user: See all organizations
+    - firm_admin: See only their organization
+    - Other roles: Access denied
+    """
     try:
         repo = get_repository()
-        organizations = await repo.get_all_organizations()
+        current_user_roles = current_user.roles
         
-        logger.info(f"Retrieved {len(organizations)} organizations for user {current_admin_user.email}")
+        # Check if user has appropriate role
+        if not any(role in current_user_roles for role in ['admin', 'super_user', 'firm_admin']):
+            logger.warning(f"User {current_user.email} with roles {current_user_roles} attempted to access organizations")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, 
+                detail="Admin, super_user, or firm_admin access required"
+            )
+        
+        # Determine filtering based on user role
+        if any(role in current_user_roles for role in ['admin', 'super_user']):
+            # Admin and super_user see all organizations
+            organizations = await repo.get_all_organizations()
+            logger.info(f"Admin/Super user {current_user.email} accessing all organizations")
+        else:
+            # Get current user's organizational context for filtering
+            user_context = await repo.get_user_organizational_context(current_user.user_id)
+            
+            if not user_context:
+                logger.warning(f"No organizational context found for user {current_user.email}")
+                return []
+            
+            if 'firm_admin' in current_user_roles:
+                # Firm admin sees only their organization
+                user_org_id = user_context['organization_id']
+                organization = await repo.get_organization_by_id(user_org_id)
+                organizations = [organization] if organization else []
+                logger.info(f"Firm admin {current_user.email} accessing their organization {user_context['organization_name']}")
+            else:
+                logger.warning(f"User {current_user.email} with roles {current_user_roles} has no organization access permissions")
+                return []
+        
+        logger.info(f"Retrieved {len(organizations)} organizations for user {current_user.email}")
         return [OrganizationResponse(**organization) for organization in organizations]
         
     except HTTPException:

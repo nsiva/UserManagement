@@ -5,6 +5,7 @@ import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth';
 import { UserService, UserCreate, UserUpdate, Role, User } from '../../services/user';
 import { UserProfileService } from '../../services/user-profile.service';
+import { BusinessUnitService, BusinessUnit } from '../../services/business-unit';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -60,6 +61,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
   userForm: FormGroup;
   userRolesOptions: Role[] = [];
   selectedUserRole: string = 'user';
+  businessUnitsOptions: BusinessUnit[] = [];
   // Alert properties
   alertMessage: string | null = null;
   alertType: AlertType = 'info';
@@ -84,12 +86,14 @@ export class UserFormComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private authService: AuthService,
     private userService: UserService,
-    private userProfileService: UserProfileService
+    private userProfileService: UserProfileService,
+    private businessUnitService: BusinessUnitService
   ) {
     this.userForm = this.fb.group({
       firstName: ['', UserFormComponent.noWhitespaceValidator],
       lastName: ['', UserFormComponent.noWhitespaceValidator],
       email: ['', [Validators.required, UserFormComponent.strictEmailValidator]],
+      businessUnit: ['', Validators.required], // Business unit is required
       password: ['', [PasswordValidationService.validatePassword]] // Password with full validation
     });
   }
@@ -107,6 +111,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
       this.resetComponent();
       this.checkMode();
       this.loadRoles();
+      this.loadBusinessUnits();
     });
   }
 
@@ -145,6 +150,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
         firstName: '',
         lastName: '',
         email: '',
+        businessUnit: '',
         password: ''
       });
       this.selectedUserRole = 'user';
@@ -155,6 +161,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
           firstName: '',
           lastName: '',
           email: '',
+          businessUnit: '',
           password: ''
         });
         console.log('UserFormComponent: Create mode - delayed form clear:', this.userForm.value);
@@ -187,6 +194,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
           firstName: user.first_name || '',
           lastName: user.last_name || '',
           email: user.email,
+          businessUnit: user.business_unit_id || '',
           password: '' // Don't populate password for security
         });
         
@@ -237,6 +245,23 @@ export class UserFormComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadBusinessUnits(): void {
+    // Call business units API without organization filter - backend handles role-based filtering
+    this.businessUnitService.getBusinessUnits().subscribe({
+      next: (response) => {
+        this.businessUnitsOptions = response.business_units;
+        // Clear alert message if it's not a user loading error
+        if (this.alertMessage && !this.alertMessage.includes('load user')) {
+          this.alertMessage = null;
+        }
+      },
+      error: (err: HttpErrorResponse) => {
+        this.showError(err.error.detail || 'Failed to load business units.');
+        console.error('Error loading business units:', err);
+      }
+    });
+  }
+
   onRoleRadioChange(roleName: string): void {
     this.selectedUserRole = roleName;
   }
@@ -262,7 +287,8 @@ export class UserFormComponent implements OnInit, OnDestroy {
         last_name: this.userForm.value.lastName,
         email: this.userForm.value.email,
         password: this.userForm.value.password || undefined, // Only include password if provided
-        roles: this.selectedUserRole ? [this.selectedUserRole] : []
+        roles: this.selectedUserRole ? [this.selectedUserRole] : [],
+        business_unit_id: this.userForm.value.businessUnit || undefined
       };
 
       this.userService.updateUser(this.userId, userData).subscribe({
@@ -290,7 +316,8 @@ export class UserFormComponent implements OnInit, OnDestroy {
         last_name: this.userForm.value.lastName,
         email: this.userForm.value.email,
         password: this.userForm.value.password,
-        roles: this.selectedUserRole ? [this.selectedUserRole] : []
+        roles: this.selectedUserRole ? [this.selectedUserRole] : [],
+        business_unit_id: this.userForm.value.businessUnit
       };
 
       this.userService.createUser(userData).subscribe({
@@ -363,6 +390,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
       firstName: '',
       lastName: '',
       email: '',
+      businessUnit: '',
       password: ''
     });
     
@@ -370,6 +398,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
     this.userForm.get('firstName')?.setValue('');
     this.userForm.get('lastName')?.setValue('');
     this.userForm.get('email')?.setValue('');
+    this.userForm.get('businessUnit')?.setValue('');
     this.userForm.get('password')?.setValue('');
     
     console.log('UserFormComponent: Form values after reset:', this.userForm.value);

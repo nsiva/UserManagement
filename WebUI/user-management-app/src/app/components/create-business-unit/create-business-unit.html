@@ -37,7 +37,7 @@
               [class.border-theme-error]="isFieldInvalid('organization_id')"
               (change)="onOrganizationChange()"
             >
-              <option value="">Select Organization</option>
+              <option value="" *ngIf="availableOrganizations.length !== 1">Select Organization</option>
               <option *ngFor="let org of availableOrganizations" [value]="org.id">{{ org.company_name }}</option>
             </select>
             <div *ngIf="isFieldInvalid('organization_id')" class="text-theme-error text-xs mt-1">

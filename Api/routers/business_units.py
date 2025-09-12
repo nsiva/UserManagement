@@ -27,17 +27,6 @@ router = APIRouter(prefix="/business-units", tags=["business-units"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
-async def get_current_user_or_client():
-    """Placeholder dependency for endpoints not yet migrated."""
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="This endpoint is not implemented yet"
-    )
-
-
-async def get_user_organization_context(current_user, current_client=None):
-    """Placeholder function for endpoints not yet migrated."""
-    return None
 
 
 
@@ -120,41 +109,22 @@ async def create_business_unit(
 async def get_business_unit(
     business_unit_id: UUID,
     repo: BaseRepository = Depends(get_repository),
-    auth_info = Depends(get_current_user_or_client)
+    current_admin_user: TokenData = Depends(get_current_admin_user)
 ):
     """
-    Get business unit by ID.
-    
-    Requires: admin, super_user, firm_admin, group_admin, or API client with appropriate scope.
+    Get business unit by ID with role-based access control.
+    - admin/super_user: Can access any business unit
+    - firm_admin/group_admin: Can only access business units in their organization
     """
     try:
-        current_user = auth_info.get("user")
-        current_client = auth_info.get("client")
+        current_user_roles = current_admin_user.roles
         
-        # Check authorization
-        if not current_user and not current_client:
+        # Basic role check
+        if not any(role in current_user_roles for role in ['admin', 'super_user', 'firm_admin', 'group_admin']):
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication required"
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin, super_user, firm_admin, or group_admin access required"
             )
-        
-        # Verify user has appropriate permissions
-        if current_user:
-            user_roles = current_user.roles if hasattr(current_user, 'roles') else []
-            is_admin = current_user.is_admin if hasattr(current_user, 'is_admin') else False
-            
-            if not is_admin and not any(role in ['admin', 'super_user', 'firm_admin', 'group_admin'] for role in user_roles):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Admin, super_user, firm_admin, or group_admin access required"
-                )
-        elif current_client:
-            # For clients, check scopes
-            if 'read:business_units' not in current_client.scopes if hasattr(current_client, 'scopes') else [] and 'manage:business_units' not in current_client.scopes if hasattr(current_client, 'scopes') else []:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Insufficient client permissions - requires read:business_units or manage:business_units scope"
-                )
         
         business_unit = await repo.get_business_unit_by_id(business_unit_id)
         
@@ -164,13 +134,24 @@ async def get_business_unit(
                 detail="Business unit not found"
             )
         
-        # Check organization context for firm admins
-        organization_context = await get_user_organization_context(current_user, current_client)
-        if organization_context and business_unit['organization_id'] != str(organization_context):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only access business units within your organization"
-            )
+        # Check organization context for firm/group admins
+        if not any(role in current_user_roles for role in ['admin', 'super_user']):
+            # Get current user's organizational context for filtering
+            user_context = await repo.get_user_organizational_context(current_admin_user.user_id)
+            
+            if not user_context:
+                logger.warning(f"No organizational context found for user {current_admin_user.email}")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied - no organizational context"
+                )
+            
+            # Check if business unit belongs to user's organization
+            if str(business_unit['organization_id']) != str(user_context['organization_id']):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You can only access business units within your organization"
+                )
         
         return BusinessUnitResponse(**business_unit)
     
@@ -264,49 +245,41 @@ async def get_business_unit_hierarchy(
     organization_id: UUID,
     parent_id: Optional[UUID] = Query(None, description="Start hierarchy from this parent unit"),
     repo: BaseRepository = Depends(get_repository),
-    auth_info = Depends(get_current_user_or_client)
+    current_admin_user: TokenData = Depends(get_current_admin_user)
 ):
     """
-    Get business unit hierarchy for an organization.
-    
-    Requires: admin, super_user, firm_admin, group_admin, or API client with appropriate scope.
+    Get business unit hierarchy for an organization with role-based access control.
+    - admin/super_user: Can access any organization's hierarchy
+    - firm_admin/group_admin: Can only access their organization's hierarchy
     """
     try:
-        current_user = auth_info.get("user")
-        current_client = auth_info.get("client")
+        current_user_roles = current_admin_user.roles
         
-        # Check authorization
-        if not current_user and not current_client:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication required"
-            )
-        
-        # Verify user has appropriate permissions
-        if current_user:
-            user_roles = current_user.roles if hasattr(current_user, 'roles') else []
-            is_admin = current_user.is_admin if hasattr(current_user, 'is_admin') else False
-            
-            if not is_admin and not any(role in ['admin', 'super_user', 'firm_admin', 'group_admin'] for role in user_roles):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Admin, super_user, firm_admin, or group_admin access required"
-                )
-        elif current_client:
-            # For clients, check scopes
-            if 'read:business_units' not in current_client.scopes if hasattr(current_client, 'scopes') else [] and 'manage:business_units' not in current_client.scopes if hasattr(current_client, 'scopes') else []:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Insufficient client permissions - requires read:business_units or manage:business_units scope"
-                )
-        
-        # Check organization context for firm admins
-        organization_context = await get_user_organization_context(current_user, current_client)
-        if organization_context and organization_id != organization_context:
+        # Basic role check
+        if not any(role in current_user_roles for role in ['admin', 'super_user', 'firm_admin', 'group_admin']):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only access business unit hierarchy within your organization"
+                detail="Admin, super_user, firm_admin, or group_admin access required"
             )
+        
+        # Check organization context for firm/group admins
+        if not any(role in current_user_roles for role in ['admin', 'super_user']):
+            # Get current user's organizational context for filtering
+            user_context = await repo.get_user_organizational_context(current_admin_user.user_id)
+            
+            if not user_context:
+                logger.warning(f"No organizational context found for user {current_admin_user.email}")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied - no organizational context"
+                )
+            
+            # Check if requested organization matches user's organization
+            if str(organization_id) != str(user_context['organization_id']):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You can only access business unit hierarchy within your organization"
+                )
         
         hierarchy_units = await repo.get_business_unit_hierarchy(organization_id, parent_id)
         
@@ -333,34 +306,20 @@ async def update_business_unit(
     business_unit_id: UUID,
     business_unit_update: BusinessUnitUpdate,
     repo: BaseRepository = Depends(get_repository),
-    auth_info = Depends(get_current_user_or_client)
+    current_admin_user: TokenData = Depends(get_current_admin_user)
 ):
     """
     Update a business unit.
     
-    Requires: admin, super_user, organization/firm admin, or API client with manage:business_units scope.
-    Firm admins are limited to their organization context.
+    Requires: admin or super_user access (simplified for now).
     """
     try:
-        current_user = auth_info.get("user")
-        current_client = auth_info.get("client")
-        
-        # Check authorization (same as create)
-        if current_user:
-            user_roles = current_user.roles if hasattr(current_user, 'roles') else []
-            is_admin = current_user.is_admin if hasattr(current_user, 'is_admin') else False
-            
-            if not is_admin and not any(role in ['admin', 'super_user', 'organization_admin', 'firm_admin'] for role in user_roles):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Admin, super_user, organization_admin, or firm_admin access required"
-                )
-        elif current_client:
-            if 'manage:business_units' not in current_client.scopes if hasattr(current_client, 'scopes') else []:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Insufficient client permissions"
-                )
+        # Simplified: only admin and super_user can update business units
+        if not any(role in current_admin_user.roles for role in ['admin', 'super_user']):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin or super_user access required for business unit updates"
+            )
         
         # Verify business unit exists
         existing_unit = await repo.get_business_unit_by_id(business_unit_id)
@@ -370,15 +329,7 @@ async def update_business_unit(
                 detail="Business unit not found"
             )
         
-        # Get organization context for validation
-        organization_context = await get_user_organization_context(current_user, current_client)
-        
-        # Validate organization context if user is restricted
-        if organization_context and existing_unit['organization_id'] != organization_context:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only update business units within your organization"
-            )
+        # Since only admin/super_user can update, no organizational restrictions needed
         
         # Convert update model to dict
         update_data = business_unit_update.model_dump(exclude_unset=True)
@@ -389,15 +340,12 @@ async def update_business_unit(
             logger.info(f"is_active field received: {update_data['is_active']} (type: {type(update_data['is_active'])})")
         
         # Add audit fields
-        if current_user:
-            user_id = current_user.user_id if hasattr(current_user, 'user_id') else None
-            if user_id:
-                update_data['updated_by'] = str(user_id)
+        update_data['updated_by'] = str(current_admin_user.user_id)
         
-        # Validate update data
+        # Validate update data (no organization context needed for admin/super_user)
         validated_data = BusinessUnitValidator.validate_for_update(
             update_data,
-            organization_context=organization_context
+            organization_context=None
         )
         
         # Debug logging for validated data
@@ -443,7 +391,7 @@ async def update_business_unit(
         # Return updated business unit
         updated_unit = await repo.get_business_unit_by_id(business_unit_id)
         
-        logger.info(f"Business unit updated: {business_unit_id} by user {current_user.user_id if current_user and hasattr(current_user, 'user_id') else 'client'}")
+        logger.info(f"Business unit updated: {business_unit_id} by user {current_admin_user.user_id}")
         
         return BusinessUnitResponse(**updated_unit)
     
@@ -470,34 +418,20 @@ async def update_business_unit(
 async def delete_business_unit(
     business_unit_id: UUID,
     repo: BaseRepository = Depends(get_repository),
-    auth_info = Depends(get_current_user_or_client)
+    current_admin_user: TokenData = Depends(get_current_admin_user)
 ):
     """
     Delete a business unit.
     
-    Requires: admin, super_user, organization/firm admin, or API client with manage:business_units scope.
-    Firm admins are limited to their organization context.
+    Requires: admin or super_user access only (simplified for now).
     """
     try:
-        current_user = auth_info.get("user")
-        current_client = auth_info.get("client")
-        
-        # Check authorization (same as create/update)
-        if current_user:
-            user_roles = current_user.roles if hasattr(current_user, 'roles') else []
-            is_admin = current_user.is_admin if hasattr(current_user, 'is_admin') else False
-            
-            if not is_admin and not any(role in ['admin', 'super_user', 'organization_admin', 'firm_admin'] for role in user_roles):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Admin, super_user, organization_admin, or firm_admin access required"
-                )
-        elif current_client:
-            if 'manage:business_units' not in current_client.scopes if hasattr(current_client, 'scopes') else []:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Insufficient client permissions"
-                )
+        # Simplified: only admin and super_user can delete business units
+        if not any(role in current_admin_user.roles for role in ['admin', 'super_user']):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin or super_user access required for business unit deletion"
+            )
         
         # Verify business unit exists
         existing_unit = await repo.get_business_unit_by_id(business_unit_id)
@@ -507,15 +441,7 @@ async def delete_business_unit(
                 detail="Business unit not found"
             )
         
-        # Get organization context for validation
-        organization_context = await get_user_organization_context(current_user, current_client)
-        
-        # Validate organization context if user is restricted
-        if organization_context and existing_unit['organization_id'] != organization_context:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only delete business units within your organization"
-            )
+        # Since only admin/super_user can delete, no organizational restrictions needed
         
         # Check if business unit has children
         children = await repo.get_business_units_by_organization(existing_unit['organization_id'])
@@ -536,7 +462,7 @@ async def delete_business_unit(
                 detail="Failed to delete business unit"
             )
         
-        logger.info(f"Business unit deleted: {business_unit_id} by user {current_user.user_id if current_user and hasattr(current_user, 'user_id') else 'client'}")
+        logger.info(f"Business unit deleted: {business_unit_id} by user {current_admin_user.user_id}")
         
         return JSONResponse(status_code=status.HTTP_204_NO_CONTENT, content=None)
     

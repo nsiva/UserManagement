@@ -239,6 +239,13 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
           this.loadParentUnitsForOrganization(businessUnit.organization_id);
         }
         
+        // Ensure firm_admin users can only see their organization in edit mode
+        const userRoles = this.authService.getUserRoles();
+        if (userRoles.includes('firm_admin')) {
+          // Organizations will be filtered by the backend to show only user's organization
+          console.log('Firm admin editing business unit - organizations will be filtered by backend');
+        }
+        
         // Clear any previous alert messages
         this.alertMessage = null;
         
@@ -268,6 +275,17 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
     this.organizationService.getOrganizations().subscribe({
       next: (organizations) => {
         this.availableOrganizations = organizations;
+        
+        // For firm_admin users who should only see their organization, 
+        // auto-select it if there's only one organization available
+        const userRoles = this.authService.getUserRoles();
+        if (userRoles.includes('firm_admin') && organizations.length === 1 && !this.isEditMode) {
+          this.businessUnitForm.get('organization_id')?.setValue(organizations[0].id);
+          this.selectedOrganizationId = organizations[0].id;
+          // Load parent units for the auto-selected organization
+          this.loadParentUnitsForOrganization(organizations[0].id);
+          console.log('Auto-selected organization for firm_admin:', organizations[0].company_name);
+        }
       },
       error: (err: HttpErrorResponse) => {
         console.error('Error loading organizations:', err);
