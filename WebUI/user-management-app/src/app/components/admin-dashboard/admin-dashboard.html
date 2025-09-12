@@ -80,7 +80,7 @@
                   {{ (user.first_name && user.last_name) ? (user.first_name + ' ' + user.last_name) : (user.first_name || user.last_name || '-') }}
                 </td>
                 <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">{{ user.email }}</td>
-                <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">{{ user.roles.includes('admin') ? 'Yes' : 'No' }}</td>
+                <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">{{ user.roles.includes(ADMIN_ROLE) ? 'Yes' : 'No' }}</td>
                 <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">
                   <span *ngIf="user.roles.length > 0">{{ user.roles[0] }}</span>
                   <span *ngIf="user.roles.length === 0" class="text-theme-text-muted">None</span>

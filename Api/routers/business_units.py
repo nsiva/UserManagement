@@ -21,6 +21,10 @@ from business_unit import (
 from validators import BusinessUnitValidator, BusinessUnitValidationError
 from routers.auth import get_current_admin_user
 from models import TokenData
+from constants import (
+    ADMIN, SUPER_USER, ORGANIZATION_ADMIN, BUSINESS_UNIT_ADMIN,
+    ADMIN_ROLES, ALL_ADMIN_ROLES, has_admin_access, has_any_admin_access
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/business-units", tags=["business-units"])
@@ -37,17 +41,38 @@ async def create_business_unit(
     current_admin_user: TokenData = Depends(get_current_admin_user)
 ):
     """
-    Create a new business unit.
-    
-    Requires: admin or super_user access.
+    Create a new business unit with role-based access control.
+    - admin/super_user: Can create business units in any organization
+    - firm_admin: Can only create business units in their organization
     """
     try:
-        # Basic admin check for now
-        if not any(role in current_admin_user.roles for role in ['admin', 'super_user']):
+        current_user_roles = current_admin_user.roles
+        
+        # Check if user has appropriate role
+        if not (has_admin_access(current_user_roles) or ORGANIZATION_ADMIN in current_user_roles):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Admin or super_user access required"
+                detail=f"Admin, super_user, or {ORGANIZATION_ADMIN} access required"
             )
+        
+        # For firm_admin users, validate they can only create business units in their organization
+        if ORGANIZATION_ADMIN in current_user_roles and not has_admin_access(current_user_roles):
+            # Get current user's organizational context
+            user_context = await repo.get_user_organizational_context(current_admin_user.user_id)
+            
+            if not user_context:
+                logger.warning(f"No organizational context found for user {current_admin_user.email}")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied - no organizational context"
+                )
+            
+            # Check if the business unit is being created in user's organization
+            if str(business_unit.organization_id) != str(user_context['organization_id']):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You can only create business units within your organization"
+                )
         
         # Convert Pydantic model to dict and add metadata
         business_unit_data = business_unit.model_dump(exclude_unset=True)
@@ -120,7 +145,7 @@ async def get_business_unit(
         current_user_roles = current_admin_user.roles
         
         # Basic role check
-        if not any(role in current_user_roles for role in ['admin', 'super_user', 'firm_admin', 'group_admin']):
+        if not has_any_admin_access(current_user_roles):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Admin, super_user, firm_admin, or group_admin access required"
@@ -135,7 +160,7 @@ async def get_business_unit(
             )
         
         # Check organization context for firm/group admins
-        if not any(role in current_user_roles for role in ['admin', 'super_user']):
+        if not has_admin_access(current_user_roles):
             # Get current user's organizational context for filtering
             user_context = await repo.get_user_organizational_context(current_admin_user.user_id)
             
@@ -181,7 +206,7 @@ async def get_business_units(
         current_user_roles = current_admin_user.roles
         
         # Determine filtering based on user role
-        if any(role in current_user_roles for role in ['admin', 'super_user']):
+        if has_admin_access(current_user_roles):
             # Admin and super_user see all business units
             organization_id = None
             logger.info(f"Admin/Super user {current_admin_user.email} accessing all business units")
@@ -198,7 +223,7 @@ async def get_business_units(
                     organization_name=None
                 )
             
-            if 'firm_admin' in current_user_roles or 'group_admin' in current_user_roles:
+            if ORGANIZATION_ADMIN in current_user_roles or BUSINESS_UNIT_ADMIN in current_user_roles:
                 # Both firm_admin and group_admin see business units in their organization
                 organization_id = user_context['organization_id']
                 logger.info(f"Firm/Group admin {current_admin_user.email} accessing organization {user_context['organization_name']} business units")
@@ -256,14 +281,14 @@ async def get_business_unit_hierarchy(
         current_user_roles = current_admin_user.roles
         
         # Basic role check
-        if not any(role in current_user_roles for role in ['admin', 'super_user', 'firm_admin', 'group_admin']):
+        if not has_any_admin_access(current_user_roles):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Admin, super_user, firm_admin, or group_admin access required"
             )
         
         # Check organization context for firm/group admins
-        if not any(role in current_user_roles for role in ['admin', 'super_user']):
+        if not has_admin_access(current_user_roles):
             # Get current user's organizational context for filtering
             user_context = await repo.get_user_organizational_context(current_admin_user.user_id)
             
@@ -309,16 +334,18 @@ async def update_business_unit(
     current_admin_user: TokenData = Depends(get_current_admin_user)
 ):
     """
-    Update a business unit.
-    
-    Requires: admin or super_user access (simplified for now).
+    Update a business unit with role-based access control.
+    - admin/super_user: Can update any business unit
+    - firm_admin: Can only update business units in their organization
     """
     try:
-        # Simplified: only admin and super_user can update business units
-        if not any(role in current_admin_user.roles for role in ['admin', 'super_user']):
+        current_user_roles = current_admin_user.roles
+        
+        # Check if user has appropriate role
+        if not any(role in current_user_roles for role in ['admin', 'super_user', 'firm_admin']):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Admin or super_user access required for business unit updates"
+                detail="Admin, super_user, or firm_admin access required for business unit updates"
             )
         
         # Verify business unit exists
@@ -329,7 +356,24 @@ async def update_business_unit(
                 detail="Business unit not found"
             )
         
-        # Since only admin/super_user can update, no organizational restrictions needed
+        # Check organization context for firm_admin users
+        if not has_admin_access(current_user_roles):
+            # Get current user's organizational context for filtering
+            user_context = await repo.get_user_organizational_context(current_admin_user.user_id)
+            
+            if not user_context:
+                logger.warning(f"No organizational context found for user {current_admin_user.email}")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied - no organizational context"
+                )
+            
+            # Check if business unit belongs to user's organization
+            if str(existing_unit['organization_id']) != str(user_context['organization_id']):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You can only update business units within your organization"
+                )
         
         # Convert update model to dict
         update_data = business_unit_update.model_dump(exclude_unset=True)
@@ -421,16 +465,18 @@ async def delete_business_unit(
     current_admin_user: TokenData = Depends(get_current_admin_user)
 ):
     """
-    Delete a business unit.
-    
-    Requires: admin or super_user access only (simplified for now).
+    Delete a business unit with role-based access control.
+    - admin/super_user: Can delete any business unit
+    - firm_admin: Can only delete business units in their organization
     """
     try:
-        # Simplified: only admin and super_user can delete business units
-        if not any(role in current_admin_user.roles for role in ['admin', 'super_user']):
+        current_user_roles = current_admin_user.roles
+        
+        # Check if user has appropriate role
+        if not any(role in current_user_roles for role in ['admin', 'super_user', 'firm_admin']):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Admin or super_user access required for business unit deletion"
+                detail="Admin, super_user, or firm_admin access required for business unit deletion"
             )
         
         # Verify business unit exists
@@ -441,7 +487,24 @@ async def delete_business_unit(
                 detail="Business unit not found"
             )
         
-        # Since only admin/super_user can delete, no organizational restrictions needed
+        # Check organization context for firm_admin users
+        if not has_admin_access(current_user_roles):
+            # Get current user's organizational context for filtering
+            user_context = await repo.get_user_organizational_context(current_admin_user.user_id)
+            
+            if not user_context:
+                logger.warning(f"No organizational context found for user {current_admin_user.email}")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied - no organizational context"
+                )
+            
+            # Check if business unit belongs to user's organization
+            if str(existing_unit['organization_id']) != str(user_context['organization_id']):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You can only delete business units within your organization"
+                )
         
         # Check if business unit has children
         children = await repo.get_business_units_by_organization(existing_unit['organization_id'])

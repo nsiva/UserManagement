@@ -13,6 +13,10 @@ import { HeaderComponent } from '../../shared/components/header/header.component
 import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
 import { AlertComponent, AlertType } from '../../shared/components/alert/alert.component';
 import { APP_NAME } from '../../shared/constants/app-constants';
+import { 
+  ADMIN, SUPER_USER, ORGANIZATION_ADMIN, BUSINESS_UNIT_ADMIN,
+  hasAdminAccess, hasOrganizationAdminAccess, hasAnyAdminAccess 
+} from '../../constants/roles';
 
 @Component({
   selector: 'app-create-business-unit',
@@ -241,9 +245,9 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
         
         // Ensure firm_admin users can only see their organization in edit mode
         const userRoles = this.authService.getUserRoles();
-        if (userRoles.includes('firm_admin')) {
+        if (hasOrganizationAdminAccess(userRoles)) {
           // Organizations will be filtered by the backend to show only user's organization
-          console.log('Firm admin editing business unit - organizations will be filtered by backend');
+          console.log('Organization admin editing business unit - organizations will be filtered by backend');
         }
         
         // Clear any previous alert messages
@@ -279,7 +283,7 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
         // For firm_admin users who should only see their organization, 
         // auto-select it if there's only one organization available
         const userRoles = this.authService.getUserRoles();
-        if (userRoles.includes('firm_admin') && organizations.length === 1 && !this.isEditMode) {
+        if (hasOrganizationAdminAccess(userRoles) && organizations.length === 1 && !this.isEditMode) {
           this.businessUnitForm.get('organization_id')?.setValue(organizations[0].id);
           this.selectedOrganizationId = organizations[0].id;
           // Load parent units for the auto-selected organization
@@ -369,8 +373,7 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
 
   hasBusinessUnitAccess(): boolean {
     const roles = this.authService.getUserRoles();
-    return roles.includes('admin') || roles.includes('super_user') || 
-           roles.includes('firm_admin') || roles.includes('group_admin');
+    return hasAnyAdminAccess(roles);
   }
 
   onSubmit(): void {

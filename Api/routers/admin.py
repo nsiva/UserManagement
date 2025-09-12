@@ -16,6 +16,10 @@ from exceptions import UserManagementError, DuplicateEmailError, ConstraintViola
 # Assuming get_password_hash is not used directly in admin.py functions.
 # get_current_admin_user, get_user_roles, get_current_client are needed.
 from routers.auth import get_current_admin_user, get_user_roles, get_current_client, get_password_hash
+from constants import (
+    ADMIN, SUPER_USER, ORGANIZATION_ADMIN, BUSINESS_UNIT_ADMIN,
+    ADMIN_ROLES, has_admin_access, has_organization_admin_access, has_business_unit_admin_access
+)
 
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 logger = logging.getLogger("admin")
@@ -178,7 +182,7 @@ async def get_all_users(current_admin_user: TokenData = Depends(get_current_admi
         current_user_roles = current_admin_user.roles
         
         # Determine filtering based on user role
-        if any(role in current_user_roles for role in ['admin', 'super_user']):
+        if has_admin_access(current_user_roles):
             # Admin and super_user see all users
             users_data = await repo.get_all_users()
             logger.info(f"Admin/Super user {current_admin_user.email} accessing all users")
@@ -190,11 +194,11 @@ async def get_all_users(current_admin_user: TokenData = Depends(get_current_admi
                 logger.warning(f"No organizational context found for user {current_admin_user.email}")
                 return []
             
-            if 'firm_admin' in current_user_roles:
+            if has_organization_admin_access(current_user_roles):
                 # Firm admin sees users in their organization
                 users_data = await repo.get_users_by_organization(user_context['organization_id'])
                 logger.info(f"Firm admin {current_admin_user.email} accessing organization {user_context['organization_name']} users")
-            elif 'group_admin' in current_user_roles:
+            elif has_business_unit_admin_access(current_user_roles):
                 # Group admin sees users in their business unit only
                 users_data = await repo.get_users_by_business_unit(user_context['business_unit_id'])
                 logger.info(f"Group admin {current_admin_user.email} accessing business unit {user_context['business_unit_name']} users")
