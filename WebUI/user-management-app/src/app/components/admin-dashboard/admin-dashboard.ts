@@ -47,6 +47,9 @@ export class AdminDashboardComponent implements OnInit {
   selectedUserOrganizationId: string = '';
   selectedUserBusinessUnitId: string = '';
   filteredUserBusinessUnits: BusinessUnit[] = [];
+  // Firm admin specific properties
+  selectedFirmAdminBusinessUnitId: string = '';
+  firmAdminBusinessUnits: BusinessUnit[] = [];
   userForm: FormGroup;
   isEditModeUser = false;
   selectedUserId: string | null = null;
@@ -130,6 +133,7 @@ export class AdminDashboardComponent implements OnInit {
     this.filteredBusinessUnits = [];
     this.filteredUsers = [];
     this.filteredUserBusinessUnits = [];
+    this.firmAdminBusinessUnits = [];
   }
 
   // --- General UI ---
@@ -180,6 +184,11 @@ export class AdminDashboardComponent implements OnInit {
         // Load organizations for admin/super_user to populate dropdown
         if (this.hasFullAdminAccess() && this.organizations.length === 0) {
           this.loadOrganizations();
+        }
+        
+        // Load business units for firm_admin to populate dropdown
+        if (this.isFirmAdmin() && this.firmAdminBusinessUnits.length === 0) {
+          this.loadFirmAdminBusinessUnits();
         }
       },
       error: (err: HttpErrorResponse) => {
@@ -507,6 +516,9 @@ export class AdminDashboardComponent implements OnInit {
         this.selectedUserBusinessUnitId = '';
         this.filteredUsers = []; // Clear filtered results
         this.filteredUserBusinessUnits = []; // Clear filtered business units
+      } else if (this.isFirmAdmin()) {
+        this.selectedFirmAdminBusinessUnitId = '';
+        this.filteredUsers = []; // Clear filtered results
       }
       this.loadUsers();
     } else if (tab === 'organizations') {
@@ -529,6 +541,35 @@ export class AdminDashboardComponent implements OnInit {
   hasFullAdminAccess(): boolean {
     // Full admin access for user management - admin and super_user only
     return this.roleService.hasFullAdminAccess();
+  }
+
+  isFirmAdmin(): boolean {
+    // Check if user is a firm_admin (but not admin or super_user)
+    const userRoles = this.authService.getUserRoles();
+    return userRoles.includes(ORGANIZATION_ADMIN) && !this.hasFullAdminAccess();
+  }
+
+  isGroupAdmin(): boolean {
+    // Check if user is a group_admin (but not firm_admin, admin, or super_user)
+    const userRoles = this.authService.getUserRoles();
+    return userRoles.includes(BUSINESS_UNIT_ADMIN) && 
+           !userRoles.includes(ORGANIZATION_ADMIN) && 
+           !this.hasFullAdminAccess();
+  }
+
+  shouldShowUsersTable(): boolean {
+    // Admin/super_user: show when both organization and business unit are selected
+    if (this.hasFullAdminAccess()) {
+      return !!(this.selectedUserOrganizationId && this.selectedUserBusinessUnitId);
+    }
+    // Firm_admin: show when business unit is selected
+    else if (this.isFirmAdmin()) {
+      return !!this.selectedFirmAdminBusinessUnitId;
+    }
+    // Group_admin: always show (no filtering needed)
+    else {
+      return true;
+    }
   }
 
   hasOrganizationAccess(): boolean {
@@ -682,21 +723,49 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   filterUsers(): void {
-    if (!this.hasFullAdminAccess()) {
-      // For non-admin users, show all users based on their permissions
-      this.filteredUsers = [...this.users];
-      return;
-    }
-
-    // For admin/super_user: Show empty array if no business unit is selected
-    if (!this.selectedUserBusinessUnitId || this.selectedUserBusinessUnitId === '') {
-      this.filteredUsers = [];
+    if (this.hasFullAdminAccess()) {
+      // For admin/super_user: Show empty array if no business unit is selected
+      if (!this.selectedUserBusinessUnitId || this.selectedUserBusinessUnitId === '') {
+        this.filteredUsers = [];
+      } else {
+        // Filter users by selected business unit
+        this.filteredUsers = this.users.filter(
+          user => user.business_unit_id === this.selectedUserBusinessUnitId
+        );
+      }
+    } else if (this.isFirmAdmin()) {
+      // For firm_admin: Show empty array if no business unit is selected
+      if (!this.selectedFirmAdminBusinessUnitId || this.selectedFirmAdminBusinessUnitId === '') {
+        this.filteredUsers = [];
+      } else {
+        // Filter users by selected business unit
+        this.filteredUsers = this.users.filter(
+          user => user.business_unit_id === this.selectedFirmAdminBusinessUnitId
+        );
+      }
     } else {
-      // Filter users by selected business unit
-      this.filteredUsers = this.users.filter(
-        user => user.business_unit_id === this.selectedUserBusinessUnitId
-      );
+      // For other users (group_admin), show all users based on their permissions
+      this.filteredUsers = [...this.users];
     }
+  }
+
+  // --- Firm Admin User Filtering ---
+  onFirmAdminBusinessUnitFilterChange(): void {
+    this.filterUsers();
+  }
+
+  loadFirmAdminBusinessUnits(): void {
+    // Load business units for firm_admin (backend should handle organization filtering based on user)
+    this.businessUnitService.getBusinessUnits().subscribe({
+      next: (response) => {
+        this.firmAdminBusinessUnits = response.business_units;
+        this.filterUsers(); // Apply user filtering
+      },
+      error: (err: HttpErrorResponse) => {
+        this.showError(err.error.detail || 'Failed to load business units.');
+        console.error('Error loading business units for firm_admin:', err);
+      }
+    });
   }
 
   // --- Organization Filter for Business Units ---

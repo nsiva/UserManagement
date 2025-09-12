@@ -102,8 +102,27 @@
         </div>
       </div>
 
-      <!-- Show users table only when both organization and business unit are selected (for admin/super_user) or always for other roles -->
-      <div *ngIf="!hasFullAdminAccess() || (hasFullAdminAccess() && selectedUserOrganizationId && selectedUserBusinessUnitId)" class="overflow-x-auto">
+      <!-- Business Unit Filter Section (only for firm_admin) -->
+      <div *ngIf="isFirmAdmin()" class="mb-6 p-4 bg-theme-surface-hover border border-theme-border rounded-lg">
+        <div>
+          <label for="firmAdminBusinessUnitFilter" class="block text-sm font-medium text-theme-text mb-2">
+            Filter by Business Unit
+          </label>
+          <select 
+            id="firmAdminBusinessUnitFilter"
+            [(ngModel)]="selectedFirmAdminBusinessUnitId" 
+            (change)="onFirmAdminBusinessUnitFilterChange()"
+            class="w-full max-w-md px-3 py-2 border border-theme-border rounded-md shadow-sm bg-theme-surface text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary">
+            <option value="" disabled>Select Business Unit</option>
+            <option *ngFor="let unit of firmAdminBusinessUnits" [value]="unit.id">
+              {{ unit.name }}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Show users table based on role-specific conditions -->
+      <div *ngIf="shouldShowUsersTable()" class="overflow-x-auto">
         <table class="min-w-full bg-theme-surface border border-theme-border rounded-md">
             <thead>
               <tr class="bg-theme-surface-hover text-left text-xs font-medium text-theme-text-secondary uppercase tracking-wider">
@@ -177,29 +196,35 @@
                   </button>
                 </td>
               </tr>
-              <tr *ngIf="filteredUsers.length === 0 && selectedUserBusinessUnitId">
+              <tr *ngIf="filteredUsers.length === 0 && (selectedUserBusinessUnitId || selectedFirmAdminBusinessUnitId)">
                 <td colspan="7" class="py-4 px-6 text-center text-theme-text-muted">No users found for the selected business unit.</td>
               </tr>
-              <tr *ngIf="filteredUsers.length === 0 && !selectedUserBusinessUnitId && !hasFullAdminAccess()">
+              <tr *ngIf="filteredUsers.length === 0 && !selectedUserBusinessUnitId && !selectedFirmAdminBusinessUnitId && isGroupAdmin()">
                 <td colspan="7" class="py-4 px-6 text-center text-theme-text-muted">No users found.</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-      <!-- Show instruction message when no organization or business unit is selected (for admin/super_user only) -->
-      <div *ngIf="hasFullAdminAccess() && (!selectedUserOrganizationId || !selectedUserBusinessUnitId)" class="text-center py-12">
+      <!-- Show instruction message when filters are not selected -->
+      <div *ngIf="!shouldShowUsersTable()" class="text-center py-12">
         <div class="bg-theme-surface-hover border border-theme-border rounded-lg p-8">
           <svg class="mx-auto h-12 w-12 text-theme-text-muted mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
           </svg>
           <h3 class="text-lg font-medium text-theme-text mb-2">
-            <span *ngIf="!selectedUserOrganizationId">Select an Organization</span>
-            <span *ngIf="selectedUserOrganizationId && !selectedUserBusinessUnitId">Select a Business Unit</span>
+            <!-- Admin/Super_user messages -->
+            <span *ngIf="hasFullAdminAccess() && !selectedUserOrganizationId">Select an Organization</span>
+            <span *ngIf="hasFullAdminAccess() && selectedUserOrganizationId && !selectedUserBusinessUnitId">Select a Business Unit</span>
+            <!-- Firm_admin message -->
+            <span *ngIf="isFirmAdmin() && !selectedFirmAdminBusinessUnitId">Select a Business Unit</span>
           </h3>
           <p class="text-theme-text-secondary">
-            <span *ngIf="!selectedUserOrganizationId">Please select an organization from the dropdown above to view business units.</span>
-            <span *ngIf="selectedUserOrganizationId && !selectedUserBusinessUnitId">Please select a business unit from the dropdown above to view users.</span>
+            <!-- Admin/Super_user messages -->
+            <span *ngIf="hasFullAdminAccess() && !selectedUserOrganizationId">Please select an organization from the dropdown above to view business units.</span>
+            <span *ngIf="hasFullAdminAccess() && selectedUserOrganizationId && !selectedUserBusinessUnitId">Please select a business unit from the dropdown above to view users.</span>
+            <!-- Firm_admin message -->
+            <span *ngIf="isFirmAdmin() && !selectedFirmAdminBusinessUnitId">Please select a business unit from the dropdown above to view users.</span>
           </p>
         </div>
       </div>

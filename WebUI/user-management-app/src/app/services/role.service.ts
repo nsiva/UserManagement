@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { AuthService } from './auth';
 import { ROLES } from '../shared/constants/app-constants';
+import { ADMIN, SUPER_USER, ORGANIZATION_ADMIN, BUSINESS_UNIT_ADMIN } from '../constants/roles';
 
 @Injectable({
   providedIn: 'root'
@@ -44,7 +45,7 @@ export class RoleService {
    */
   hasOrganizationAccess(): boolean {
     const userRoles = this.authService.getUserRoles();
-    return userRoles.some(role => ['admin', 'super_user'].includes(role));
+    return userRoles.some(role => [ADMIN, SUPER_USER].includes(role));
   }
 
   /**
@@ -53,7 +54,7 @@ export class RoleService {
    */
   hasFullAdminAccess(): boolean {
     const userRoles = this.authService.getUserRoles();
-    return userRoles.some(role => ['admin', 'super_user'].includes(role));
+    return userRoles.some(role => [ADMIN, SUPER_USER].includes(role));
   }
 
   /**
@@ -62,7 +63,7 @@ export class RoleService {
    */
   hasBusinessUnitAccess(): boolean {
     const userRoles = this.authService.getUserRoles();
-    return userRoles.some(role => ['admin', 'super_user', 'firm_admin'].includes(role));
+    return userRoles.some(role => [ADMIN, SUPER_USER, ORGANIZATION_ADMIN].includes(role));
   }
 
   /**
@@ -87,26 +88,26 @@ export class RoleService {
     const userRoles = this.getCurrentUserRoles();
     
     // Super user can assign any role
-    if (userRoles.includes('super_user')) {
+    if (userRoles.includes(SUPER_USER)) {
       return allRoles;
     }
     
     // Admin cannot assign super_user
-    if (userRoles.includes('admin')) {
-      return allRoles.filter(role => role.name !== 'super_user');
+    if (userRoles.includes(ADMIN)) {
+      return allRoles.filter(role => role.name !== SUPER_USER);
     }
     
     // Firm admin cannot assign super_user, admin, but can assign firm_admin
-    if (userRoles.includes('firm_admin')) {
+    if (userRoles.includes(ORGANIZATION_ADMIN)) {
       return allRoles.filter(role => 
-        !['super_user', 'admin'].includes(role.name)
+        ![SUPER_USER, ADMIN].includes(role.name)
       );
     }
     
     // Group admin cannot assign super_user, admin, firm_admin, but can assign group_admin
-    if (userRoles.includes('group_admin')) {
+    if (userRoles.includes(BUSINESS_UNIT_ADMIN)) {
       return allRoles.filter(role => 
-        !['super_user', 'admin', 'firm_admin'].includes(role.name)
+        ![SUPER_USER, ADMIN, ORGANIZATION_ADMIN].includes(role.name)
       );
     }
     
@@ -162,25 +163,25 @@ export class RoleService {
     }
     
     // Super user can edit anyone
-    if (userRoles.includes('super_user')) {
+    if (userRoles.includes(SUPER_USER)) {
       return true;
     }
     
     // Admin can edit anyone except super_user
-    if (userRoles.includes('admin')) {
-      return !targetUserRoles.includes('super_user');
+    if (userRoles.includes(ADMIN)) {
+      return !targetUserRoles.includes(SUPER_USER);
     }
     
     // Firm admin can edit users except super_user, admin, but can edit other firm_admin users
-    if (userRoles.includes('firm_admin')) {
-      const restrictedRoles = ['super_user', 'admin'];
+    if (userRoles.includes(ORGANIZATION_ADMIN)) {
+      const restrictedRoles = [SUPER_USER, ADMIN];
       return !targetUserRoles.some(role => restrictedRoles.includes(role));
     }
     
     // Group admin can only edit users with lower roles (user, viewer, editor, etc.)
     // Cannot edit firm_admin, admin, super_user, but can edit other group_admin users
-    if (userRoles.includes('group_admin')) {
-      const restrictedRoles = ['super_user', 'admin', 'firm_admin'];
+    if (userRoles.includes(BUSINESS_UNIT_ADMIN)) {
+      const restrictedRoles = [SUPER_USER, ADMIN, ORGANIZATION_ADMIN];
       return !targetUserRoles.some(role => restrictedRoles.includes(role));
     }
     
