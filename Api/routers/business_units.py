@@ -200,7 +200,7 @@ async def get_business_units(
     Get all business units with organizational filtering based on user role.
     - admin/super_user: See all business units
     - firm_admin: See business units in their organization
-    - group_admin: See business units in their organization
+    - group_admin: See only their specific business unit
     """
     try:
         current_user_roles = current_admin_user.roles
@@ -223,10 +223,39 @@ async def get_business_units(
                     organization_name=None
                 )
             
-            if ORGANIZATION_ADMIN in current_user_roles or BUSINESS_UNIT_ADMIN in current_user_roles:
-                # Both firm_admin and group_admin see business units in their organization
+            if ORGANIZATION_ADMIN in current_user_roles:
+                # firm_admin sees all business units in their organization
                 organization_id = user_context['organization_id']
-                logger.info(f"Firm/Group admin {current_admin_user.email} accessing organization {user_context['organization_name']} business units")
+                logger.info(f"Firm admin {current_admin_user.email} accessing organization {user_context['organization_name']} business units")
+            elif BUSINESS_UNIT_ADMIN in current_user_roles:
+                # group_admin sees only their specific business unit
+                if user_context.get('business_unit_id'):
+                    # Get only the user's specific business unit
+                    business_unit = await repo.get_business_unit_by_id(user_context['business_unit_id'])
+                    if business_unit:
+                        business_unit_responses = [BusinessUnitResponse(**business_unit)]
+                        return BusinessUnitListResponse(
+                            business_units=business_unit_responses,
+                            total_count=1,
+                            organization_id=user_context['organization_id'],
+                            organization_name=user_context['organization_name']
+                        )
+                    else:
+                        logger.warning(f"Business unit {user_context['business_unit_id']} not found for group_admin {current_admin_user.email}")
+                        return BusinessUnitListResponse(
+                            business_units=[],
+                            total_count=0,
+                            organization_id=user_context['organization_id'],
+                            organization_name=user_context['organization_name']
+                        )
+                else:
+                    logger.warning(f"Group admin {current_admin_user.email} has no business unit context")
+                    return BusinessUnitListResponse(
+                        business_units=[],
+                        total_count=0,
+                        organization_id=user_context['organization_id'],
+                        organization_name=user_context['organization_name']
+                    )
             else:
                 logger.warning(f"User {current_admin_user.email} with roles {current_user_roles} has no business unit access permissions")
                 return BusinessUnitListResponse(

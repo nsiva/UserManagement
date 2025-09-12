@@ -97,13 +97,33 @@
         
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">Role (Select one)</label>
-          <div class="flex flex-wrap gap-x-4 gap-y-2">
+          
+          <!-- Show current role when editing self (read-only) -->
+          <div *ngIf="isEditingSelf && isEditMode" class="mb-4">
+            <div class="bg-gray-100 border border-gray-300 rounded-md p-3">
+              <div class="flex items-center">
+                <svg class="w-4 h-4 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                </svg>
+                <span class="text-sm text-gray-700 font-medium">{{ selectedUserRole }}</span>
+              </div>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">You cannot change your own role for security reasons.</p>
+          </div>
+
+          <!-- Show role selection for other users or create mode -->
+          <div *ngIf="!isEditingSelf || !isEditMode" class="flex flex-wrap gap-x-4 gap-y-2">
             <div *ngFor="let role of userRolesOptions" class="flex items-center">
               <input type="radio" [id]="'role-' + role.id" name="userRole" [value]="role.name"
                      [checked]="selectedUserRole === role.name"
                      (change)="onRoleRadioChange(role.name)"
                      class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
               <label [for]="'role-' + role.id" class="ml-2 text-sm text-gray-900">{{ role.name }}</label>
+            </div>
+            
+            <!-- Show message when no roles are available -->
+            <div *ngIf="userRolesOptions.length === 0" class="text-sm text-gray-500">
+              No roles available for assignment based on your permissions.
             </div>
           </div>
         </div>

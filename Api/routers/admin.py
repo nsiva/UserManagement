@@ -26,6 +26,121 @@ logger = logging.getLogger("admin")
 if not logger.hasHandlers():
     logging.basicConfig(level=logging.INFO)
 
+def validate_role_assignment(current_user_roles: List[str], roles_to_assign: List[str], current_user_id: Optional[str] = None, target_user_id: Optional[str] = None) -> None:
+    """
+    Validate that the current user can assign the requested roles.
+    Role hierarchy restrictions:
+    - group_admin: cannot assign super_user, admin, firm_admin, group_admin
+    - firm_admin: cannot assign super_user, admin, firm_admin
+    - admin: cannot assign super_user
+    - super_user: can assign any role
+    - No user can change their own role (security restriction)
+    
+    Args:
+        current_user_roles: Roles of the current user performing the assignment
+        roles_to_assign: Roles to be assigned to the target user
+        current_user_id: ID of the user performing the assignment (optional)
+        target_user_id: ID of the user receiving the role assignment (optional)
+    
+    Raises:
+        HTTPException: If the current user cannot assign one or more of the requested roles
+    """
+    # Prevent users from changing their own roles
+    if current_user_id and target_user_id and current_user_id == target_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Users cannot change their own roles for security reasons"
+        )
+    # Super user can assign any role
+    if SUPER_USER in current_user_roles:
+        return
+    
+    restricted_roles = []
+    
+    # Admin cannot assign super_user
+    if ADMIN in current_user_roles:
+        restricted_roles = [SUPER_USER]
+    
+    # Firm admin cannot assign super_user, admin, firm_admin
+    elif ORGANIZATION_ADMIN in current_user_roles:
+        restricted_roles = [SUPER_USER, ADMIN, ORGANIZATION_ADMIN]
+    
+    # Group admin cannot assign super_user, admin, firm_admin, group_admin
+    elif BUSINESS_UNIT_ADMIN in current_user_roles:
+        restricted_roles = [SUPER_USER, ADMIN, ORGANIZATION_ADMIN, BUSINESS_UNIT_ADMIN]
+    
+    else:
+        # User has no role assignment privileges
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to assign roles to users"
+        )
+    
+    # Check if any of the roles to assign are restricted
+    forbidden_roles = [role for role in roles_to_assign if role in restricted_roles]
+    
+    if forbidden_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"You do not have permission to assign the following roles: {', '.join(forbidden_roles)}"
+        )
+
+def validate_user_edit_permission(current_user_roles: List[str], target_user_roles: List[str]) -> None:
+    """
+    Validate that the current user can edit the target user based on role hierarchy.
+    - super_user: Can edit anyone
+    - admin: Can edit anyone except super_user
+    - firm_admin: Can edit users except super_user, admin, firm_admin
+    - group_admin: Can edit users except super_user, admin, firm_admin, group_admin
+    
+    Args:
+        current_user_roles: Roles of the current user performing the edit
+        target_user_roles: Roles of the user being edited
+        
+    Raises:
+        HTTPException: If the current user cannot edit the target user
+    """
+    # Super user can edit anyone
+    if SUPER_USER in current_user_roles:
+        return
+    
+    # Admin can edit anyone except super_user
+    if ADMIN in current_user_roles:
+        if SUPER_USER in target_user_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admins cannot edit super_user accounts"
+            )
+        return
+    
+    # Firm admin can edit users except super_user, admin, firm_admin
+    if ORGANIZATION_ADMIN in current_user_roles:
+        restricted_roles = [SUPER_USER, ADMIN, ORGANIZATION_ADMIN]
+        forbidden_roles = [role for role in target_user_roles if role in restricted_roles]
+        if forbidden_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Firm admins cannot edit users with roles: {', '.join(forbidden_roles)}"
+            )
+        return
+    
+    # Group admin can only edit users with lower roles
+    if BUSINESS_UNIT_ADMIN in current_user_roles:
+        restricted_roles = [SUPER_USER, ADMIN, ORGANIZATION_ADMIN, BUSINESS_UNIT_ADMIN]
+        forbidden_roles = [role for role in target_user_roles if role in restricted_roles]
+        if forbidden_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Group admins cannot edit users with roles: {', '.join(forbidden_roles)}"
+            )
+        return
+    
+    # Default: no edit permission
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="You do not have permission to edit users"
+    )
+
 # --- USER MANAGEMENT ---
 
 # IMPORTANT: You need a custom dependency for "either/or" auth if you keep this endpoint as is.
@@ -133,6 +248,16 @@ async def create_user(
         )
 
     if user_data.roles:
+        # Validate role assignment permissions for admin users
+        if current_admin_user:
+            validate_role_assignment(
+                current_admin_user.roles, 
+                user_data.roles, 
+                current_admin_user.user_id, 
+                user_id
+            )
+        # Note: Client-based authentication bypasses role assignment validation
+        # as clients with 'manage:users' scope are considered to have full permissions
         await assign_roles_to_user_by_names(user_id, user_data.roles)
 
     roles = await get_user_roles(str(user_id))
@@ -251,7 +376,13 @@ async def get_user(user_id: UUID, current_admin_user: TokenData = Depends(get_cu
     """
     Retrieves a single user's profile and roles by ID. (Admin only)
     """
-    return await get_user_by_id(user_id)
+    # Get the user first to check their roles
+    user = await get_user_by_id(user_id)
+    
+    # Validate that current user can edit the target user
+    validate_user_edit_permission(current_admin_user.roles, user.roles)
+    
+    return user
 
 
 @admin_router.put("/users/{user_id}", response_model=UserWithRoles)
@@ -260,6 +391,10 @@ async def update_user(user_id: UUID, user_data: UserUpdate, current_user: TokenD
     Updates an existing user's details (email, password, admin status, first name, last name, roles, business unit). (Admin only)
     """
     repo = get_repository()
+    
+    # Get the current user's roles to validate edit permission
+    existing_user = await get_user_by_id(user_id)
+    validate_user_edit_permission(current_user.roles, existing_user.roles)
     
     # Validate business unit if provided
     if user_data.business_unit_id is not None:
@@ -297,6 +432,14 @@ async def update_user(user_id: UUID, user_data: UserUpdate, current_user: TokenD
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update user profile.")
 
     if user_data.roles is not None: # `is not None` allows passing empty list to clear roles
+        # Validate role assignment permissions
+        if user_data.roles:  # Only validate if roles are being assigned (not when clearing roles)
+            validate_role_assignment(
+                current_user.roles, 
+                user_data.roles, 
+                current_user.user_id, 
+                str(user_id)
+            )
         await assign_roles_to_user_by_names(user_id, user_data.roles)
     
     # Update business unit assignment if provided

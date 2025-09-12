@@ -510,6 +510,12 @@ export class AdminDashboardComponent implements OnInit {
     return this.roleService.hasBusinessUnitAccess();
   }
 
+  // --- User Edit Permission ---
+  canEditUser(user: any): boolean {
+    // Check if current user can edit the target user based on role hierarchy
+    return this.roleService.canEditUser(user.roles);
+  }
+
   // --- Organizations Management ---
   loadOrganizations(): void {
     this.organizationService.getOrganizations().subscribe({

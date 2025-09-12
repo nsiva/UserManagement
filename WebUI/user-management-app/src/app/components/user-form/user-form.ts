@@ -6,6 +6,7 @@ import { AuthService } from '../../services/auth';
 import { UserService, UserCreate, UserUpdate, Role, User } from '../../services/user';
 import { UserProfileService } from '../../services/user-profile.service';
 import { BusinessUnitService, BusinessUnit } from '../../services/business-unit';
+import { RoleService } from '../../services/role.service';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -73,6 +74,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
   userId: string | null = null;
   userToEdit: User | null = null;
   isLoading = false;
+  isEditingSelf = false;
   private routeSubscription: Subscription | null = null;
   
   // Password requirements tracking
@@ -91,7 +93,8 @@ export class UserFormComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private userService: UserService,
     private userProfileService: UserProfileService,
-    private businessUnitService: BusinessUnitService
+    private businessUnitService: BusinessUnitService,
+    private roleService: RoleService
   ) {
     this.userForm = this.fb.group({
       firstName: ['', UserFormComponent.noWhitespaceValidator],
@@ -204,9 +207,22 @@ export class UserFormComponent implements OnInit, OnDestroy {
         
         this.selectedUserRole = user.roles.length > 0 ? user.roles[0] : 'user';
         
+        // Check if current user has permission to edit this user
+        if (!this.roleService.canEditUser(user.roles)) {
+          this.showError('Permission denied: You do not have permission to edit this user.');
+          // Redirect back to admin page after 5 seconds
+          setTimeout(() => {
+            this.router.navigate(['/admin']);
+          }, 5000);
+          this.isLoading = false;
+          return;
+        }
+        
         // Clear any previous alert messages
         this.alertMessage = null;
         
+        // Reload roles with the user context to check if editing self
+        this.loadRoles();
         
         this.isLoading = false;
       },
@@ -236,7 +252,20 @@ export class UserFormComponent implements OnInit, OnDestroy {
   loadRoles(): void {
     this.userService.getRoles().subscribe({
       next: (data) => {
-        this.userRolesOptions = data;
+        // Filter roles based on current user's permissions and whether editing self
+        if (this.isEditMode && this.userToEdit) {
+          const currentUserEmail = this.authService.getUserEmail();
+          this.isEditingSelf = this.roleService.isEditingSelf(this.userToEdit.email, currentUserEmail || '');
+          this.userRolesOptions = this.roleService.getAssignableRolesForUser(
+            data, 
+            this.userToEdit.email, 
+            currentUserEmail || ''
+          );
+        } else {
+          // For create mode, use normal role filtering
+          this.userRolesOptions = this.roleService.getAssignableRoles(data);
+        }
+        
         // Only clear alert message if it's not a user loading error
         if (this.alertMessage && !this.alertMessage.includes('load user')) {
           this.alertMessage = null;
