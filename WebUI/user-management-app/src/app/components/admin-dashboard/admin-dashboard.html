@@ -94,6 +94,7 @@
               [disabled]="!selectedUserOrganizationId"
               class="w-full px-3 py-2 border border-theme-border rounded-md shadow-sm bg-theme-surface text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary disabled:bg-theme-surface-hover disabled:text-theme-text-muted disabled:cursor-not-allowed">
               <option value="" disabled>Select Business Unit</option>
+              <option [value]="ALL_BUSINESS_UNITS" *ngIf="hasFullAdminAccess() || isFirmAdmin()">All Business Units</option>
               <option *ngFor="let unit of filteredUserBusinessUnits" [value]="unit.id">
                 {{ unit.name }}
               </option>
@@ -114,6 +115,7 @@
             (change)="onFirmAdminBusinessUnitFilterChange()"
             class="w-full max-w-md px-3 py-2 border border-theme-border rounded-md shadow-sm bg-theme-surface text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary">
             <option value="" disabled>Select Business Unit</option>
+            <option [value]="ALL_BUSINESS_UNITS">All Business Units</option>
             <option *ngFor="let unit of firmAdminBusinessUnits" [value]="unit.id">
               {{ unit.name }}
             </option>

@@ -32,6 +32,9 @@ export class AdminDashboardComponent implements OnInit {
   // Role constants for template access
   readonly ADMIN_ROLE = ADMIN;
   
+  // Filter constants
+  readonly ALL_BUSINESS_UNITS = 'all';
+  
   // Header configuration
   headerConfig: HeaderConfig = {
     title: APP_NAME,
@@ -727,6 +730,13 @@ export class AdminDashboardComponent implements OnInit {
       // For admin/super_user: Show empty array if no business unit is selected
       if (!this.selectedUserBusinessUnitId || this.selectedUserBusinessUnitId === '') {
         this.filteredUsers = [];
+      } else if (this.selectedUserBusinessUnitId === this.ALL_BUSINESS_UNITS) {
+        // Show all users within the selected organization when "All Business Units" is selected
+        this.filteredUsers = this.users.filter(user => {
+          // Get the organization_id from business units that belong to the selected organization
+          const userBusinessUnit = this.filteredUserBusinessUnits.find(unit => unit.id === user.business_unit_id);
+          return userBusinessUnit && userBusinessUnit.organization_id === this.selectedUserOrganizationId;
+        });
       } else {
         // Filter users by selected business unit
         this.filteredUsers = this.users.filter(
@@ -737,6 +747,13 @@ export class AdminDashboardComponent implements OnInit {
       // For firm_admin: Show empty array if no business unit is selected
       if (!this.selectedFirmAdminBusinessUnitId || this.selectedFirmAdminBusinessUnitId === '') {
         this.filteredUsers = [];
+      } else if (this.selectedFirmAdminBusinessUnitId === this.ALL_BUSINESS_UNITS) {
+        // Show all users within firm_admin's organization when "All Business Units" is selected
+        this.filteredUsers = this.users.filter(user => {
+          // Get the organization_id from business units that belong to firm_admin's organization
+          const userBusinessUnit = this.firmAdminBusinessUnits.find(unit => unit.id === user.business_unit_id);
+          return !!userBusinessUnit; // If found in firm_admin's business units, it's in their organization
+        });
       } else {
         // Filter users by selected business unit
         this.filteredUsers = this.users.filter(
