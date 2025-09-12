@@ -85,21 +85,27 @@ def validate_role_assignment(current_user_roles: List[str], roles_to_assign: Lis
             detail=f"You do not have permission to assign the following roles: {', '.join(forbidden_roles)}"
         )
 
-def validate_user_edit_permission(current_user_roles: List[str], target_user_roles: List[str]) -> None:
+def validate_user_edit_permission(current_user_roles: List[str], target_user_roles: List[str], current_user_id: Optional[str] = None, target_user_id: Optional[str] = None) -> None:
     """
     Validate that the current user can edit the target user based on role hierarchy.
     - super_user: Can edit anyone
     - admin: Can edit anyone except super_user
     - firm_admin: Can edit users except super_user, admin, firm_admin
     - group_admin: Can edit users except super_user, admin, firm_admin, group_admin
+    - All users can edit their own profile (first name, last name only)
     
     Args:
         current_user_roles: Roles of the current user performing the edit
         target_user_roles: Roles of the user being edited
+        current_user_id: ID of the user performing the edit (optional)
+        target_user_id: ID of the user being edited (optional)
         
     Raises:
         HTTPException: If the current user cannot edit the target user
     """
+    # Allow users to edit their own profile
+    if current_user_id and target_user_id and current_user_id == target_user_id:
+        return  # Users can always edit their own profile
     # Super user can edit anyone
     if SUPER_USER in current_user_roles:
         return
@@ -380,7 +386,7 @@ async def get_user(user_id: UUID, current_admin_user: TokenData = Depends(get_cu
     user = await get_user_by_id(user_id)
     
     # Validate that current user can edit the target user
-    validate_user_edit_permission(current_admin_user.roles, user.roles)
+    validate_user_edit_permission(current_admin_user.roles, user.roles, current_admin_user.user_id, str(user_id))
     
     return user
 
@@ -394,7 +400,7 @@ async def update_user(user_id: UUID, user_data: UserUpdate, current_user: TokenD
     
     # Get the current user's roles to validate edit permission
     existing_user = await get_user_by_id(user_id)
-    validate_user_edit_permission(current_user.roles, existing_user.roles)
+    validate_user_edit_permission(current_user.roles, existing_user.roles, current_user.user_id, str(user_id))
     
     # Validate business unit if provided
     if user_data.business_unit_id is not None:

@@ -75,6 +75,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
   userToEdit: User | null = null;
   isLoading = false;
   isEditingSelf = false;
+  isEditingOwnProfile = false;
   private routeSubscription: Subscription | null = null;
   
   // Password requirements tracking
@@ -192,11 +193,31 @@ export class UserFormComponent implements OnInit, OnDestroy {
 
   loadUserForEdit(userId: string): void {
     this.isLoading = true;
-    this.userService.getUser(userId).subscribe({
+    console.log('UserFormComponent: Loading user for edit, userId:', userId);
+    console.log('UserFormComponent: Current user email:', this.authService.getUserEmail());
+    console.log('UserFormComponent: Current user roles:', this.authService.getUserRoles());
+    
+    // Check if user is editing themselves by comparing user IDs
+    const currentUserId = this.authService.getUserId();
+    const isEditingSelf = currentUserId === userId;
+    console.log('UserFormComponent: Current user ID:', currentUserId, 'Target user ID:', userId, 'Is editing self:', isEditingSelf);
+    console.log('UserFormComponent: Current user ID type:', typeof currentUserId, 'Target user ID type:', typeof userId);
+    console.log('UserFormComponent: Using API endpoint:', isEditingSelf ? 'profiles/me/full' : 'admin/users/' + userId);
+    
+    // Use appropriate endpoint based on whether user is editing themselves
+    const userRequest = isEditingSelf ? 
+      this.userService.getMyProfile() : 
+      this.userService.getUser(userId);
+    
+    userRequest.subscribe({
       next: (user) => {
         this.userToEdit = user;
         
-        // Populate form with user data
+        // Check if user is editing their own profile first
+        const currentUserEmail = this.authService.getUserEmail();
+        this.isEditingOwnProfile = (user.email === currentUserEmail);
+        
+        // Always populate form with user data
         this.userForm.patchValue({
           firstName: user.first_name || '',
           lastName: user.last_name || '',
@@ -208,7 +229,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
         this.selectedUserRole = user.roles.length > 0 ? user.roles[0] : 'user';
         
         // Check if current user has permission to edit this user
-        if (!this.roleService.canEditUser(user.roles)) {
+        if (!this.roleService.canEditUser(user.roles, user.email)) {
           this.showError('Permission denied: You do not have permission to edit this user.');
           // Redirect back to admin page after 5 seconds
           setTimeout(() => {
@@ -223,6 +244,8 @@ export class UserFormComponent implements OnInit, OnDestroy {
         
         // Reload roles with the user context to check if editing self
         this.loadRoles();
+        
+        console.log('UserFormComponent: User loaded for edit successfully');
         
         this.isLoading = false;
       },
@@ -314,29 +337,52 @@ export class UserFormComponent implements OnInit, OnDestroy {
     }
 
     if (this.isEditMode && this.userId) {
-      // Edit mode
-      const userData: UserUpdate = {
-        first_name: this.userForm.value.firstName,
-        last_name: this.userForm.value.lastName,
-        email: this.userForm.value.email,
-        password: this.userForm.value.password || undefined, // Only include password if provided
-        roles: this.selectedUserRole ? [this.selectedUserRole] : [],
-        business_unit_id: this.userForm.value.businessUnit || undefined
-      };
+      // Edit mode - different handling for own profile vs other users
+      if (this.isEditingOwnProfile) {
+        // When editing own profile, use the self-profile update endpoint
+        const profileData = {
+          first_name: this.userForm.value.firstName,
+          last_name: this.userForm.value.lastName
+        };
 
-      this.userService.updateUser(this.userId, userData).subscribe({
-        next: () => {
-          this.showSuccess('User updated successfully!');
-          // Navigate back to admin page after 2 seconds
-          setTimeout(() => {
-            this.router.navigate(['/admin']);
-          }, 2000);
-        },
-        error: (err: HttpErrorResponse) => {
-          this.showError(err.error.detail || 'Failed to update user.');
-          console.error('Error updating user:', err);
-        }
-      });
+        this.userService.updateMyProfile(profileData).subscribe({
+          next: () => {
+            this.showSuccess('Profile updated successfully!');
+            // Navigate back to admin page after 2 seconds
+            setTimeout(() => {
+              this.router.navigate(['/admin']);
+            }, 2000);
+          },
+          error: (err: HttpErrorResponse) => {
+            this.showError(err.error?.detail || 'Failed to update profile.');
+            console.error('Error updating profile:', err);
+          }
+        });
+      } else {
+        // Normal edit mode for other users - use admin endpoint
+        const userData: UserUpdate = {
+          first_name: this.userForm.value.firstName,
+          last_name: this.userForm.value.lastName,
+          email: this.userForm.value.email,
+          password: this.userForm.value.password || undefined, // Only include password if provided
+          roles: this.selectedUserRole ? [this.selectedUserRole] : [],
+          business_unit_id: this.userForm.value.businessUnit || undefined
+        };
+
+        this.userService.updateUser(this.userId, userData).subscribe({
+          next: () => {
+            this.showSuccess('User updated successfully!');
+            // Navigate back to admin page after 2 seconds
+            setTimeout(() => {
+              this.router.navigate(['/admin']);
+            }, 2000);
+          },
+          error: (err: HttpErrorResponse) => {
+            this.showError(err.error.detail || 'Failed to update user.');
+            console.error('Error updating user:', err);
+          }
+        });
+      }
     } else {
       // Create mode
       if (!this.userForm.value.password) {

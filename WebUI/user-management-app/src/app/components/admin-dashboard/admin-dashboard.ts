@@ -513,7 +513,8 @@ export class AdminDashboardComponent implements OnInit {
   // --- User Edit Permission ---
   canEditUser(user: any): boolean {
     // Check if current user can edit the target user based on role hierarchy
-    return this.roleService.canEditUser(user.roles);
+    // Pass the user's email to check if they're editing themselves
+    return this.roleService.canEditUser(user.roles, user.email);
   }
 
   // --- Organizations Management ---

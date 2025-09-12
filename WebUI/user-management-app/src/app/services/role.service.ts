@@ -96,17 +96,17 @@ export class RoleService {
       return allRoles.filter(role => role.name !== 'super_user');
     }
     
-    // Firm admin cannot assign super_user, admin, firm_admin
+    // Firm admin cannot assign super_user, admin, but can assign firm_admin
     if (userRoles.includes('firm_admin')) {
       return allRoles.filter(role => 
-        !['super_user', 'admin', 'firm_admin'].includes(role.name)
+        !['super_user', 'admin'].includes(role.name)
       );
     }
     
-    // Group admin cannot assign super_user, admin, firm_admin, group_admin
+    // Group admin cannot assign super_user, admin, firm_admin, but can assign group_admin
     if (userRoles.includes('group_admin')) {
       return allRoles.filter(role => 
-        !['super_user', 'admin', 'firm_admin', 'group_admin'].includes(role.name)
+        !['super_user', 'admin', 'firm_admin'].includes(role.name)
       );
     }
     
@@ -145,11 +145,21 @@ export class RoleService {
   /**
    * Check if the current user can edit another user based on role hierarchy
    * group_admin cannot edit users with roles: firm_admin, admin, super_user
+   * All users can edit their own profile (first name, last name only)
    * @param targetUserRoles Roles of the user being edited
+   * @param targetUserEmail Email of the user being edited (optional, for self-edit check)
    * @returns true if current user can edit the target user
    */
-  canEditUser(targetUserRoles: string[]): boolean {
+  canEditUser(targetUserRoles: string[], targetUserEmail?: string): boolean {
     const userRoles = this.getCurrentUserRoles();
+    
+    // Check if user is editing themselves - always allowed for profile updates
+    if (targetUserEmail) {
+      const currentUserEmail = this.authService.getUserEmail();
+      if (targetUserEmail === currentUserEmail) {
+        return true; // Users can always edit their own profile
+      }
+    }
     
     // Super user can edit anyone
     if (userRoles.includes('super_user')) {
@@ -161,16 +171,16 @@ export class RoleService {
       return !targetUserRoles.includes('super_user');
     }
     
-    // Firm admin can edit users except super_user, admin, firm_admin
+    // Firm admin can edit users except super_user, admin, but can edit other firm_admin users
     if (userRoles.includes('firm_admin')) {
-      const restrictedRoles = ['super_user', 'admin', 'firm_admin'];
+      const restrictedRoles = ['super_user', 'admin'];
       return !targetUserRoles.some(role => restrictedRoles.includes(role));
     }
     
     // Group admin can only edit users with lower roles (user, viewer, editor, etc.)
-    // Cannot edit firm_admin, admin, super_user
+    // Cannot edit firm_admin, admin, super_user, but can edit other group_admin users
     if (userRoles.includes('group_admin')) {
-      const restrictedRoles = ['super_user', 'admin', 'firm_admin', 'group_admin'];
+      const restrictedRoles = ['super_user', 'admin', 'firm_admin'];
       return !targetUserRoles.some(role => restrictedRoles.includes(role));
     }
     

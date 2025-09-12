@@ -62,7 +62,7 @@
           </div>
         </div>
         
-        <div>
+        <div *ngIf="!isEditingOwnProfile">
           <label for="password" class="block text-sm font-medium text-gray-700">Password {{ isEditMode ? '(leave blank to keep current)' : '*' }}</label>
           <input type="password" id="password" formControlName="password" autocomplete="new-password"
                  (input)="onPasswordChange()"
@@ -80,7 +80,7 @@
           </app-password-requirements>
         </div>
         
-        <div>
+        <div *ngIf="!isEditingOwnProfile">
           <label for="businessUnit" class="block text-sm font-medium text-gray-700">Business Unit *</label>
           <select id="businessUnit" formControlName="businessUnit"
                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
@@ -95,11 +95,20 @@
           </div>
         </div>
         
+        <!-- Show current business unit as read-only when editing own profile -->
+        <div *ngIf="isEditingOwnProfile && isEditMode">
+          <label class="block text-sm font-medium text-gray-700">Business Unit</label>
+          <div class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700">
+            {{ userToEdit?.business_unit_name || 'Not assigned' }}
+          </div>
+          <p class="text-xs text-gray-500 mt-1">Contact your administrator to change your business unit.</p>
+        </div>
+        
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">Role (Select one)</label>
           
-          <!-- Show current role when editing self (read-only) -->
-          <div *ngIf="isEditingSelf && isEditMode" class="mb-4">
+          <!-- Show current role when editing own profile (read-only) -->
+          <div *ngIf="isEditingOwnProfile && isEditMode" class="mb-4">
             <div class="bg-gray-100 border border-gray-300 rounded-md p-3">
               <div class="flex items-center">
                 <svg class="w-4 h-4 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -108,11 +117,11 @@
                 <span class="text-sm text-gray-700 font-medium">{{ selectedUserRole }}</span>
               </div>
             </div>
-            <p class="text-xs text-gray-500 mt-1">You cannot change your own role for security reasons.</p>
+            <p class="text-xs text-gray-500 mt-1">Contact your administrator to change your role.</p>
           </div>
 
           <!-- Show role selection for other users or create mode -->
-          <div *ngIf="!isEditingSelf || !isEditMode" class="flex flex-wrap gap-x-4 gap-y-2">
+          <div *ngIf="!isEditingOwnProfile || !isEditMode" class="flex flex-wrap gap-x-4 gap-y-2">
             <div *ngFor="let role of userRolesOptions" class="flex items-center">
               <input type="radio" [id]="'role-' + role.id" name="userRole" [value]="role.name"
                      [checked]="selectedUserRole === role.name"

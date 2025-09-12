@@ -95,6 +95,7 @@ export class UserService {
   }
 
   getUser(userId: string): Observable<User> {
+    console.log('UserService: getUser called for userId:', userId, '- using endpoint: /admin/users/' + userId);
     return this.http.get<User>(`${this.apiUrl}/users/${userId}`, { headers: this.getAuthHeaders() });
   }
 
@@ -147,5 +148,15 @@ export class UserService {
     return this.http.delete<{ message: string }>(
       environment.apiUrl + `/auth/mfa/remove?email=${email}`, { headers: this.getAuthHeaders() }
     );
+  }
+
+  // --- Self Profile Management ---
+  getMyProfile(): Observable<User> {
+    console.log('UserService: getMyProfile called - using endpoint: /profiles/me/full');
+    return this.http.get<User>(environment.apiUrl + '/profiles/me/full', { headers: this.getAuthHeaders() });
+  }
+
+  updateMyProfile(profileData: { first_name?: string, last_name?: string }): Observable<User> {
+    return this.http.put<User>(environment.apiUrl + '/profiles/me', profileData, { headers: this.getAuthHeaders() });
   }
 }
