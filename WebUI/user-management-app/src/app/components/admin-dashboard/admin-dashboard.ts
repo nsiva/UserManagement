@@ -43,6 +43,10 @@ export class AdminDashboardComponent implements OnInit {
 
   // User Management
   users: User[] = [];
+  filteredUsers: User[] = [];
+  selectedUserOrganizationId: string = '';
+  selectedUserBusinessUnitId: string = '';
+  filteredUserBusinessUnits: BusinessUnit[] = [];
   userForm: FormGroup;
   isEditModeUser = false;
   selectedUserId: string | null = null;
@@ -60,6 +64,8 @@ export class AdminDashboardComponent implements OnInit {
 
   // Business Units Management
   businessUnits: BusinessUnit[] = [];
+  filteredBusinessUnits: BusinessUnit[] = [];
+  selectedOrganizationId: string = '';
 
   // MFA Setup
   showMfaSetupModal = false;
@@ -119,6 +125,11 @@ export class AdminDashboardComponent implements OnInit {
       // Users without business unit access (group_admin) default to users tab
       this.activeTab = 'users';
     }
+
+    // Initialize filtered arrays
+    this.filteredBusinessUnits = [];
+    this.filteredUsers = [];
+    this.filteredUserBusinessUnits = [];
   }
 
   // --- General UI ---
@@ -164,6 +175,12 @@ export class AdminDashboardComponent implements OnInit {
     this.userService.getUsers().subscribe({
       next: (data) => {
         this.users = data;
+        this.filterUsers(); // Apply current filters
+        
+        // Load organizations for admin/super_user to populate dropdown
+        if (this.hasFullAdminAccess() && this.organizations.length === 0) {
+          this.loadOrganizations();
+        }
       },
       error: (err: HttpErrorResponse) => {
         this.showError(err.error.detail || 'Failed to load users.');
@@ -483,9 +500,23 @@ export class AdminDashboardComponent implements OnInit {
   // --- Tab Management ---
   setActiveTab(tab: 'users' | 'organizations' | 'business-units'): void {
     this.activeTab = tab;
-    if (tab === 'organizations') {
+    if (tab === 'users') {
+      // Reset user filters when switching to users tab
+      if (this.hasFullAdminAccess()) {
+        this.selectedUserOrganizationId = '';
+        this.selectedUserBusinessUnitId = '';
+        this.filteredUsers = []; // Clear filtered results
+        this.filteredUserBusinessUnits = []; // Clear filtered business units
+      }
+      this.loadUsers();
+    } else if (tab === 'organizations') {
       this.loadOrganizations();
     } else if (tab === 'business-units') {
+      // Reset organization filter when switching to business units tab
+      if (this.hasFullAdminAccess()) {
+        this.selectedOrganizationId = '';
+        this.filteredBusinessUnits = []; // Clear filtered results
+      }
       this.loadBusinessUnits();
     }
   }
@@ -593,6 +624,12 @@ export class AdminDashboardComponent implements OnInit {
     this.businessUnitService.getBusinessUnits().subscribe({
       next: (response) => {
         this.businessUnits = response.business_units;
+        this.filterBusinessUnits(); // Apply current organization filter
+        
+        // Load organizations for admin/super_user to populate dropdown
+        if (this.hasFullAdminAccess() && this.organizations.length === 0) {
+          this.loadOrganizations();
+        }
       },
       error: (err: HttpErrorResponse) => {
         this.showError(err.error.detail || 'Failed to load business units.');
@@ -607,6 +644,81 @@ export class AdminDashboardComponent implements OnInit {
 
   navigateToEditBusinessUnit(businessUnit: BusinessUnit): void {
     this.router.navigate(['/admin/edit-business-unit', businessUnit.id]);
+  }
+
+  // --- User Filtering ---
+  onUserOrganizationFilterChange(): void {
+    // Reset business unit selection when organization changes
+    this.selectedUserBusinessUnitId = '';
+    this.filteredUserBusinessUnits = [];
+    
+    // Load business units for the selected organization
+    if (this.selectedUserOrganizationId) {
+      this.loadBusinessUnitsForUserFilter();
+    } else {
+      this.filterUsers();
+    }
+  }
+
+  onUserBusinessUnitFilterChange(): void {
+    this.filterUsers();
+  }
+
+  loadBusinessUnitsForUserFilter(): void {
+    // Load business units for the selected organization
+    this.businessUnitService.getBusinessUnits().subscribe({
+      next: (response) => {
+        // Filter business units by selected organization
+        this.filteredUserBusinessUnits = response.business_units.filter(
+          unit => unit.organization_id === this.selectedUserOrganizationId
+        );
+        this.filterUsers(); // Apply user filtering
+      },
+      error: (err: HttpErrorResponse) => {
+        this.showError(err.error.detail || 'Failed to load business units.');
+        console.error('Error loading business units for user filter:', err);
+      }
+    });
+  }
+
+  filterUsers(): void {
+    if (!this.hasFullAdminAccess()) {
+      // For non-admin users, show all users based on their permissions
+      this.filteredUsers = [...this.users];
+      return;
+    }
+
+    // For admin/super_user: Show empty array if no business unit is selected
+    if (!this.selectedUserBusinessUnitId || this.selectedUserBusinessUnitId === '') {
+      this.filteredUsers = [];
+    } else {
+      // Filter users by selected business unit
+      this.filteredUsers = this.users.filter(
+        user => user.business_unit_id === this.selectedUserBusinessUnitId
+      );
+    }
+  }
+
+  // --- Organization Filter for Business Units ---
+  onOrganizationFilterChange(): void {
+    this.filterBusinessUnits();
+  }
+
+  filterBusinessUnits(): void {
+    if (!this.selectedOrganizationId || this.selectedOrganizationId === '') {
+      // For admin/super_user: Show empty array if no organization is selected
+      // For other roles: Show all business units (based on their permissions)
+      if (this.hasFullAdminAccess()) {
+        this.filteredBusinessUnits = [];
+      } else {
+        this.filteredBusinessUnits = [...this.businessUnits];
+      }
+    } else {
+      // Filter business units by selected organization
+      this.filteredBusinessUnits = this.businessUnits.filter(
+        unit => unit.organization_id === this.selectedOrganizationId
+      );
+    }
   }
 
 

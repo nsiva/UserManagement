@@ -61,8 +61,50 @@
           Create New User
         </button>
       </div>
-        <div class="overflow-x-auto">
-          <table class="min-w-full bg-theme-surface border border-theme-border rounded-md">
+
+      <!-- Organization and Business Unit Filter Section (only for admin and super_user) -->
+      <div *ngIf="hasFullAdminAccess()" class="mb-6 p-4 bg-theme-surface-hover border border-theme-border rounded-lg">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Organization Filter -->
+          <div>
+            <label for="userOrganizationFilter" class="block text-sm font-medium text-theme-text mb-2">
+              Filter by Organization
+            </label>
+            <select 
+              id="userOrganizationFilter"
+              [(ngModel)]="selectedUserOrganizationId" 
+              (change)="onUserOrganizationFilterChange()"
+              class="w-full px-3 py-2 border border-theme-border rounded-md shadow-sm bg-theme-surface text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary">
+              <option value="" disabled>Select Organization</option>
+              <option *ngFor="let org of organizations" [value]="org.id">
+                {{ org.company_name }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Business Unit Filter -->
+          <div>
+            <label for="userBusinessUnitFilter" class="block text-sm font-medium text-theme-text mb-2">
+              Filter by Business Unit
+            </label>
+            <select 
+              id="userBusinessUnitFilter"
+              [(ngModel)]="selectedUserBusinessUnitId" 
+              (change)="onUserBusinessUnitFilterChange()"
+              [disabled]="!selectedUserOrganizationId"
+              class="w-full px-3 py-2 border border-theme-border rounded-md shadow-sm bg-theme-surface text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary disabled:bg-theme-surface-hover disabled:text-theme-text-muted disabled:cursor-not-allowed">
+              <option value="" disabled>Select Business Unit</option>
+              <option *ngFor="let unit of filteredUserBusinessUnits" [value]="unit.id">
+                {{ unit.name }}
+              </option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Show users table only when both organization and business unit are selected (for admin/super_user) or always for other roles -->
+      <div *ngIf="!hasFullAdminAccess() || (hasFullAdminAccess() && selectedUserOrganizationId && selectedUserBusinessUnitId)" class="overflow-x-auto">
+        <table class="min-w-full bg-theme-surface border border-theme-border rounded-md">
             <thead>
               <tr class="bg-theme-surface-hover text-left text-xs font-medium text-theme-text-secondary uppercase tracking-wider">
                 <th class="py-3 px-6">Name</th>
@@ -75,7 +117,7 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-theme-border">
-              <tr *ngFor="let user of users; let i = index" [ngClass]="{'bg-theme-surface-hover': i % 2 === 1}">
+              <tr *ngFor="let user of filteredUsers; let i = index" [ngClass]="{'bg-theme-surface-hover': i % 2 === 1}">
                 <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">
                   {{ (user.first_name && user.last_name) ? (user.first_name + ' ' + user.last_name) : (user.first_name || user.last_name || '-') }}
                 </td>
@@ -135,12 +177,32 @@
                   </button>
                 </td>
               </tr>
-              <tr *ngIf="users.length === 0">
+              <tr *ngIf="filteredUsers.length === 0 && selectedUserBusinessUnitId">
+                <td colspan="7" class="py-4 px-6 text-center text-theme-text-muted">No users found for the selected business unit.</td>
+              </tr>
+              <tr *ngIf="filteredUsers.length === 0 && !selectedUserBusinessUnitId && !hasFullAdminAccess()">
                 <td colspan="7" class="py-4 px-6 text-center text-theme-text-muted">No users found.</td>
               </tr>
             </tbody>
           </table>
         </div>
+
+      <!-- Show instruction message when no organization or business unit is selected (for admin/super_user only) -->
+      <div *ngIf="hasFullAdminAccess() && (!selectedUserOrganizationId || !selectedUserBusinessUnitId)" class="text-center py-12">
+        <div class="bg-theme-surface-hover border border-theme-border rounded-lg p-8">
+          <svg class="mx-auto h-12 w-12 text-theme-text-muted mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+          </svg>
+          <h3 class="text-lg font-medium text-theme-text mb-2">
+            <span *ngIf="!selectedUserOrganizationId">Select an Organization</span>
+            <span *ngIf="selectedUserOrganizationId && !selectedUserBusinessUnitId">Select a Business Unit</span>
+          </h3>
+          <p class="text-theme-text-secondary">
+            <span *ngIf="!selectedUserOrganizationId">Please select an organization from the dropdown above to view business units.</span>
+            <span *ngIf="selectedUserOrganizationId && !selectedUserBusinessUnitId">Please select a business unit from the dropdown above to view users.</span>
+          </p>
+        </div>
+      </div>
     </div>
 
     <!-- Organizations Tab Content -->
@@ -207,7 +269,26 @@
           Create New Business Unit
         </button>
       </div>
-      <div class="overflow-x-auto">
+
+      <!-- Organization Filter Section (only for admin and super_user) -->
+      <div *ngIf="hasFullAdminAccess()" class="mb-6 p-4 bg-theme-surface-hover border border-theme-border rounded-lg">
+        <label for="organizationFilter" class="block text-sm font-medium text-theme-text mb-2">
+          Filter by Organization
+        </label>
+        <select 
+          id="organizationFilter"
+          [(ngModel)]="selectedOrganizationId" 
+          (change)="onOrganizationFilterChange()"
+          class="w-full max-w-md px-3 py-2 border border-theme-border rounded-md shadow-sm bg-theme-surface text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary">
+          <option value="" disabled>Select Organization</option>
+          <option *ngFor="let org of organizations" [value]="org.id">
+            {{ org.company_name }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Show business units table only when organization is selected (for admin/super_user) or always for other roles -->
+      <div *ngIf="!hasFullAdminAccess() || (hasFullAdminAccess() && selectedOrganizationId)" class="overflow-x-auto">
         <table class="min-w-full bg-theme-surface border border-theme-border rounded-md">
           <thead>
             <tr class="bg-theme-surface-hover text-left text-xs font-medium text-theme-text-secondary uppercase tracking-wider">
@@ -220,7 +301,7 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-theme-border">
-            <tr *ngFor="let unit of businessUnits; let i = index" [ngClass]="{'bg-theme-surface-hover': i % 2 === 1}">
+            <tr *ngFor="let unit of filteredBusinessUnits; let i = index" [ngClass]="{'bg-theme-surface-hover': i % 2 === 1}">
               <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">{{ unit.name }}</td>
               <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">{{ unit.organization_name || '-' }}</td>
               <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">{{ unit.parent_name || '-' }}</td>
@@ -241,11 +322,25 @@
                 </button>
               </td>
             </tr>
-            <tr *ngIf="businessUnits.length === 0">
+            <tr *ngIf="filteredBusinessUnits.length === 0 && selectedOrganizationId">
+              <td colspan="6" class="py-4 px-6 text-center text-theme-text-muted">No business units found for the selected organization.</td>
+            </tr>
+            <tr *ngIf="filteredBusinessUnits.length === 0 && !selectedOrganizationId && !hasFullAdminAccess()">
               <td colspan="6" class="py-4 px-6 text-center text-theme-text-muted">No business units found.</td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Show instruction message when no organization is selected (for admin/super_user only) -->
+      <div *ngIf="hasFullAdminAccess() && !selectedOrganizationId" class="text-center py-12">
+        <div class="bg-theme-surface-hover border border-theme-border rounded-lg p-8">
+          <svg class="mx-auto h-12 w-12 text-theme-text-muted mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+          </svg>
+          <h3 class="text-lg font-medium text-theme-text mb-2">Select an Organization</h3>
+          <p class="text-theme-text-secondary">Please select an organization from the dropdown above to view its business units.</p>
+        </div>
       </div>
     </div>
   </main>
