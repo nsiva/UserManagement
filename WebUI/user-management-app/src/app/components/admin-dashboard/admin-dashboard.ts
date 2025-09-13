@@ -7,7 +7,7 @@ import { OrganizationService, Organization, OrganizationCreate, OrganizationUpda
 import { BusinessUnitService, BusinessUnit, BusinessUnitCreate, BusinessUnitUpdate } from '../../services/business-unit';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { NgModule } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -100,7 +100,8 @@ export class AdminDashboardComponent implements OnInit {
     private organizationService: OrganizationService,
     private businessUnitService: BusinessUnitService,
     private fb: FormBuilder,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute
   ) {
     this.userForm = this.fb.group({
       firstName: ['', Validators.required],
@@ -122,8 +123,14 @@ export class AdminDashboardComponent implements OnInit {
       this.loadRoles();
     }
 
+    // Check for query parameters to restore state when returning from edit operations
+    this.restoreStateFromQueryParams();
+
     // Set default tab to the first available tab based on the new order: Organizations -> Business Units -> Users
-    this.setFirstActiveTab();
+    // Only set default if no state was restored from query parameters
+    if (!this.route.snapshot.queryParams['tab']) {
+      this.setFirstActiveTab();
+    }
 
     // Initialize filtered arrays
     this.filteredBusinessUnits = [];
@@ -299,7 +306,31 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   editUser(user: User): void {
-    this.router.navigate(['/admin/edit-user', user.id]);
+    // Preserve current state when navigating to edit user
+    const queryParams: any = {
+      returnTo: '/admin',
+      tab: this.activeTab
+    };
+    
+    // For admin/super_user, preserve both organization and business unit selections
+    if (this.hasFullAdminAccess()) {
+      if (this.selectedUserOrganizationId) {
+        queryParams.orgId = this.selectedUserOrganizationId;
+      }
+      if (this.selectedUserBusinessUnitId) {
+        queryParams.buId = this.selectedUserBusinessUnitId;
+      }
+    }
+    // For firm_admin, preserve business unit selection
+    else if (this.isFirmAdmin()) {
+      if (this.selectedFirmAdminBusinessUnitId) {
+        queryParams.buId = this.selectedFirmAdminBusinessUnitId;
+      }
+    }
+    
+    this.router.navigate(['/admin/edit-user', user.id], { 
+      queryParams 
+    });
   }
 
   deleteUser(userId: string): void {
@@ -482,8 +513,81 @@ export class AdminDashboardComponent implements OnInit {
     }
   }
 
+  private restoreStateFromQueryParams(): void {
+    const queryParams = this.route.snapshot.queryParams;
+    
+    // Restore tab
+    if (queryParams['tab']) {
+      this.activeTab = queryParams['tab'] as 'users' | 'organizations' | 'business-units';
+    }
+    
+    // Restore selected organization for business units tab
+    if (queryParams['orgId'] && this.hasFullAdminAccess()) {
+      this.selectedOrganizationId = queryParams['orgId'];
+      
+      // If restoring for users tab, also restore user-specific selections
+      if (this.activeTab === 'users') {
+        this.selectedUserOrganizationId = queryParams['orgId'];
+        
+        // Load organizations and business units for user filtering
+        this.loadOrganizations();
+        this.loadBusinessUnits();
+        
+        // Restore business unit selection if available
+        if (queryParams['buId']) {
+          this.selectedUserBusinessUnitId = queryParams['buId'];
+        }
+      } else {
+        // Load organizations and business units to restore the filtered state for business-units tab
+        this.loadOrganizations();
+        this.loadBusinessUnits();
+      }
+    }
+    
+    // Restore business unit selection for firm_admin users
+    if (queryParams['buId'] && this.isFirmAdmin()) {
+      this.selectedFirmAdminBusinessUnitId = queryParams['buId'];
+      
+      // Load business units for firm_admin
+      this.loadFirmAdminBusinessUnits();
+    }
+    
+    // Clear query parameters after restoring state to keep URL clean
+    if (Object.keys(queryParams).length > 0) {
+      this.router.navigate([], { 
+        relativeTo: this.route, 
+        queryParams: {},
+        replaceUrl: true 
+      });
+    }
+  }
+
   navigateToCreateUser(): void {
-    this.router.navigate(['/admin/create-user']);
+    // Preserve current state when navigating to create user
+    const queryParams: any = {
+      returnTo: '/admin',
+      tab: this.activeTab
+    };
+    
+    // For admin/super_user, preserve both organization and business unit selections if on users tab
+    if (this.activeTab === 'users' && this.hasFullAdminAccess()) {
+      if (this.selectedUserOrganizationId) {
+        queryParams.orgId = this.selectedUserOrganizationId;
+      }
+      if (this.selectedUserBusinessUnitId) {
+        queryParams.buId = this.selectedUserBusinessUnitId;
+      }
+    }
+    // For firm_admin, preserve business unit selection if on users tab
+    else if (this.activeTab === 'users' && this.isFirmAdmin()) {
+      if (this.selectedFirmAdminBusinessUnitId) {
+        queryParams.buId = this.selectedFirmAdminBusinessUnitId;
+      }
+    }
+    
+    this.router.navigate(['/admin/create-user'], { 
+      queryParams 
+    });
   }
 
   logout(): void {
@@ -688,11 +792,37 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   navigateToCreateBusinessUnit(): void {
-    this.router.navigate(['/admin/create-business-unit']);
+    // Preserve current state when navigating to create business unit
+    const queryParams: any = {
+      returnTo: '/admin',
+      tab: this.activeTab
+    };
+    
+    // For admin/super_user, preserve the selected organization
+    if (this.hasFullAdminAccess() && this.selectedOrganizationId) {
+      queryParams.orgId = this.selectedOrganizationId;
+    }
+    
+    this.router.navigate(['/admin/create-business-unit'], { 
+      queryParams 
+    });
   }
 
   navigateToEditBusinessUnit(businessUnit: BusinessUnit): void {
-    this.router.navigate(['/admin/edit-business-unit', businessUnit.id]);
+    // Preserve current state when navigating to edit business unit
+    const queryParams: any = {
+      returnTo: '/admin',
+      tab: this.activeTab
+    };
+    
+    // For admin/super_user, preserve the selected organization
+    if (this.hasFullAdminAccess() && this.selectedOrganizationId) {
+      queryParams.orgId = this.selectedOrganizationId;
+    }
+    
+    this.router.navigate(['/admin/edit-business-unit', businessUnit.id], { 
+      queryParams 
+    });
   }
 
   // --- User Filtering ---

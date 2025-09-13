@@ -122,6 +122,9 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
   alertMessage: string | null = null;
   alertType: AlertType = 'info';
 
+  // Return navigation parameters
+  private returnQueryParams: any = {};
+
   constructor(
     private authService: AuthService,
     private businessUnitService: BusinessUnitService,
@@ -154,6 +157,9 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Capture query parameters for return navigation
+    this.captureReturnParameters();
+
     // Subscribe to route parameter changes to handle component reuse
     this.routeSubscription = this.route.paramMap.subscribe(_ => {
       // Reset form and component state first
@@ -170,6 +176,21 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
     if (this.routeSubscription) {
       this.routeSubscription.unsubscribe();
     }
+  }
+
+  private captureReturnParameters(): void {
+    const queryParams = this.route.snapshot.queryParams;
+    
+    // Store query parameters for return navigation
+    this.returnQueryParams = {};
+    if (queryParams['tab']) {
+      this.returnQueryParams['tab'] = queryParams['tab'];
+    }
+    if (queryParams['orgId']) {
+      this.returnQueryParams['orgId'] = queryParams['orgId'];
+    }
+    
+    console.log('CreateBusinessUnitComponent: Captured return parameters:', this.returnQueryParams);
   }
 
   checkMode(): void {
@@ -430,7 +451,7 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
         next: () => {
           this.showSuccess('Business unit updated successfully!');
           setTimeout(() => {
-            this.router.navigate(['/admin']);
+            this.navigateToAdmin();
           }, 2000);
         },
         error: (err: HttpErrorResponse) => {
@@ -444,7 +465,7 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
         next: () => {
           this.showSuccess('Business unit created successfully!');
           setTimeout(() => {
-            this.router.navigate(['/admin']);
+            this.navigateToAdmin();
           }, 2000);
         },
         error: (err: HttpErrorResponse) => {
@@ -522,7 +543,12 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
   }
 
   navigateToAdmin(): void {
-    this.router.navigate(['/admin']);
+    // Navigate back to admin with preserved state if available
+    if (Object.keys(this.returnQueryParams).length > 0) {
+      this.router.navigate(['/admin'], { queryParams: this.returnQueryParams });
+    } else {
+      this.router.navigate(['/admin']);
+    }
   }
 
   logout(): void {

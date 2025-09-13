@@ -87,6 +87,9 @@ export class UserFormComponent implements OnInit, OnDestroy {
     hasSpecialChar: false
   };
 
+  // Return navigation parameters
+  private returnQueryParams: any = {};
+
   constructor(
     private fb: FormBuilder,
     private router: Router,
@@ -113,6 +116,9 @@ export class UserFormComponent implements OnInit, OnDestroy {
       return;
     }
     
+    // Capture query parameters for return navigation
+    this.captureReturnParameters();
+    
     // Subscribe to route parameter changes to handle component reuse
     this.routeSubscription = this.route.paramMap.subscribe(params => {
       // Reset form and component state first
@@ -127,6 +133,24 @@ export class UserFormComponent implements OnInit, OnDestroy {
     if (this.routeSubscription) {
       this.routeSubscription.unsubscribe();
     }
+  }
+
+  private captureReturnParameters(): void {
+    const queryParams = this.route.snapshot.queryParams;
+    
+    // Store query parameters for return navigation
+    this.returnQueryParams = {};
+    if (queryParams['tab']) {
+      this.returnQueryParams['tab'] = queryParams['tab'];
+    }
+    if (queryParams['orgId']) {
+      this.returnQueryParams['orgId'] = queryParams['orgId'];
+    }
+    if (queryParams['buId']) {
+      this.returnQueryParams['buId'] = queryParams['buId'];
+    }
+    
+    console.log('UserFormComponent: Captured return parameters:', this.returnQueryParams);
   }
 
   checkMode(): void {
@@ -233,7 +257,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
           this.showError('Permission denied: You do not have permission to edit this user.');
           // Redirect back to admin page after 5 seconds
           setTimeout(() => {
-            this.router.navigate(['/admin']);
+            this.navigateToAdmin();
           }, 5000);
           this.isLoading = false;
           return;
@@ -263,7 +287,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
           this.showError('Access denied. You may not have permission to view this user.');
         } else if (err.status === 404) {
           this.showError('User not found.');
-          setTimeout(() => this.router.navigate(['/admin']), 2000);
+          setTimeout(() => this.navigateToAdmin(), 2000);
         } else {
           this.showError(err.error?.detail || 'Failed to load user.');
         }
@@ -350,7 +374,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
             this.showSuccess('Profile updated successfully!');
             // Navigate back to admin page after 2 seconds
             setTimeout(() => {
-              this.router.navigate(['/admin']);
+              this.navigateToAdmin();
             }, 2000);
           },
           error: (err: HttpErrorResponse) => {
@@ -374,7 +398,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
             this.showSuccess('User updated successfully!');
             // Navigate back to admin page after 2 seconds
             setTimeout(() => {
-              this.router.navigate(['/admin']);
+              this.navigateToAdmin();
             }, 2000);
           },
           error: (err: HttpErrorResponse) => {
@@ -404,7 +428,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
           this.showSuccess('User created successfully!');
           // Navigate back to admin page after 2 seconds
           setTimeout(() => {
-            this.router.navigate(['/admin']);
+            this.navigateToAdmin();
           }, 2000);
         },
         error: (err: HttpErrorResponse) => {
@@ -416,7 +440,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
   }
 
   cancel(): void {
-    this.router.navigate(['/admin']);
+    this.navigateToAdmin();
   }
 
   showError(message: string): void {
@@ -440,7 +464,12 @@ export class UserFormComponent implements OnInit, OnDestroy {
   }
 
   navigateToAdmin(): void {
-    this.router.navigate(['/admin']);
+    // Navigate back to admin with preserved state if available
+    if (Object.keys(this.returnQueryParams).length > 0) {
+      this.router.navigate(['/admin'], { queryParams: this.returnQueryParams });
+    } else {
+      this.router.navigate(['/admin']);
+    }
   }
 
   logout(): void {
