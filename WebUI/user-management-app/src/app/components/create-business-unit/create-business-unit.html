@@ -114,12 +114,22 @@
               id="manager_id" 
               formControlName="manager_id"
               class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+              [disabled]="!selectedOrganizationId"
             >
               <option value="">No Manager Assigned</option>
               <option *ngFor="let user of availableManagers" [value]="user.id">
                 {{ user.first_name && user.last_name ? (user.first_name + ' ' + user.last_name) : user.email }}
               </option>
             </select>
+            <div *ngIf="!selectedOrganizationId" class="text-theme-text-muted text-xs mt-1">
+              Select an organization first to see available managers.
+            </div>
+            <div *ngIf="selectedOrganizationId && availableManagers.length === 0 && !isEditMode" class="text-theme-text-muted text-xs mt-1">
+              No users with business unit admin role available in the selected organization.
+            </div>
+            <div *ngIf="isEditMode && availableManagers.length === 0" class="text-theme-text-muted text-xs mt-1">
+              No users with business unit admin role available in this business unit.
+            </div>
           </div>
         </div>
 

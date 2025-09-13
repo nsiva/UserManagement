@@ -116,6 +116,7 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
   availableOrganizations: Organization[] = [];
   availableParentUnits: BusinessUnit[] = [];
   availableManagers: User[] = [];
+  allUsers: User[] = []; // Store all users for filtering
   selectedOrganizationId: string | null = null;
 
   // Alert properties
@@ -322,7 +323,9 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
   loadUsers(): void {
     this.userService.getUsers().subscribe({
       next: (users) => {
-        this.availableManagers = users;
+        // Store all users for filtering
+        this.allUsers = users;
+        this.filterManagersByOrganization();
       },
       error: (err: HttpErrorResponse) => {
         console.error('Error loading users:', err);
@@ -341,23 +344,66 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
       this.availableParentUnits = [];
     }
     
-    // Reset parent unit selection when organization changes
+    // Filter managers by selected organization
+    this.filterManagersByOrganization();
+    
+    // Reset parent unit and manager selections when organization changes
     this.businessUnitForm.get('parent_unit_id')?.setValue('');
+    this.businessUnitForm.get('manager_id')?.setValue('');
   }
 
   loadParentUnitsForOrganization(organizationId: string): void {
+    console.log('Loading parent units for organization:', organizationId);
     this.businessUnitService.getBusinessUnits(organizationId).subscribe({
       next: (response) => {
+        console.log('Received business units from API:', response.business_units.length, 'units');
+        console.log('Organization in response:', response.organization_id);
+        
         // Filter out the current business unit being edited to prevent self-parenting
-        this.availableParentUnits = response.business_units.filter(unit => 
-          unit.id !== this.businessUnitId
-        );
+        // and ensure all units belong to the selected organization
+        this.availableParentUnits = response.business_units.filter(unit => {
+          const isNotSelf = unit.id !== this.businessUnitId;
+          const belongsToOrganization = unit.organization_id === organizationId;
+          
+          console.log(`Unit ${unit.name}: isNotSelf=${isNotSelf}, belongsToOrganization=${belongsToOrganization}, orgId=${unit.organization_id}`);
+          
+          return isNotSelf && belongsToOrganization;
+        });
+        
+        console.log('Filtered parent units:', this.availableParentUnits.length);
       },
       error: (err: HttpErrorResponse) => {
         console.error('Error loading parent units:', err);
         this.availableParentUnits = [];
       }
     });
+  }
+
+  filterManagersByOrganization(): void {
+    const selectedOrgId = this.selectedOrganizationId || this.businessUnitForm.get('organization_id')?.value;
+    
+    if (!selectedOrgId || this.allUsers.length === 0) {
+      // If no organization selected or no users loaded, show no managers
+      this.availableManagers = [];
+      return;
+    }
+
+    // Filter users based on create vs edit mode
+    if (this.isEditMode && this.businessUnitToEdit) {
+      // Edit mode: Show users within the same business unit with business unit admin role
+      this.availableManagers = this.allUsers.filter(user => {
+        return user.business_unit_id === this.businessUnitToEdit!.id && 
+               user.roles.includes(BUSINESS_UNIT_ADMIN);
+      });
+      console.log('Filtered managers for business unit (edit mode):', this.businessUnitToEdit.id, 'Count:', this.availableManagers.length);
+    } else {
+      // Create mode: Show users within the selected organization with business unit admin role
+      this.availableManagers = this.allUsers.filter(user => {
+        return user.organization_id === selectedOrgId && 
+               user.roles.includes(BUSINESS_UNIT_ADMIN);
+      });
+      console.log('Filtered managers for organization (create mode):', selectedOrgId, 'Count:', this.availableManagers.length);
+    }
   }
 
   resetComponent(): void {
@@ -372,6 +418,8 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
     this.isSubmitting = false;
     this.selectedOrganizationId = null;
     this.availableParentUnits = [];
+    this.availableManagers = [];
+    this.allUsers = [];
     
     // Reset form
     this.businessUnitForm.reset({

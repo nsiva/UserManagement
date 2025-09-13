@@ -207,9 +207,12 @@ async def get_business_units(
         
         # Determine filtering based on user role
         if has_admin_access(current_user_roles):
-            # Admin and super_user see all business units
-            organization_id = None
-            logger.info(f"Admin/Super user {current_admin_user.email} accessing all business units")
+            # Admin and super_user can see all business units, but respect explicit organization filtering
+            # Only override organization_id if not explicitly provided via query parameter
+            if organization_id is None:
+                logger.info(f"Admin/Super user {current_admin_user.email} accessing all business units")
+            else:
+                logger.info(f"Admin/Super user {current_admin_user.email} accessing business units for organization {organization_id}")
         else:
             # Get current user's organizational context for filtering
             user_context = await repo.get_user_organizational_context(current_admin_user.user_id)
