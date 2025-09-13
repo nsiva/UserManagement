@@ -133,6 +133,64 @@ async def send_reset_email(email: str, reset_token: str) -> bool:
         logger.error(f"Failed to send reset email to {mask_email(email)}: {e}")
         return False
 
+async def send_password_setup_email(email: str, reset_token: str) -> bool:
+    """Send password setup email for new users"""
+    try:
+        if not all([SMTP_SERVER, SMTP_USERNAME, SMTP_PASSWORD]):
+            logger.error("Email configuration missing. Check SMTP environment variables.")
+            return False
+        
+        # Create password setup link (same as reset password)
+        setup_link = f"http://localhost:4201/set-new-password?token={reset_token}"
+        
+        # Create email content
+        subject = "Set Your Password - Account Setup"
+        html_body = f"""
+        <html>
+        <body>
+            <h2>Welcome! Set Your Password</h2>
+            <p>Your account has been created. Please set your password to complete the setup.</p>
+            <p>Click the link below to set your password (this link will expire in {RESET_TOKEN_EXPIRE_MINUTES} minutes):</p>
+            <p><a href="{setup_link}">Set Password</a></p>
+            <p>If you did not expect this email, please contact your administrator.</p>
+        </body>
+        </html>
+        """
+        
+        text_body = f"""
+        Welcome! Set Your Password
+        
+        Your account has been created. Please set your password to complete the setup.
+        
+        Click the link below to set your password (this link will expire in {RESET_TOKEN_EXPIRE_MINUTES} minutes):
+        {setup_link}
+        
+        If you did not expect this email, please contact your administrator.
+        """
+        
+        # Create message
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = FROM_EMAIL
+        msg["To"] = email
+        
+        # Add both plain text and HTML parts
+        msg.attach(MIMEText(text_body, "plain"))
+        msg.attach(MIMEText(html_body, "html"))
+        
+        # Send email
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.send_message(msg)
+            
+        logger.info(f"Password setup email sent to {mask_email(email)}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to send password setup email to {mask_email(email)}: {e}")
+        return False
+
 async def validate_reset_token(token: str) -> tuple[bool, Optional[str]]:
     """Validate reset token and return (is_valid, user_email)"""
     try:

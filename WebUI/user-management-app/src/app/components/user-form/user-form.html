@@ -62,7 +62,51 @@
           </div>
         </div>
         
-        <div *ngIf="!isEditingOwnProfile">
+        <!-- Password Setup Options (Create Mode Only) -->
+        <div *ngIf="!isEditMode && !isEditingOwnProfile" class="space-y-3">
+          <label class="block text-sm font-medium text-gray-700">Password Setup *</label>
+          <div class="space-y-2">
+            <div class="flex items-center">
+              <input type="radio" id="generate_now" name="passwordOption" value="generate_now"
+                     formControlName="passwordOption"
+                     (change)="onPasswordOptionChange()"
+                     class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+              <label for="generate_now" class="ml-2 text-sm text-gray-900">Generate password now</label>
+            </div>
+            <div class="flex items-center">
+              <input type="radio" id="send_link" name="passwordOption" value="send_link"
+                     formControlName="passwordOption"
+                     (change)="onPasswordOptionChange()"
+                     class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+              <label for="send_link" class="ml-2 text-sm text-gray-900">Send password link</label>
+            </div>
+          </div>
+          <div *ngIf="passwordOption === 'send_link'" class="text-sm text-gray-600 bg-blue-50 p-3 rounded-md">
+            <svg class="w-4 h-4 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            An email with a password setup link will be sent to the user's email address.
+          </div>
+        </div>
+        
+        <!-- Send Password Reset (Edit Mode Only) -->
+        <div *ngIf="isEditMode && !isEditingOwnProfile" class="space-y-3">
+          <div class="flex items-center">
+            <input type="checkbox" id="sendPasswordReset" 
+                   formControlName="sendPasswordReset"
+                   (change)="onSendPasswordResetChange()"
+                   class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+            <label for="sendPasswordReset" class="ml-2 text-sm text-gray-900">Send password reset email</label>
+          </div>
+          <div *ngIf="sendPasswordReset" class="text-sm text-gray-600 bg-blue-50 p-3 rounded-md">
+            <svg class="w-4 h-4 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            A password reset email will be sent to allow the user to set a new password.
+          </div>
+        </div>
+        
+        <div *ngIf="!isEditingOwnProfile && showPasswordField">
           <label for="password" class="block text-sm font-medium text-gray-700">Password {{ isEditMode ? '(leave blank to keep current)' : '*' }}</label>
           <input type="password" id="password" formControlName="password" autocomplete="new-password"
                  (input)="onPasswordChange()"

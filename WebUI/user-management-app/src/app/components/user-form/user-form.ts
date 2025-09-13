@@ -73,6 +73,11 @@ export class UserFormComponent implements OnInit, OnDestroy {
   filteredBusinessUnitsOptions: BusinessUnit[] = [];
   selectedOrganizationId: string = '';
   
+  // Password options
+  passwordOption: string = 'send_link'; // 'generate_now' or 'send_link'
+  showPasswordField: boolean = false;
+  sendPasswordReset: boolean = false; // For edit mode password reset
+  
   // Autocomplete options
   organizationAutocompleteOptions: AutocompleteOption[] = [];
   businessUnitAutocompleteOptions: AutocompleteOption[] = [];
@@ -116,7 +121,9 @@ export class UserFormComponent implements OnInit, OnDestroy {
       email: ['', [Validators.required, UserFormComponent.strictEmailValidator]],
       organization: ['', Validators.required], // Organization is required
       businessUnit: ['', Validators.required], // Business unit is required
-      password: ['', [PasswordValidationService.validatePassword]] // Password with full validation
+      password: ['', [PasswordValidationService.validatePassword]], // Password with full validation
+      passwordOption: ['send_link'], // Password setup option
+      sendPasswordReset: [false] // For edit mode password reset
     });
   }
 
@@ -186,9 +193,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
       // Then load user data
       this.loadUserForEdit(this.userId);
     } else {
-      // Password required for create mode
-      this.userForm.get('password')?.setValidators([Validators.required, PasswordValidationService.validatePassword]);
-      this.userForm.get('password')?.updateValueAndValidity();
+      // Create mode - set up default password option behavior
       
       // Ensure form is blank for create mode
       this.userForm.reset({
@@ -197,9 +202,21 @@ export class UserFormComponent implements OnInit, OnDestroy {
         email: '',
         organization: '',
         businessUnit: '',
-        password: ''
+        password: '',
+        passwordOption: 'send_link' // Set default password option
       });
       this.selectedUserRole = 'user';
+      
+      // Configure password field based on default option (send_link)
+      this.passwordOption = 'send_link';
+      this.showPasswordField = false;
+      
+      // Disable password field since default is "send_link"
+      const passwordControl = this.userForm.get('password');
+      passwordControl?.clearValidators();
+      passwordControl?.setValue('');
+      passwordControl?.disable();
+      passwordControl?.updateValueAndValidity();
       
       // Add a timeout to clear form after any potential autofill
       setTimeout(() => {
@@ -209,7 +226,8 @@ export class UserFormComponent implements OnInit, OnDestroy {
           email: '',
           organization: '',
           businessUnit: '',
-          password: ''
+          password: '',
+          passwordOption: 'send_link'
         });
         console.log('UserFormComponent: Create mode - delayed form clear:', this.userForm.value);
       }, 100);
@@ -469,6 +487,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
           last_name: this.userForm.value.lastName,
           email: this.userForm.value.email,
           password: this.userForm.value.password || undefined, // Only include password if provided
+          send_password_reset: this.sendPasswordReset, // Send password reset email if checked
           roles: this.selectedUserRole ? [this.selectedUserRole] : [],
           business_unit_id: this.userForm.value.businessUnit || undefined
         };
@@ -489,8 +508,10 @@ export class UserFormComponent implements OnInit, OnDestroy {
       }
     } else {
       // Create mode
-      if (!this.userForm.value.password) {
-        this.showError('Password is required for new users.');
+      const passwordOption = this.userForm.value.passwordOption || 'generate_now';
+      
+      if (passwordOption === 'generate_now' && !this.userForm.value.password) {
+        this.showError('Password is required when "Generate password now" option is selected.');
         return;
       }
 
@@ -498,7 +519,8 @@ export class UserFormComponent implements OnInit, OnDestroy {
         first_name: this.userForm.value.firstName,
         last_name: this.userForm.value.lastName,
         email: this.userForm.value.email,
-        password: this.userForm.value.password,
+        password: passwordOption === 'generate_now' ? this.userForm.value.password : undefined,
+        password_option: passwordOption,
         roles: this.selectedUserRole ? [this.selectedUserRole] : [],
         business_unit_id: this.userForm.value.businessUnit
       };
@@ -621,5 +643,36 @@ export class UserFormComponent implements OnInit, OnDestroy {
 
   onBusinessUnitAutocompleteChange(businessUnitId: string): void {
     this.userForm.get('businessUnit')?.setValue(businessUnitId);
+  }
+
+  // --- Password Option Handlers ---
+  onPasswordOptionChange(): void {
+    this.passwordOption = this.userForm.get('passwordOption')?.value || 'generate_now';
+    this.showPasswordField = this.passwordOption === 'generate_now';
+    
+    // Update password field validation based on option
+    const passwordControl = this.userForm.get('password');
+    if (this.showPasswordField) {
+      passwordControl?.setValidators([PasswordValidationService.validatePassword]);
+      passwordControl?.enable();
+    } else {
+      passwordControl?.clearValidators();
+      passwordControl?.setValue('');
+      passwordControl?.disable();
+    }
+    passwordControl?.updateValueAndValidity();
+  }
+
+  onSendPasswordResetChange(): void {
+    this.sendPasswordReset = this.userForm.get('sendPasswordReset')?.value || false;
+    
+    // Disable password field if sending reset email
+    const passwordControl = this.userForm.get('password');
+    if (this.sendPasswordReset) {
+      passwordControl?.disable();
+      passwordControl?.setValue('');
+    } else {
+      passwordControl?.enable();
+    }
   }
 }

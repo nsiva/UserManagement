@@ -33,7 +33,8 @@ export interface User {
 
 export interface UserCreate {
   email: string;
-  password?: string; // Password is required for create, but optional for update
+  password?: string; // Made optional to support different password setup methods
+  password_option?: string; // Options: "generate_now", "send_link"
   first_name?: string;
   last_name?: string;
   roles?: string[];
@@ -43,6 +44,7 @@ export interface UserCreate {
 export interface UserUpdate {
   email?: string;
   password?: string;
+  send_password_reset?: boolean; // Send password reset email if true
   first_name?: string;
   last_name?: string;
   roles?: string[];

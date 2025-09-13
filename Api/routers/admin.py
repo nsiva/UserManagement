@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response # Import
 from typing import List, Dict, Optional, Union # Import Union for the auth_identity
 from uuid import UUID
 import logging
+from datetime import datetime, timezone, timedelta
+import os
 # import pyotp # REMOVED: Not used in this file's functions
 
 from database import get_repository
@@ -15,7 +17,7 @@ from role import RoleCreate, RoleUpdate, RoleInDB
 from exceptions import UserManagementError, DuplicateEmailError, ConstraintViolationError, DatabaseConnectionError, UserNotFoundError
 # Assuming get_password_hash is not used directly in admin.py functions.
 # get_current_admin_user, get_user_roles, get_current_client are needed.
-from routers.auth import get_current_admin_user, get_user_roles, get_current_client, get_password_hash
+from routers.auth import get_current_admin_user, get_user_roles, get_current_client, get_password_hash, send_password_setup_email, generate_reset_token
 from constants import (
     ADMIN, SUPER_USER, ORGANIZATION_ADMIN, BUSINESS_UNIT_ADMIN,
     ADMIN_ROLES, has_admin_access, has_organization_admin_access, has_business_unit_admin_access
@@ -204,8 +206,32 @@ async def create_user(
         import uuid
         user_id = str(uuid.uuid4())
         
-        # Hash the password
-        password_hash = get_password_hash(user_data.password)
+        # Handle password based on selected option
+        password_setup_sent = False
+        if user_data.password_option == "generate_now":
+            # Validate that password is provided
+            if not user_data.password:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Password is required when 'generate_now' option is selected."
+                )
+            password_hash = get_password_hash(user_data.password)
+        elif user_data.password_option == "send_link":
+            # Create a temporary password hash (user will set real password via email)
+            import secrets
+            temp_password = secrets.token_urlsafe(32)
+            password_hash = get_password_hash(temp_password)
+            
+            # Generate reset token for password setup
+            reset_token = generate_reset_token()
+            expires_at = datetime.now(timezone.utc) + timedelta(minutes=int(os.environ.get("RESET_TOKEN_EXPIRE_MINUTES", 30)))
+            
+            password_setup_sent = True
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid password_option. Must be 'generate_now' or 'send_link'."
+            )
         
         # Create user profile with hashed password
         profile_data = {
@@ -271,11 +297,34 @@ async def create_user(
     # Get business unit info for response
     business_unit_info = await repo.get_user_business_unit(UUID(user_id))
     
+    # Handle password setup email if needed
+    success_message = f"User created successfully"
+    if password_setup_sent:
+        # Store reset token and send email
+        token_stored = await repo.create_reset_token({
+            'user_id': user_id,
+            'token': reset_token,
+            'expires_at': expires_at,
+            'used': False
+        })
+        if token_stored:
+            email_sent = await send_password_setup_email(user_data.email, reset_token)
+            if email_sent:
+                success_message = f"User created successfully. Password setup email sent to {user_data.email}"
+                logger.info(f"Password setup email sent for user: {user_data.email}")
+            else:
+                success_message = f"User created successfully. Warning: Failed to send password setup email"
+                logger.warning(f"Failed to send password setup email for user: {user_data.email}")
+        else:
+            success_message = f"User created successfully. Warning: Failed to store password setup token"
+            logger.error(f"Failed to store password setup token for user: {user_data.email}")
+    
     logger.info(f"User created: {user_data.email} with roles: {roles}")
     # Get organization name for response
     business_unit_details = await repo.get_business_unit_by_id(user_data.business_unit_id) if business_unit_info else None
     
-    return UserWithRoles(
+    # Create response with custom message
+    response = UserWithRoles(
         id=user_id, 
         email=user_data.email, 
         first_name=user_data.first_name,
@@ -298,6 +347,10 @@ async def create_user(
         business_unit_manager_name=business_unit_details.get('manager_name') if business_unit_details else None,
         parent_business_unit_name=business_unit_details.get('parent_name') if business_unit_details else None
     )
+    
+    # Log success message for admin reference
+    logger.info(success_message)
+    return response
 
 
 @admin_router.get("/users", response_model=List[UserWithRoles])
@@ -412,16 +465,30 @@ async def update_user(user_id: UUID, user_data: UserUpdate, current_user: TokenD
             )
     
     profile_update_data = {}
+    password_reset_sent = False
+    reset_token = None
+    user_email = existing_user.email  # Store email for password reset
+    
     if user_data.email:
         profile_update_data["email"] = user_data.email
+        user_email = user_data.email  # Update email if provided
     if user_data.first_name is not None:
         profile_update_data["first_name"] = user_data.first_name
     if user_data.middle_name is not None:
         profile_update_data["middle_name"] = user_data.middle_name
     if user_data.last_name is not None:
         profile_update_data["last_name"] = user_data.last_name
-    if user_data.password:
+        
+    # Handle password update options
+    if user_data.send_password_reset:
+        # Generate password reset token instead of directly updating password
+        reset_token = generate_reset_token()
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=int(os.environ.get("RESET_TOKEN_EXPIRE_MINUTES", 30)))
+        password_reset_sent = True
+    elif user_data.password:
+        # Direct password update if provided and not sending reset link
         profile_update_data["password_hash"] = get_password_hash(user_data.password)
+        
     if user_data.is_admin is not None:
         profile_update_data["is_admin"] = user_data.is_admin
 
@@ -466,6 +533,25 @@ async def update_user(user_id: UUID, user_data: UserUpdate, current_user: TokenD
         except Exception as e:
             logger.error(f"Business unit assignment update failed for user_id {user_id}: {e}", exc_info=True)
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update business unit assignment.")
+
+    # Handle password reset email if requested
+    if password_reset_sent and reset_token:
+        # Store reset token and send email
+        user_id_for_token = str(existing_user.id) if hasattr(existing_user, 'id') else str(user_id)
+        token_stored = await repo.create_reset_token({
+            'user_id': user_id_for_token,
+            'token': reset_token,
+            'expires_at': expires_at,
+            'used': False
+        })
+        if token_stored:
+            email_sent = await send_password_setup_email(user_email, reset_token)
+            if email_sent:
+                logger.info(f"Password reset email sent for user: {user_email}")
+            else:
+                logger.warning(f"Failed to send password reset email for user: {user_email}")
+        else:
+            logger.error(f"Failed to store password reset token for user: {user_email}")
 
     logger.info(f"User updated: {user_id}")
     # Call get_user_by_id to return the updated user details

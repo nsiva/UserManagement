@@ -52,7 +52,8 @@ class UserBase(BaseModel):
     last_name: Optional[str] = None
 
 class UserCreate(UserBase):
-    password: str
+    password: Optional[str] = None  # Made optional to support different password setup methods
+    password_option: str = "generate_now"  # Options: "generate_now", "send_link"
     is_admin: Optional[bool] = False
     roles: Optional[List[str]] = [] # Roles by name
     business_unit_id: Optional[UUID] = None  # Optional for backward compatibility
@@ -63,6 +64,7 @@ class UserUpdate(BaseModel):
     middle_name: Optional[str] = None
     last_name: Optional[str] = None
     password: Optional[str] = None
+    send_password_reset: Optional[bool] = False  # Send password reset email if true
     is_admin: Optional[bool] = None
     roles: Optional[List[str]] = None # Roles by name
     business_unit_id: Optional[UUID] = None  # Optional business unit change
