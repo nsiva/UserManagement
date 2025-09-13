@@ -37,6 +37,8 @@ CLIENT_JWT_SECRET = os.environ.get("JWT_SECRET_KEY")
 ALGORITHM = os.environ.get("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 
+FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:4201")
+
 print("Using SECRET_KEY from environment variables:", CLIENT_JWT_SECRET)   
 print("Using ALGORITHM from environment variables:", ALGORITHM)
 
@@ -83,7 +85,8 @@ async def send_reset_email(email: str, reset_token: str) -> bool:
             return False
         
         # Create reset link (frontend should handle this route)
-        reset_link = f"http://localhost:4201/set-new-password?token={reset_token}"
+        reset_link = f"{FRONTEND_BASE_URL}/set-new-password?token={reset_token}"
+
         
         # Create email content
         subject = "Password Reset Request"
@@ -141,8 +144,7 @@ async def send_password_setup_email(email: str, reset_token: str) -> bool:
             return False
         
         # Create password setup link (same as reset password)
-        setup_link = f"http://localhost:4201/set-new-password?token={reset_token}"
-        
+        setup_link = f"{FRONTEND_BASE_URL}/set-new-password?token={reset_token}"
         # Create email content
         subject = "Set Your Password - Account Setup"
         html_body = f"""
