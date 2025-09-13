@@ -144,10 +144,28 @@ export class AdminDashboardComponent implements OnInit {
     this.activeTab = tab;
     this.alertMessage = null;
     this.resetForms();
-    if (tab === 'organizations') {
+    if (tab === 'users') {
+      // Preserve filters when switching to users tab - DO NOT reset selections
+      this.loadUsers();
+      
+      // Apply existing filters if they exist
+      if (this.hasFullAdminAccess() && this.selectedUserOrganizationId) {
+        this.loadBusinessUnitsForUserFilter();
+      } else if (this.isFirmAdmin() && this.firmAdminBusinessUnits.length === 0) {
+        this.loadFirmAdminBusinessUnits();
+      } else {
+        this.filterUsers();
+      }
+    } else if (tab === 'organizations') {
       this.loadOrganizations();
     } else if (tab === 'business-units') {
+      // Preserve organization filter when switching to business units tab - DO NOT reset selections
       this.loadBusinessUnits();
+      
+      // Apply existing organization filter if it exists
+      if (this.selectedOrganizationId) {
+        this.filterBusinessUnits();
+      }
     }
   }
 
@@ -524,11 +542,11 @@ export class AdminDashboardComponent implements OnInit {
     // Restore selected organization for business units tab
     if (queryParams['orgId'] && this.hasFullAdminAccess()) {
       this.selectedOrganizationId = queryParams['orgId'];
+      // Synchronize organization selection across tabs
+      this.selectedUserOrganizationId = queryParams['orgId'];
       
       // If restoring for users tab, also restore user-specific selections
       if (this.activeTab === 'users') {
-        this.selectedUserOrganizationId = queryParams['orgId'];
-        
         // Load organizations and business units for user filtering
         this.loadOrganizations();
         this.loadBusinessUnits();
@@ -622,26 +640,27 @@ export class AdminDashboardComponent implements OnInit {
   setActiveTab(tab: 'users' | 'organizations' | 'business-units'): void {
     this.activeTab = tab;
     if (tab === 'users') {
-      // Reset user filters when switching to users tab
-      if (this.hasFullAdminAccess()) {
-        this.selectedUserOrganizationId = '';
-        this.selectedUserBusinessUnitId = '';
-        this.filteredUsers = []; // Clear filtered results
-        this.filteredUserBusinessUnits = []; // Clear filtered business units
-      } else if (this.isFirmAdmin()) {
-        this.selectedFirmAdminBusinessUnitId = '';
-        this.filteredUsers = []; // Clear filtered results
-      }
+      // Preserve filters when switching to users tab - DO NOT reset selections
       this.loadUsers();
+      
+      // Apply existing filters if they exist
+      if (this.hasFullAdminAccess() && this.selectedUserOrganizationId) {
+        this.loadBusinessUnitsForUserFilter();
+      } else if (this.isFirmAdmin() && this.firmAdminBusinessUnits.length === 0) {
+        this.loadFirmAdminBusinessUnits();
+      } else {
+        this.filterUsers();
+      }
     } else if (tab === 'organizations') {
       this.loadOrganizations();
     } else if (tab === 'business-units') {
-      // Reset organization filter when switching to business units tab
-      if (this.hasFullAdminAccess()) {
-        this.selectedOrganizationId = '';
-        this.filteredBusinessUnits = []; // Clear filtered results
-      }
+      // Preserve organization filter when switching to business units tab - DO NOT reset selections
       this.loadBusinessUnits();
+      
+      // Apply existing organization filter if it exists
+      if (this.selectedOrganizationId) {
+        this.filterBusinessUnits();
+      }
     }
   }
 
@@ -831,6 +850,13 @@ export class AdminDashboardComponent implements OnInit {
     this.selectedUserBusinessUnitId = '';
     this.filteredUserBusinessUnits = [];
     
+    // When admin/super_user changes organization in Users tab,
+    // also update the business units organization filter for consistency
+    if (this.hasFullAdminAccess()) {
+      this.selectedOrganizationId = this.selectedUserOrganizationId;
+      this.filteredBusinessUnits = [];
+    }
+    
     // Load business units for the selected organization
     if (this.selectedUserOrganizationId) {
       this.loadBusinessUnitsForUserFilter();
@@ -922,6 +948,14 @@ export class AdminDashboardComponent implements OnInit {
 
   // --- Organization Filter for Business Units ---
   onOrganizationFilterChange(): void {
+    // When admin/super_user changes organization in Business Units tab,
+    // also update the user organization filter for consistency
+    if (this.hasFullAdminAccess()) {
+      this.selectedUserOrganizationId = this.selectedOrganizationId;
+      // Reset business unit selection since organization changed
+      this.selectedUserBusinessUnitId = '';
+      this.filteredUserBusinessUnits = [];
+    }
     this.filterBusinessUnits();
   }
 
