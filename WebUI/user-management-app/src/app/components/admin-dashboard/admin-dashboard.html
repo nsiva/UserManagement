@@ -67,38 +67,33 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <!-- Organization Filter -->
           <div>
-            <label for="userOrganizationFilter" class="block text-sm font-medium text-theme-text mb-2">
+            <label class="block text-sm font-medium text-theme-text mb-2">
               Filter by Organization
             </label>
-            <select 
-              id="userOrganizationFilter"
-              [(ngModel)]="selectedUserOrganizationId" 
-              (change)="onUserOrganizationFilterChange()"
-              class="w-full px-3 py-2 border border-theme-border rounded-md shadow-sm bg-theme-surface text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary">
-              <option value="" disabled>Select Organization</option>
-              <option *ngFor="let org of organizations" [value]="org.id">
-                {{ org.company_name }}
-              </option>
-            </select>
+            <app-autocomplete
+              [options]="userOrganizationOptions"
+              [value]="selectedUserOrganizationId"
+              (optionSelected)="onUserOrganizationAutocompleteChange($event.id)"
+              placeholder="Select Organization"
+              emptyMessage="No organizations available"
+              inputClass="w-full px-3 py-2 border border-theme-border rounded-md shadow-sm bg-theme-surface text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary">
+            </app-autocomplete>
           </div>
 
           <!-- Business Unit Filter -->
           <div>
-            <label for="userBusinessUnitFilter" class="block text-sm font-medium text-theme-text mb-2">
+            <label class="block text-sm font-medium text-theme-text mb-2">
               Filter by Business Unit
             </label>
-            <select 
-              id="userBusinessUnitFilter"
-              [(ngModel)]="selectedUserBusinessUnitId" 
-              (change)="onUserBusinessUnitFilterChange()"
+            <app-autocomplete
+              [options]="userBusinessUnitOptions"
+              [value]="selectedUserBusinessUnitId"
               [disabled]="!selectedUserOrganizationId"
-              class="w-full px-3 py-2 border border-theme-border rounded-md shadow-sm bg-theme-surface text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary disabled:bg-theme-surface-hover disabled:text-theme-text-muted disabled:cursor-not-allowed">
-              <option value="" disabled>Select Business Unit</option>
-              <option [value]="ALL_BUSINESS_UNITS" *ngIf="hasFullAdminAccess() || isFirmAdmin()">All Business Units</option>
-              <option *ngFor="let unit of filteredUserBusinessUnits" [value]="unit.id">
-                {{ unit.name }}
-              </option>
-            </select>
+              (optionSelected)="onUserBusinessUnitAutocompleteChange($event.id)"
+              placeholder="Select Business Unit"
+              emptyMessage="Select organization first"
+              inputClass="w-full px-3 py-2 border border-theme-border rounded-md shadow-sm bg-theme-surface text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary disabled:bg-theme-surface-hover disabled:text-theme-text-muted disabled:cursor-not-allowed">
+            </app-autocomplete>
           </div>
         </div>
       </div>
@@ -106,20 +101,17 @@
       <!-- Business Unit Filter Section (only for firm_admin) -->
       <div *ngIf="isFirmAdmin()" class="mb-6 p-4 bg-theme-surface-hover border border-theme-border rounded-lg">
         <div>
-          <label for="firmAdminBusinessUnitFilter" class="block text-sm font-medium text-theme-text mb-2">
+          <label class="block text-sm font-medium text-theme-text mb-2">
             Filter by Business Unit
           </label>
-          <select 
-            id="firmAdminBusinessUnitFilter"
-            [(ngModel)]="selectedFirmAdminBusinessUnitId" 
-            (change)="onFirmAdminBusinessUnitFilterChange()"
-            class="w-full max-w-md px-3 py-2 border border-theme-border rounded-md shadow-sm bg-theme-surface text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary">
-            <option value="" disabled>Select Business Unit</option>
-            <option [value]="ALL_BUSINESS_UNITS">All Business Units</option>
-            <option *ngFor="let unit of firmAdminBusinessUnits" [value]="unit.id">
-              {{ unit.name }}
-            </option>
-          </select>
+          <app-autocomplete
+            [options]="firmAdminBusinessUnitOptions"
+            [value]="selectedFirmAdminBusinessUnitId"
+            (optionSelected)="onFirmAdminBusinessUnitAutocompleteChange($event.id)"
+            placeholder="Select Business Unit"
+            emptyMessage="No business units available"
+            inputClass="w-full max-w-md px-3 py-2 border border-theme-border rounded-md shadow-sm bg-theme-surface text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary">
+          </app-autocomplete>
         </div>
       </div>
 
@@ -299,19 +291,17 @@
 
       <!-- Organization Filter Section (only for admin and super_user) -->
       <div *ngIf="hasFullAdminAccess()" class="mb-6 p-4 bg-theme-surface-hover border border-theme-border rounded-lg">
-        <label for="organizationFilter" class="block text-sm font-medium text-theme-text mb-2">
+        <label class="block text-sm font-medium text-theme-text mb-2">
           Filter by Organization
         </label>
-        <select 
-          id="organizationFilter"
-          [(ngModel)]="selectedOrganizationId" 
-          (change)="onOrganizationFilterChange()"
-          class="w-full max-w-md px-3 py-2 border border-theme-border rounded-md shadow-sm bg-theme-surface text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary">
-          <option value="" disabled>Select Organization</option>
-          <option *ngFor="let org of organizations" [value]="org.id">
-            {{ org.company_name }}
-          </option>
-        </select>
+        <app-autocomplete
+          [options]="organizationOptions"
+          [value]="selectedOrganizationId"
+          (optionSelected)="onOrganizationAutocompleteChange($event.id)"
+          placeholder="Select Organization"
+          emptyMessage="No organizations available"
+          inputClass="w-full max-w-md px-3 py-2 border border-theme-border rounded-md shadow-sm bg-theme-surface text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary">
+        </app-autocomplete>
       </div>
 
       <!-- Show business units table only when organization is selected (for admin/super_user) or always for other roles -->

@@ -14,6 +14,7 @@ import { CommonModule } from '@angular/common';
 import { HeaderComponent } from '../../shared/components/header/header.component';
 import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
 import { AlertComponent, AlertType } from '../../shared/components/alert/alert.component';
+import { AutocompleteComponent, AutocompleteOption } from '../../shared/components/autocomplete/autocomplete.component';
 import { APP_NAME, PAGES } from '../../shared/constants/app-constants';
 import { 
   ADMIN, SUPER_USER, ORGANIZATION_ADMIN, BUSINESS_UNIT_ADMIN,
@@ -25,7 +26,7 @@ import { PasswordRequirementsComponent } from '../../shared/components/password-
 @Component({
   selector: 'app-user-form',
   standalone: true,
-  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent, PasswordRequirementsComponent],
+  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent, PasswordRequirementsComponent, AutocompleteComponent],
   templateUrl: './user-form.html',
   styleUrl: './user-form.scss'
 })
@@ -71,6 +72,10 @@ export class UserFormComponent implements OnInit, OnDestroy {
   businessUnitsOptions: BusinessUnit[] = [];
   filteredBusinessUnitsOptions: BusinessUnit[] = [];
   selectedOrganizationId: string = '';
+  
+  // Autocomplete options
+  organizationAutocompleteOptions: AutocompleteOption[] = [];
+  businessUnitAutocompleteOptions: AutocompleteOption[] = [];
   // Alert properties
   alertMessage: string | null = null;
   alertType: AlertType = 'info';
@@ -352,6 +357,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
     this.organizationService.getOrganizations().subscribe({
       next: (organizations) => {
         this.organizationsOptions = organizations;
+        this.updateOrganizationAutocompleteOptions();
         // Clear alert message if it's not a user loading error
         if (this.alertMessage && !this.alertMessage.includes('load user')) {
           this.alertMessage = null;
@@ -392,6 +398,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
       next: (response) => {
         console.log('UserFormComponent: Received business units for organization:', response.business_units.length);
         this.filteredBusinessUnitsOptions = response.business_units;
+        this.updateBusinessUnitAutocompleteOptions();
         console.log('UserFormComponent: Filtered business units:', this.filteredBusinessUnitsOptions);
       },
       error: (err: HttpErrorResponse) => {
@@ -589,5 +596,30 @@ export class UserFormComponent implements OnInit, OnDestroy {
     // Force change detection
     this.userForm.markAsPristine();
     this.userForm.markAsUntouched();
+  }
+
+  // --- Autocomplete Options Update Methods ---
+  private updateOrganizationAutocompleteOptions(): void {
+    this.organizationAutocompleteOptions = this.organizationsOptions.map(org => ({
+      id: org.id,
+      label: org.company_name
+    }));
+  }
+
+  private updateBusinessUnitAutocompleteOptions(): void {
+    this.businessUnitAutocompleteOptions = this.filteredBusinessUnitsOptions.map(unit => ({
+      id: unit.id,
+      label: unit.name
+    }));
+  }
+
+  // --- Autocomplete Event Handlers ---
+  onOrganizationAutocompleteChange(organizationId: string): void {
+    this.userForm.get('organization')?.setValue(organizationId);
+    this.onOrganizationChange();
+  }
+
+  onBusinessUnitAutocompleteChange(businessUnitId: string): void {
+    this.userForm.get('businessUnit')?.setValue(businessUnitId);
   }
 }

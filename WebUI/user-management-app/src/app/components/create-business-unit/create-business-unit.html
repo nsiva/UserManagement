@@ -27,19 +27,18 @@
         <div class="border-b border-theme-border pb-6">
           <h4 class="text-lg font-medium text-theme-text mb-4">Organization Information</h4>
           <div>
-            <label for="organization_id" class="block text-sm font-medium text-theme-text-secondary mb-1">
+            <label class="block text-sm font-medium text-theme-text-secondary mb-1">
               Organization <span class="text-theme-error">*</span>
             </label>
-            <select 
-              id="organization_id" 
-              formControlName="organization_id"
-              class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
-              [class.border-theme-error]="isFieldInvalid('organization_id')"
-              (change)="onOrganizationChange()"
-            >
-              <option value="" *ngIf="availableOrganizations.length !== 1">Select Organization</option>
-              <option *ngFor="let org of availableOrganizations" [value]="org.id">{{ org.company_name }}</option>
-            </select>
+            <app-autocomplete
+              [options]="organizationOptions"
+              [value]="businessUnitForm.get('organization_id')?.value"
+              (optionSelected)="onOrganizationAutocompleteChange($event.id)"
+              placeholder="Select Organization"
+              emptyMessage="No organizations available"
+              inputClass="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+              [inputClass]="'mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text ' + (isFieldInvalid('organization_id') ? 'border-theme-error' : 'border-theme-border')">
+            </app-autocomplete>
             <div *ngIf="isFieldInvalid('organization_id')" class="text-theme-error text-xs mt-1">
               {{ getFieldError('organization_id') }}
             </div>
@@ -73,16 +72,16 @@
             </div>
 
             <div>
-              <label for="parent_unit_id" class="block text-sm font-medium text-theme-text-secondary">Parent Business Unit</label>
-              <select 
-                id="parent_unit_id" 
-                formControlName="parent_unit_id"
-                class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+              <label class="block text-sm font-medium text-theme-text-secondary">Parent Business Unit</label>
+              <app-autocomplete
+                [options]="parentUnitOptions"
+                [value]="businessUnitForm.get('parent_unit_id')?.value"
                 [disabled]="!selectedOrganizationId"
-              >
-                <option value="">No Parent Unit (Root Level)</option>
-                <option *ngFor="let unit of availableParentUnits" [value]="unit.id">{{ unit.name }}</option>
-              </select>
+                (optionSelected)="onParentUnitAutocompleteChange($event.id)"
+                placeholder="No Parent Unit (Root Level)"
+                emptyMessage="Select organization first"
+                inputClass="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border disabled:bg-theme-surface-hover disabled:text-theme-text-muted disabled:cursor-not-allowed">
+              </app-autocomplete>
               <div *ngIf="!selectedOrganizationId" class="text-theme-text-muted text-xs mt-1">
                 Select an organization first to see available parent units.
               </div>
@@ -109,18 +108,16 @@
         <div class="border-b border-theme-border pb-6">
           <h4 class="text-lg font-medium text-theme-text mb-4">Management Information</h4>
           <div>
-            <label for="manager_id" class="block text-sm font-medium text-theme-text-secondary">Manager</label>
-            <select 
-              id="manager_id" 
-              formControlName="manager_id"
-              class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+            <label class="block text-sm font-medium text-theme-text-secondary">Manager</label>
+            <app-autocomplete
+              [options]="managerOptions"
+              [value]="businessUnitForm.get('manager_id')?.value"
               [disabled]="!selectedOrganizationId"
-            >
-              <option value="">No Manager Assigned</option>
-              <option *ngFor="let user of availableManagers" [value]="user.id">
-                {{ user.first_name && user.last_name ? (user.first_name + ' ' + user.last_name) : user.email }}
-              </option>
-            </select>
+              (optionSelected)="onManagerAutocompleteChange($event.id)"
+              placeholder="No Manager Assigned"
+              emptyMessage="Select organization first"
+              inputClass="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border disabled:bg-theme-surface-hover disabled:text-theme-text-muted disabled:cursor-not-allowed">
+            </app-autocomplete>
             <div *ngIf="!selectedOrganizationId" class="text-theme-text-muted text-xs mt-1">
               Select an organization first to see available managers.
             </div>

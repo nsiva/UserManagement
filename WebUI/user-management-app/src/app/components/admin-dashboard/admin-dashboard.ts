@@ -15,6 +15,7 @@ import { ReactiveFormsModule } from '@angular/forms';
 import { HeaderComponent } from '../../shared/components/header/header.component';
 import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
 import { AlertComponent, AlertType } from '../../shared/components/alert/alert.component';
+import { AutocompleteComponent, AutocompleteOption } from '../../shared/components/autocomplete/autocomplete.component';
 import { APP_NAME, PAGES } from '../../shared/constants/app-constants';
 import { 
   ADMIN, SUPER_USER, ORGANIZATION_ADMIN, BUSINESS_UNIT_ADMIN,
@@ -23,7 +24,7 @@ import {
 
 @Component({
   selector: 'app-admin-dashboard',
-  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent],
+  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent, AutocompleteComponent],
   templateUrl: './admin-dashboard.html',
   styleUrls: ['./admin-dashboard.scss']
 
@@ -67,10 +68,14 @@ export class AdminDashboardComponent implements OnInit {
 
   // Organizations Management
   organizations: Organization[] = [];
+  organizationOptions: AutocompleteOption[] = [];
+  userOrganizationOptions: AutocompleteOption[] = [];
 
   // Business Units Management
   businessUnits: BusinessUnit[] = [];
   filteredBusinessUnits: BusinessUnit[] = [];
+  userBusinessUnitOptions: AutocompleteOption[] = [];
+  firmAdminBusinessUnitOptions: AutocompleteOption[] = [];
   selectedOrganizationId: string = '';
 
   // MFA Setup
@@ -725,6 +730,7 @@ export class AdminDashboardComponent implements OnInit {
     this.organizationService.getOrganizations().subscribe({
       next: (data) => {
         this.organizations = data;
+        this.updateOrganizationOptions();
       },
       error: (err: HttpErrorResponse) => {
         this.showError(err.error.detail || 'Failed to load organizations.');
@@ -877,6 +883,7 @@ export class AdminDashboardComponent implements OnInit {
         this.filteredUserBusinessUnits = response.business_units.filter(
           unit => unit.organization_id === this.selectedUserOrganizationId
         );
+        this.updateUserBusinessUnitOptions();
         this.filterUsers(); // Apply user filtering
       },
       error: (err: HttpErrorResponse) => {
@@ -937,6 +944,7 @@ export class AdminDashboardComponent implements OnInit {
     this.businessUnitService.getBusinessUnits().subscribe({
       next: (response) => {
         this.firmAdminBusinessUnits = response.business_units;
+        this.updateFirmAdminBusinessUnitOptions();
         this.filterUsers(); // Apply user filtering
       },
       error: (err: HttpErrorResponse) => {
@@ -1010,6 +1018,58 @@ export class AdminDashboardComponent implements OnInit {
         });
       }
     );
+  }
+
+  // --- Autocomplete Options Update Methods ---
+  private updateOrganizationOptions(): void {
+    this.organizationOptions = this.organizations.map(org => ({
+      id: org.id,
+      label: org.company_name
+    }));
+    
+    // Update user organization options as well
+    this.userOrganizationOptions = [...this.organizationOptions];
+  }
+
+  private updateUserBusinessUnitOptions(): void {
+    this.userBusinessUnitOptions = [
+      { id: this.ALL_BUSINESS_UNITS, label: 'All Business Units' },
+      ...this.filteredUserBusinessUnits.map(unit => ({
+        id: unit.id,
+        label: unit.name
+      }))
+    ];
+  }
+
+  private updateFirmAdminBusinessUnitOptions(): void {
+    this.firmAdminBusinessUnitOptions = [
+      { id: this.ALL_BUSINESS_UNITS, label: 'All Business Units' },
+      ...this.firmAdminBusinessUnits.map(unit => ({
+        id: unit.id,
+        label: unit.name
+      }))
+    ];
+  }
+
+  // --- Autocomplete Event Handlers ---
+  onOrganizationAutocompleteChange(organizationId: string): void {
+    this.selectedOrganizationId = organizationId;
+    this.onOrganizationFilterChange();
+  }
+
+  onUserOrganizationAutocompleteChange(organizationId: string): void {
+    this.selectedUserOrganizationId = organizationId;
+    this.onUserOrganizationFilterChange();
+  }
+
+  onUserBusinessUnitAutocompleteChange(businessUnitId: string): void {
+    this.selectedUserBusinessUnitId = businessUnitId;
+    this.onUserBusinessUnitFilterChange();
+  }
+
+  onFirmAdminBusinessUnitAutocompleteChange(businessUnitId: string): void {
+    this.selectedFirmAdminBusinessUnitId = businessUnitId;
+    this.onFirmAdminBusinessUnitFilterChange();
   }
 
 }

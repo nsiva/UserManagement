@@ -12,6 +12,7 @@ import { CommonModule } from '@angular/common';
 import { HeaderComponent } from '../../shared/components/header/header.component';
 import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
 import { AlertComponent, AlertType } from '../../shared/components/alert/alert.component';
+import { AutocompleteComponent, AutocompleteOption } from '../../shared/components/autocomplete/autocomplete.component';
 import { APP_NAME } from '../../shared/constants/app-constants';
 import { 
   ADMIN, SUPER_USER, ORGANIZATION_ADMIN, BUSINESS_UNIT_ADMIN,
@@ -21,7 +22,7 @@ import {
 @Component({
   selector: 'app-create-business-unit',
   standalone: true,
-  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent],
+  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent, AutocompleteComponent],
   templateUrl: './create-business-unit.html',
   styleUrl: './create-business-unit.scss'
 })
@@ -118,6 +119,11 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
   availableManagers: User[] = [];
   allUsers: User[] = []; // Store all users for filtering
   selectedOrganizationId: string | null = null;
+  
+  // Autocomplete options
+  organizationOptions: AutocompleteOption[] = [];
+  parentUnitOptions: AutocompleteOption[] = [];
+  managerOptions: AutocompleteOption[] = [];
 
   // Alert properties
   alertMessage: string | null = null;
@@ -301,6 +307,7 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
     this.organizationService.getOrganizations().subscribe({
       next: (organizations) => {
         this.availableOrganizations = organizations;
+        this.updateOrganizationOptions();
         
         // For firm_admin users who should only see their organization, 
         // auto-select it if there's only one organization available
@@ -370,11 +377,13 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
           return isNotSelf && belongsToOrganization;
         });
         
+        this.updateParentUnitOptions();
         console.log('Filtered parent units:', this.availableParentUnits.length);
       },
       error: (err: HttpErrorResponse) => {
         console.error('Error loading parent units:', err);
         this.availableParentUnits = [];
+        this.updateParentUnitOptions();
       }
     });
   }
@@ -385,6 +394,7 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
     if (!selectedOrgId || this.allUsers.length === 0) {
       // If no organization selected or no users loaded, show no managers
       this.availableManagers = [];
+      this.updateManagerOptions();
       return;
     }
 
@@ -404,6 +414,8 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
       });
       console.log('Filtered managers for organization (create mode):', selectedOrgId, 'Count:', this.availableManagers.length);
     }
+    
+    this.updateManagerOptions();
   }
 
   resetComponent(): void {
@@ -683,5 +695,43 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
     }
     // For any other type, convert to boolean
     return Boolean(value);
+  }
+
+  // --- Autocomplete Options Update Methods ---
+  private updateOrganizationOptions(): void {
+    this.organizationOptions = this.availableOrganizations.map(org => ({
+      id: org.id,
+      label: org.company_name
+    }));
+  }
+
+  private updateParentUnitOptions(): void {
+    this.parentUnitOptions = this.availableParentUnits.map(unit => ({
+      id: unit.id,
+      label: unit.name
+    }));
+  }
+
+  private updateManagerOptions(): void {
+    this.managerOptions = this.availableManagers.map(manager => ({
+      id: manager.id,
+      label: manager.first_name && manager.last_name 
+        ? `${manager.first_name} ${manager.last_name}` 
+        : manager.email
+    }));
+  }
+
+  // --- Autocomplete Event Handlers ---
+  onOrganizationAutocompleteChange(organizationId: string): void {
+    this.businessUnitForm.get('organization_id')?.setValue(organizationId);
+    this.onOrganizationChange();
+  }
+
+  onParentUnitAutocompleteChange(parentUnitId: string): void {
+    this.businessUnitForm.get('parent_unit_id')?.setValue(parentUnitId);
+  }
+
+  onManagerAutocompleteChange(managerId: string): void {
+    this.businessUnitForm.get('manager_id')?.setValue(managerId);
   }
 }
