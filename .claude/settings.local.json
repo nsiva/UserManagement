@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(source:*)",
+      "Bash(uv run:*)",
+      "Bash(timeout:*)",
+      "Bash(python:*)",
+      "Bash(ng generate:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm start)",
+      "Bash(lsof:*)",
+      "Bash(kill:*)",
+      "Bash(uvicorn:*)",
+      "Bash(npm run start:*)",
+      "Bash(curl:*)",
+      "Bash(npm run lint)",
+      "Bash(mkdir:*)",
+      "Bash(uv pip install:*)",
+      "Bash(pkill:*)",
+      "Bash(rm:*)",
+      "Bash(docker build:*)",
+      "Bash(docker run:*)",
+      "Bash(uv sync:*)",
+      "Bash(docker kill:*)",
+      "Bash(./scripts/start.sh:*)",
+      "Bash(docker stop:*)",
+      "Bash(docker rm:*)",
+      "Bash(docker logs:*)",
+      "Bash(pip install:*)",
+      "Bash(mv:*)",
+      "Bash(ng serve:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

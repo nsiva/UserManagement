@@ -81,21 +81,59 @@
         </div>
         
         <div *ngIf="!isEditingOwnProfile">
+          <label for="organization" class="block text-sm font-medium text-gray-700">Organization *</label>
+          <select id="organization" formControlName="organization"
+                  (change)="onOrganizationChange()"
+                  [disabled]="isEditMode"
+                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  [ngClass]="{
+                    'border-red-500': userForm.get('organization')?.invalid && userForm.get('organization')?.touched,
+                    'bg-gray-100 cursor-not-allowed': isEditMode
+                  }">
+            <option value="">Select Organization</option>
+            <option *ngFor="let org of organizationsOptions" [value]="org.id">
+              {{ org.company_name }}
+            </option>
+          </select>
+          <div *ngIf="userForm.get('organization')?.invalid && userForm.get('organization')?.touched" class="text-red-500 text-xs mt-1">
+            <span *ngIf="userForm.get('organization')?.errors?.['required']">Organization is required.</span>
+          </div>
+          <div *ngIf="isEditMode" class="text-gray-500 text-xs mt-1">
+            Organization cannot be changed when editing existing users.
+          </div>
+        </div>
+        
+        <div *ngIf="!isEditingOwnProfile">
           <label for="businessUnit" class="block text-sm font-medium text-gray-700">Business Unit *</label>
           <select id="businessUnit" formControlName="businessUnit"
+                  [disabled]="!selectedOrganizationId && !isEditMode"
                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  [ngClass]="{'border-red-500': userForm.get('businessUnit')?.invalid && userForm.get('businessUnit')?.touched}">
-            <option value="">Select a business unit...</option>
-            <option *ngFor="let businessUnit of businessUnitsOptions" [value]="businessUnit.id">
-              {{ businessUnit.name }}{{ businessUnit.organization_name ? ' (' + businessUnit.organization_name + ')' : '' }}
+                  [ngClass]="{
+                    'border-red-500': userForm.get('businessUnit')?.invalid && userForm.get('businessUnit')?.touched,
+                    'bg-gray-100 cursor-not-allowed': !selectedOrganizationId && !isEditMode
+                  }">
+            <option value="">{{ selectedOrganizationId || isEditMode ? 'Select Business Unit' : 'Select Organization First' }}</option>
+            <option *ngFor="let businessUnit of filteredBusinessUnitsOptions" [value]="businessUnit.id">
+              {{ businessUnit.name }}
             </option>
           </select>
           <div *ngIf="userForm.get('businessUnit')?.invalid && userForm.get('businessUnit')?.touched" class="text-red-500 text-xs mt-1">
             <span *ngIf="userForm.get('businessUnit')?.errors?.['required']">Business unit is required.</span>
           </div>
+          <div *ngIf="!selectedOrganizationId && !isEditMode" class="text-gray-500 text-xs mt-1">
+            Please select an organization first to see available business units.
+          </div>
         </div>
         
-        <!-- Show current business unit as read-only when editing own profile -->
+        <!-- Show current organization and business unit as read-only when editing own profile -->
+        <div *ngIf="isEditingOwnProfile && isEditMode">
+          <label class="block text-sm font-medium text-gray-700">Organization</label>
+          <div class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700">
+            {{ userToEdit?.organization_name || 'Not assigned' }}
+          </div>
+          <p class="text-xs text-gray-500 mt-1">Contact your administrator to change your organization.</p>
+        </div>
+        
         <div *ngIf="isEditingOwnProfile && isEditMode">
           <label class="block text-sm font-medium text-gray-700">Business Unit</label>
           <div class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm text-gray-700">

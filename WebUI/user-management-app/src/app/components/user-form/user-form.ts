@@ -6,6 +6,7 @@ import { AuthService } from '../../services/auth';
 import { UserService, UserCreate, UserUpdate, Role, User } from '../../services/user';
 import { UserProfileService } from '../../services/user-profile.service';
 import { BusinessUnitService, BusinessUnit } from '../../services/business-unit';
+import { OrganizationService, Organization } from '../../services/organization';
 import { RoleService } from '../../services/role.service';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -66,7 +67,10 @@ export class UserFormComponent implements OnInit, OnDestroy {
   userForm: FormGroup;
   userRolesOptions: Role[] = [];
   selectedUserRole: string = 'user';
+  organizationsOptions: Organization[] = [];
   businessUnitsOptions: BusinessUnit[] = [];
+  filteredBusinessUnitsOptions: BusinessUnit[] = [];
+  selectedOrganizationId: string = '';
   // Alert properties
   alertMessage: string | null = null;
   alertType: AlertType = 'info';
@@ -98,12 +102,14 @@ export class UserFormComponent implements OnInit, OnDestroy {
     private userService: UserService,
     private userProfileService: UserProfileService,
     private businessUnitService: BusinessUnitService,
+    private organizationService: OrganizationService,
     private roleService: RoleService
   ) {
     this.userForm = this.fb.group({
       firstName: ['', UserFormComponent.noWhitespaceValidator],
       lastName: ['', UserFormComponent.noWhitespaceValidator],
       email: ['', [Validators.required, UserFormComponent.strictEmailValidator]],
+      organization: ['', Validators.required], // Organization is required
       businessUnit: ['', Validators.required], // Business unit is required
       password: ['', [PasswordValidationService.validatePassword]] // Password with full validation
     });
@@ -123,9 +129,11 @@ export class UserFormComponent implements OnInit, OnDestroy {
     this.routeSubscription = this.route.paramMap.subscribe(params => {
       // Reset form and component state first
       this.resetComponent();
-      this.checkMode();
+      // Load data first, then check mode to ensure all data is available for edit mode
       this.loadRoles();
+      this.loadOrganizations();
       this.loadBusinessUnits();
+      this.checkMode();
     });
   }
 
@@ -182,6 +190,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
         firstName: '',
         lastName: '',
         email: '',
+        organization: '',
         businessUnit: '',
         password: ''
       });
@@ -193,6 +202,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
           firstName: '',
           lastName: '',
           email: '',
+          organization: '',
           businessUnit: '',
           password: ''
         });
@@ -246,9 +256,22 @@ export class UserFormComponent implements OnInit, OnDestroy {
           firstName: user.first_name || '',
           lastName: user.last_name || '',
           email: user.email,
+          organization: user.organization_id || '',
           businessUnit: user.business_unit_id || '',
           password: '' // Don't populate password for security
         });
+        
+        // Set selected organization and load business units for that organization
+        if (user.organization_id) {
+          console.log('UserFormComponent: User has organization_id:', user.organization_id);
+          console.log('UserFormComponent: User has business_unit_id:', user.business_unit_id);
+          this.selectedOrganizationId = user.organization_id;
+          // In edit mode, we need to ensure business units are loaded for the current organization
+          // This will populate the business unit dropdown with options from the user's organization
+          this.loadBusinessUnitsForOrganization(user.organization_id);
+        } else {
+          console.log('UserFormComponent: User has no organization_id');
+        }
         
         this.selectedUserRole = user.roles.length > 0 ? user.roles[0] : 'user';
         
@@ -325,11 +348,29 @@ export class UserFormComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadOrganizations(): void {
+    this.organizationService.getOrganizations().subscribe({
+      next: (organizations) => {
+        this.organizationsOptions = organizations;
+        // Clear alert message if it's not a user loading error
+        if (this.alertMessage && !this.alertMessage.includes('load user')) {
+          this.alertMessage = null;
+        }
+      },
+      error: (err: HttpErrorResponse) => {
+        this.showError(err.error.detail || 'Failed to load organizations.');
+        console.error('Error loading organizations:', err);
+      }
+    });
+  }
+
   loadBusinessUnits(): void {
     // Call business units API without organization filter - backend handles role-based filtering
     this.businessUnitService.getBusinessUnits().subscribe({
       next: (response) => {
         this.businessUnitsOptions = response.business_units;
+        // Initially show no business units until organization is selected
+        this.filteredBusinessUnitsOptions = [];
         // Clear alert message if it's not a user loading error
         if (this.alertMessage && !this.alertMessage.includes('load user')) {
           this.alertMessage = null;
@@ -340,6 +381,38 @@ export class UserFormComponent implements OnInit, OnDestroy {
         console.error('Error loading business units:', err);
       }
     });
+  }
+
+  loadBusinessUnitsForOrganization(organizationId: string): void {
+    console.log('UserFormComponent: loadBusinessUnitsForOrganization called with organizationId:', organizationId);
+    console.log('UserFormComponent: Current businessUnitsOptions length:', this.businessUnitsOptions.length);
+    
+    // Load business units for the specific organization directly from the API
+    this.businessUnitService.getBusinessUnits(organizationId).subscribe({
+      next: (response) => {
+        console.log('UserFormComponent: Received business units for organization:', response.business_units.length);
+        this.filteredBusinessUnitsOptions = response.business_units;
+        console.log('UserFormComponent: Filtered business units:', this.filteredBusinessUnitsOptions);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.showError(err.error.detail || 'Failed to load business units.');
+        console.error('Error loading business units for organization:', err);
+      }
+    });
+  }
+
+  onOrganizationChange(): void {
+    const organizationId = this.userForm.get('organization')?.value;
+    this.selectedOrganizationId = organizationId;
+    
+    // Reset business unit selection when organization changes
+    this.userForm.get('businessUnit')?.setValue('');
+    
+    if (organizationId) {
+      this.loadBusinessUnitsForOrganization(organizationId);
+    } else {
+      this.filteredBusinessUnitsOptions = [];
+    }
   }
 
   onRoleRadioChange(roleName: string): void {
@@ -498,6 +571,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
       firstName: '',
       lastName: '',
       email: '',
+      organization: '',
       businessUnit: '',
       password: ''
     });
@@ -506,6 +580,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
     this.userForm.get('firstName')?.setValue('');
     this.userForm.get('lastName')?.setValue('');
     this.userForm.get('email')?.setValue('');
+    this.userForm.get('organization')?.setValue('');
     this.userForm.get('businessUnit')?.setValue('');
     this.userForm.get('password')?.setValue('');
     

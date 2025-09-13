@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(source:*)",
+      "Bash(pip install:*)",
+      "Bash(export:*)",
+      "Bash(uv venv:*)",
+      "Bash(uv sync:*)",
+      "Bash(uv pip install:*)",
+      "Bash(python:*)",
+      "Bash(chmod:*)",
+      "Bash(uvicorn:*)",
+      "Bash(npm run build:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
