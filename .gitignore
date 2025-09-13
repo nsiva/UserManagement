@@ -2,4 +2,29 @@ env/
 __pycache__/
 *.pyc
 .env
+.env*
 .DS_Store
+
+# Environment files
+.env.local
+.env.development
+.env.staging
+.env.production
+.env.test
+
+# Build and distribution files
+dist/
+build/
+node_modules/
+
+# Temporary files
+tmp/
+*.tar
+*.tar.gz
+*.zip
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
