@@ -17,16 +17,6 @@
     <div class="mb-6">
       <nav class="flex space-x-8">
         <button 
-          *ngIf="hasAdminPrivileges()"
-          (click)="setActiveTab('users')"
-          [class]="'py-2 px-1 border-b-2 font-medium text-sm transition-colors ' + 
-            (activeTab === 'users' ? 
-              'border-theme-primary text-theme-primary' : 
-              'border-transparent text-theme-text-secondary hover:text-theme-text hover:border-theme-border')"
-        >
-          Users
-        </button>
-        <button 
           *ngIf="hasOrganizationAccess()"
           (click)="setActiveTab('organizations')"
           [class]="'py-2 px-1 border-b-2 font-medium text-sm transition-colors ' + 
@@ -45,6 +35,16 @@
               'border-transparent text-theme-text-secondary hover:text-theme-text hover:border-theme-border')"
         >
           Business Units
+        </button>
+        <button 
+          *ngIf="hasAdminPrivileges()"
+          (click)="setActiveTab('users')"
+          [class]="'py-2 px-1 border-b-2 font-medium text-sm transition-colors ' + 
+            (activeTab === 'users' ? 
+              'border-theme-primary text-theme-primary' : 
+              'border-transparent text-theme-text-secondary hover:text-theme-text hover:border-theme-border')"
+        >
+          Users
         </button>
       </nav>
     </div>

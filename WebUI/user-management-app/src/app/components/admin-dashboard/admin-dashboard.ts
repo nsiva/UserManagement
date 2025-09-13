@@ -122,15 +122,8 @@ export class AdminDashboardComponent implements OnInit {
       this.loadRoles();
     }
 
-    // Set default tab based on access levels
-    if (this.roleService.hasBusinessUnitAccess()) {
-      // Users with business unit access (admin, super_user, firm_admin) default to business-units
-      this.activeTab = 'business-units';
-      this.loadBusinessUnits();
-    } else {
-      // Users without business unit access (group_admin) default to users tab
-      this.activeTab = 'users';
-    }
+    // Set default tab to the first available tab based on the new order: Organizations -> Business Units -> Users
+    this.setFirstActiveTab();
 
     // Initialize filtered arrays
     this.filteredBusinessUnits = [];
@@ -474,7 +467,19 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   navigateToAdmin(): void {
-    // Already on admin page, no navigation needed
+    // Reset to the first available tab when navigating to admin
+    this.setFirstActiveTab();
+  }
+
+  private setFirstActiveTab(): void {
+    // Set the first available tab based on the order: Organizations -> Business Units -> Users
+    if (this.roleService.hasOrganizationAccess()) {
+      this.setActiveTab('organizations');
+    } else if (this.roleService.hasBusinessUnitAccess()) {
+      this.setActiveTab('business-units');
+    } else {
+      this.setActiveTab('users');
+    }
   }
 
   navigateToCreateUser(): void {
