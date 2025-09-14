@@ -77,6 +77,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
   passwordOption: string = 'send_link'; // 'generate_now' or 'send_link'
   showPasswordField: boolean = false;
   sendPasswordReset: boolean = false; // For edit mode password reset
+  passwordResetOption: string = 'no_change'; // 'no_change', 'send_reset_email', 'reset_now'
   
   // Autocomplete options
   organizationAutocompleteOptions: AutocompleteOption[] = [];
@@ -123,7 +124,8 @@ export class UserFormComponent implements OnInit, OnDestroy {
       businessUnit: ['', Validators.required], // Business unit is required
       password: ['', [PasswordValidationService.validatePassword]], // Password with full validation
       passwordOption: ['send_link'], // Password setup option
-      sendPasswordReset: [false] // For edit mode password reset
+      sendPasswordReset: [false], // For edit mode password reset (backward compatibility)
+      passwordResetOption: ['no_change'] // New radio button option for edit mode
     });
   }
 
@@ -190,6 +192,11 @@ export class UserFormComponent implements OnInit, OnDestroy {
       this.userForm.get('password')?.clearValidators();
       this.userForm.get('password')?.updateValueAndValidity();
       
+      // Initialize password reset option to default for edit mode
+      this.passwordResetOption = 'no_change';
+      this.sendPasswordReset = false;
+      this.showPasswordField = false;
+      
       // Then load user data
       this.loadUserForEdit(this.userId);
     } else {
@@ -203,7 +210,8 @@ export class UserFormComponent implements OnInit, OnDestroy {
         organization: '',
         businessUnit: '',
         password: '',
-        passwordOption: 'send_link' // Set default password option
+        passwordOption: 'send_link', // Set default password option
+        passwordResetOption: 'no_change' // Set default password reset option
       });
       this.selectedUserRole = 'user';
       
@@ -499,8 +507,16 @@ export class UserFormComponent implements OnInit, OnDestroy {
     }
 
     // Additional password validation for create mode and edit mode when password is provided
-    if ((!this.isEditMode || this.userForm.value.password) && this.userForm.value.password) {
-      if (!PasswordValidationService.areAllRequirementsMet(this.userForm.value.password)) {
+    const needsPasswordValidation = (!this.isEditMode && this.userForm.value.password) || 
+                                    (this.isEditMode && this.passwordResetOption === 'reset_now');
+    
+    if (needsPasswordValidation) {
+      if (this.isEditMode && this.passwordResetOption === 'reset_now' && !this.userForm.value.password) {
+        this.showError('Password is required when "Reset password now" option is selected.');
+        return;
+      }
+      
+      if (this.userForm.value.password && !PasswordValidationService.areAllRequirementsMet(this.userForm.value.password)) {
         this.showError('Please ensure your password meets all the requirements below.');
         return;
       }
@@ -534,8 +550,8 @@ export class UserFormComponent implements OnInit, OnDestroy {
           first_name: this.userForm.value.firstName,
           last_name: this.userForm.value.lastName,
           email: this.userForm.value.email,
-          password: this.userForm.value.password || undefined, // Only include password if provided
-          send_password_reset: this.sendPasswordReset, // Send password reset email if checked
+          password: this.passwordResetOption === 'reset_now' ? this.userForm.value.password : undefined,
+          send_password_reset: this.passwordResetOption === 'send_reset_email',
           roles: this.selectedUserRole ? [this.selectedUserRole] : [],
           business_unit_id: this.userForm.value.businessUnit || undefined
         };
@@ -650,7 +666,8 @@ export class UserFormComponent implements OnInit, OnDestroy {
       email: '',
       organization: '',
       businessUnit: '',
-      password: ''
+      password: '',
+      passwordResetOption: 'no_change'
     });
     
     // Approach 3: Clear individual controls
@@ -722,5 +739,28 @@ export class UserFormComponent implements OnInit, OnDestroy {
     } else {
       passwordControl?.enable();
     }
+  }
+
+  onPasswordResetOptionChange(): void {
+    this.passwordResetOption = this.userForm.get('passwordResetOption')?.value || 'no_change';
+    
+    // Update the legacy sendPasswordReset flag for backward compatibility
+    this.sendPasswordReset = this.passwordResetOption === 'send_reset_email';
+    
+    // Update password field behavior based on selected option
+    const passwordControl = this.userForm.get('password');
+    if (this.passwordResetOption === 'reset_now') {
+      // Enable password field and require validation
+      passwordControl?.setValidators([PasswordValidationService.validatePassword]);
+      passwordControl?.enable();
+      this.showPasswordField = true;
+    } else {
+      // Disable password field for 'no_change' and 'send_reset_email' options
+      passwordControl?.clearValidators();
+      passwordControl?.setValue('');
+      passwordControl?.disable();
+      this.showPasswordField = false;
+    }
+    passwordControl?.updateValueAndValidity();
   }
 }

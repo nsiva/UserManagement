@@ -89,37 +89,70 @@
           </div>
         </div>
         
-        <!-- Send Password Reset (Edit Mode Only) -->
+        <!-- Password Reset Options (Edit Mode Only) -->
         <div *ngIf="isEditMode && !isEditingOwnProfile" class="space-y-3">
-          <div class="flex items-center">
-            <input type="checkbox" id="sendPasswordReset" 
-                   formControlName="sendPasswordReset"
-                   (change)="onSendPasswordResetChange()"
-                   class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-            <label for="sendPasswordReset" class="ml-2 text-sm text-gray-900">Send password reset email</label>
+          <label class="block text-sm font-medium text-gray-700">Password Options</label>
+          <div class="space-y-2">
+            <div class="flex items-center">
+              <input type="radio" id="no_change" name="passwordResetOption" value="no_change"
+                     formControlName="passwordResetOption"
+                     (change)="onPasswordResetOptionChange()"
+                     class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+              <label for="no_change" class="ml-2 text-sm text-gray-900">No change in password</label>
+            </div>
+            <div class="flex items-center">
+              <input type="radio" id="send_reset_email" name="passwordResetOption" value="send_reset_email"
+                     formControlName="passwordResetOption"
+                     (change)="onPasswordResetOptionChange()"
+                     class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+              <label for="send_reset_email" class="ml-2 text-sm text-gray-900">Send password reset email</label>
+            </div>
+            <div class="flex items-center">
+              <input type="radio" id="reset_now" name="passwordResetOption" value="reset_now"
+                     formControlName="passwordResetOption"
+                     (change)="onPasswordResetOptionChange()"
+                     class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+              <label for="reset_now" class="ml-2 text-sm text-gray-900">Reset password now</label>
+            </div>
           </div>
-          <div *ngIf="sendPasswordReset" class="text-sm text-gray-600 bg-blue-50 p-3 rounded-md">
+          
+          <!-- Info messages for different options -->
+          <div *ngIf="passwordResetOption === 'no_change'" class="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
+            <svg class="w-4 h-4 inline mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            The user's current password will remain unchanged.
+          </div>
+          <div *ngIf="passwordResetOption === 'send_reset_email'" class="text-sm text-gray-600 bg-blue-50 p-3 rounded-md">
             <svg class="w-4 h-4 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
             A password reset email will be sent to allow the user to set a new password.
           </div>
+          <div *ngIf="passwordResetOption === 'reset_now'" class="text-sm text-gray-600 bg-yellow-50 p-3 rounded-md">
+            <svg class="w-4 h-4 inline mr-2 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+            </svg>
+            Please enter a new password below. The user's password will be updated immediately.
+          </div>
         </div>
         
         <div *ngIf="!isEditingOwnProfile && showPasswordField">
-          <label for="password" class="block text-sm font-medium text-gray-700">Password {{ isEditMode ? '(leave blank to keep current)' : '*' }}</label>
+          <label for="password" class="block text-sm font-medium text-gray-700">
+            Password {{ isEditMode && passwordResetOption === 'reset_now' ? '*' : (isEditMode ? '(leave blank to keep current)' : '*') }}
+          </label>
           <input type="password" id="password" formControlName="password" autocomplete="new-password"
                  (input)="onPasswordChange()"
                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                  [ngClass]="{'border-red-500': userForm.get('password')?.invalid && userForm.get('password')?.touched}">
           <div *ngIf="userForm.get('password')?.invalid && userForm.get('password')?.touched" class="text-red-500 text-xs mt-1">
-            <span *ngIf="userForm.get('password')?.errors?.['required'] && !isEditMode">Password is required.</span>
+            <span *ngIf="userForm.get('password')?.errors?.['required'] && (!isEditMode || passwordResetOption === 'reset_now')">Password is required.</span>
             <span *ngIf="userForm.get('password')?.errors?.['passwordRequirements']">{{ userForm.get('password')?.value ? 'Password must meet all the requirements below' : 'Password is required' }}</span>
           </div>
           
           <!-- Password Requirements Display -->
           <app-password-requirements 
-            *ngIf="!isEditMode || userForm.get('password')?.value" 
+            *ngIf="!isEditMode || (isEditMode && passwordResetOption === 'reset_now')" 
             [passwordRequirements]="passwordRequirements">
           </app-password-requirements>
         </div>
