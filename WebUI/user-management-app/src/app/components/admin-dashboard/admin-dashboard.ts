@@ -1,4 +1,4 @@
-import { Component, OnInit, HostListener } from '@angular/core';
+import { Component, OnInit, HostListener, ChangeDetectorRef } from '@angular/core';
 import { AuthService } from '../../services/auth';
 import { RoleService } from '../../services/role.service';
 import { UserService, User, UserCreate, UserUpdate, Role, RoleCreate, RoleUpdate } from '../../services/user';
@@ -106,7 +106,8 @@ export class AdminDashboardComponent implements OnInit {
     private businessUnitService: BusinessUnitService,
     private fb: FormBuilder,
     private router: Router,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private cdr: ChangeDetectorRef
   ) {
     this.userForm = this.fb.group({
       firstName: ['', Validators.required],
@@ -553,17 +554,19 @@ export class AdminDashboardComponent implements OnInit {
       // If restoring for users tab, also restore user-specific selections
       if (this.activeTab === 'users') {
         // Load organizations and business units for user filtering
-        this.loadOrganizations();
-        this.loadBusinessUnits();
+        this.loadOrganizationsAndRestoreState(queryParams['buId']);
         
-        // Restore business unit selection if available
-        if (queryParams['buId']) {
-          this.selectedUserBusinessUnitId = queryParams['buId'];
-        }
+        // Also ensure users are loaded and filtered after restoration
+        setTimeout(() => {
+          if (!this.users.length) {
+            this.loadUsers();
+          } else {
+            this.filterUsers();
+          }
+        }, 200);
       } else {
         // Load organizations and business units to restore the filtered state for business-units tab
-        this.loadOrganizations();
-        this.loadBusinessUnits();
+        this.loadOrganizationsAndRestoreState();
       }
     }
     
@@ -573,6 +576,17 @@ export class AdminDashboardComponent implements OnInit {
       
       // Load business units for firm_admin
       this.loadFirmAdminBusinessUnits();
+      
+      // Also ensure users are loaded and filtered for firm_admin after restoration
+      if (this.activeTab === 'users') {
+        setTimeout(() => {
+          if (!this.users.length) {
+            this.loadUsers();
+          } else {
+            this.filterUsers();
+          }
+        }, 200);
+      }
     }
     
     // Clear query parameters after restoring state to keep URL clean
@@ -735,6 +749,113 @@ export class AdminDashboardComponent implements OnInit {
       error: (err: HttpErrorResponse) => {
         this.showError(err.error.detail || 'Failed to load organizations.');
         console.error('Error loading organizations:', err);
+      }
+    });
+  }
+
+  loadOrganizationsAndRestoreState(businessUnitId?: string): void {
+    console.log('AdminDashboard: Loading organizations and restoring state...');
+    console.log('AdminDashboard: Target org ID to restore:', this.selectedOrganizationId);
+    console.log('AdminDashboard: Target user org ID to restore:', this.selectedUserOrganizationId);
+    console.log('AdminDashboard: Target business unit ID to restore:', businessUnitId);
+    
+    this.organizationService.getOrganizations().subscribe({
+      next: (data) => {
+        this.organizations = data;
+        this.updateOrganizationOptions();
+        
+        console.log('AdminDashboard: Organizations loaded, total options:', this.organizationOptions.length);
+        console.log('AdminDashboard: User org options:', this.userOrganizationOptions.length);
+        
+        // Debug: Check if target organization exists in options
+        const orgExists = this.organizationOptions.find(opt => opt.id === this.selectedOrganizationId);
+        const userOrgExists = this.userOrganizationOptions.find(opt => opt.id === this.selectedUserOrganizationId);
+        console.log('AdminDashboard: Target org exists in options:', !!orgExists, orgExists?.label);
+        console.log('AdminDashboard: Target user org exists in options:', !!userOrgExists, userOrgExists?.label);
+        
+        // Force change detection and trigger autocomplete updates
+        setTimeout(() => {
+          console.log('AdminDashboard: Forcing change detection and triggering autocomplete updates');
+          this.cdr.detectChanges();
+          
+          // Manually trigger the autocomplete change handlers to ensure proper state
+          if (this.activeTab === 'business-units' && this.selectedOrganizationId) {
+            console.log('AdminDashboard: Triggering organization autocomplete change for business-units tab');
+            // Don't call the handler directly as it would cause an infinite loop
+            // Instead, just ensure the filter is applied
+            this.filterBusinessUnits();
+          } else if (this.activeTab === 'users' && this.selectedUserOrganizationId) {
+            console.log('AdminDashboard: Triggering user organization autocomplete change for users tab');
+            this.filterUsers();
+          }
+        }, 100);
+        
+        // After organizations are loaded and options updated, load business units
+        this.loadBusinessUnitsAndRestoreState(businessUnitId);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.showError(err.error.detail || 'Failed to load organizations.');
+        console.error('Error loading organizations:', err);
+      }
+    });
+  }
+
+  loadBusinessUnitsAndRestoreState(businessUnitId?: string): void {
+    console.log('AdminDashboard: Loading business units and restoring state...');
+    console.log('AdminDashboard: Current selected org ID:', this.selectedOrganizationId);
+    console.log('AdminDashboard: Current selected user org ID:', this.selectedUserOrganizationId);
+    
+    if (this.activeTab === 'users') {
+      // For users tab, load business units for user filtering
+      this.loadBusinessUnitsForUserFilterAndRestore(businessUnitId);
+    } else {
+      // For business units tab, load all business units
+      this.businessUnitService.getBusinessUnits().subscribe({
+        next: (response) => {
+          this.businessUnits = response.business_units;
+          this.filterBusinessUnits();
+          console.log('AdminDashboard: Business units loaded and filtered for restoration');
+          
+          // Debug: Log current selections
+          console.log('AdminDashboard: Business Units tab - Organization options:', this.organizationOptions.length);
+          console.log('AdminDashboard: Business Units tab - Selected organization ID:', this.selectedOrganizationId);
+        },
+        error: (err: HttpErrorResponse) => {
+          this.showError(err.error.detail || 'Failed to load business units.');
+          console.error('Error loading business units:', err);
+        }
+      });
+    }
+  }
+
+  loadBusinessUnitsForUserFilterAndRestore(businessUnitId?: string): void {
+    this.businessUnitService.getBusinessUnits(this.selectedUserOrganizationId).subscribe({
+      next: (response) => {
+        this.filteredUserBusinessUnits = response.business_units;
+        this.updateUserBusinessUnitOptions();
+        
+        // Restore business unit selection if available
+        if (businessUnitId) {
+          // Use setTimeout to ensure options are loaded before setting the value
+          setTimeout(() => {
+            this.selectedUserBusinessUnitId = businessUnitId;
+            console.log('AdminDashboard: Restored user business unit selection:', businessUnitId);
+            console.log('AdminDashboard: Available business unit options:', this.userBusinessUnitOptions.length);
+            
+            // Force change detection to ensure autocomplete updates
+            this.cdr.detectChanges();
+            
+            // Apply filters after restoration
+            this.filterUsers();
+          }, 100);
+        } else {
+          // Apply filters even when no business unit to restore
+          this.filterUsers();
+        }
+      },
+      error: (err: HttpErrorResponse) => {
+        this.showError(err.error.detail || 'Failed to load business units for user filter.');
+        console.error('Error loading business units for user filter:', err);
       }
     });
   }

@@ -160,17 +160,28 @@ export class AutocompleteComponent implements ControlValueAccessor, OnInit, OnDe
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    if (changes['value'] && changes['value'].currentValue !== this.selectedValue) {
-      this.selectedValue = changes['value'].currentValue || '';
-      this.updateDisplayValue();
+    if (changes['value']) {
+      const newValue = changes['value'].currentValue || '';
+      console.log('AutocompleteComponent: ngOnChanges - value changed from', this.selectedValue, 'to', newValue);
+      if (newValue !== this.selectedValue) {
+        this.selectedValue = newValue;
+        this.updateDisplayValue();
+        console.log('AutocompleteComponent: Updated selectedValue and displayValue');
+      }
     }
     if (changes['options']) {
       this.updateFilteredOptions();
+      // If we have a selected value but no display value, try to update it
+      if (this.selectedValue && !this.displayValue) {
+        this.updateDisplayValue();
+        console.log('AutocompleteComponent: Options changed, updated display value for existing selection');
+      }
     }
   }
 
   // ControlValueAccessor implementation
   writeValue(value: any): void {
+    console.log('AutocompleteComponent: writeValue called with:', value, 'current selectedValue:', this.selectedValue);
     if (value !== this.selectedValue) {
       this.selectedValue = value || '';
       this.updateDisplayValue();
@@ -291,11 +302,16 @@ export class AutocompleteComponent implements ControlValueAccessor, OnInit, OnDe
   }
 
   private updateDisplayValue(): void {
+    console.log('AutocompleteComponent: updateDisplayValue called with selectedValue:', this.selectedValue);
+    console.log('AutocompleteComponent: Available options:', this.options.length, this.options.map(o => `${o.id}: ${o.label}`));
+    
     if (this.selectedValue) {
       const selectedOption = this.options.find(opt => opt.id === this.selectedValue);
       this.displayValue = selectedOption ? selectedOption.label : '';
+      console.log('AutocompleteComponent: Found option:', selectedOption, 'displayValue set to:', this.displayValue);
     } else {
       this.displayValue = '';
+      console.log('AutocompleteComponent: No selectedValue, displayValue set to empty');
     }
   }
 
