@@ -274,13 +274,11 @@ export class UserFormComponent implements OnInit, OnDestroy {
         const currentUserEmail = this.authService.getUserEmail();
         this.isEditingOwnProfile = (user.email === currentUserEmail);
         
-        // Always populate form with user data
+        // First populate form with basic user data (except organization and business unit)
         this.userForm.patchValue({
           firstName: user.first_name || '',
           lastName: user.last_name || '',
           email: user.email,
-          organization: user.organization_id || '',
-          businessUnit: user.business_unit_id || '',
           password: '' // Don't populate password for security
         });
         
@@ -289,11 +287,29 @@ export class UserFormComponent implements OnInit, OnDestroy {
           console.log('UserFormComponent: User has organization_id:', user.organization_id);
           console.log('UserFormComponent: User has business_unit_id:', user.business_unit_id);
           this.selectedOrganizationId = user.organization_id;
-          // In edit mode, we need to ensure business units are loaded for the current organization
-          // This will populate the business unit dropdown with options from the user's organization
-          this.loadBusinessUnitsForOrganization(user.organization_id);
+          
+          // First update organization autocomplete options
+          this.updateOrganizationAutocompleteOptions();
+          
+          // Set organization value after options are ready with a small delay
+          setTimeout(() => {
+            this.userForm.patchValue({
+              organization: user.organization_id || ''
+            });
+            // Force change detection to ensure autocomplete updates
+            this.userForm.get('organization')?.updateValueAndValidity();
+            console.log('UserFormComponent: Organization value set after timeout:', user.organization_id);
+          }, 10);
+          
+          // Load business units for the organization, then set business unit value
+          this.loadBusinessUnitsForOrganizationAndSetValue(user.organization_id, user.business_unit_id || '');
         } else {
           console.log('UserFormComponent: User has no organization_id');
+          // Set empty values if no organization
+          this.userForm.patchValue({
+            organization: '',
+            businessUnit: ''
+          });
         }
         
         this.selectedUserRole = user.roles.length > 0 ? user.roles[0] : 'user';
@@ -418,6 +434,38 @@ export class UserFormComponent implements OnInit, OnDestroy {
         this.filteredBusinessUnitsOptions = response.business_units;
         this.updateBusinessUnitAutocompleteOptions();
         console.log('UserFormComponent: Filtered business units:', this.filteredBusinessUnitsOptions);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.showError(err.error.detail || 'Failed to load business units.');
+        console.error('Error loading business units for organization:', err);
+      }
+    });
+  }
+
+  loadBusinessUnitsForOrganizationAndSetValue(organizationId: string, businessUnitId: string): void {
+    console.log('UserFormComponent: loadBusinessUnitsForOrganizationAndSetValue called with organizationId:', organizationId, 'businessUnitId:', businessUnitId);
+    
+    // Load business units for the specific organization directly from the API
+    this.businessUnitService.getBusinessUnits(organizationId).subscribe({
+      next: (response) => {
+        console.log('UserFormComponent: Received business units for organization:', response.business_units.length);
+        this.filteredBusinessUnitsOptions = response.business_units;
+        this.updateBusinessUnitAutocompleteOptions();
+        console.log('UserFormComponent: Filtered business units:', this.filteredBusinessUnitsOptions);
+        
+        // Now that business unit options are loaded, set the form value
+        if (businessUnitId) {
+          console.log('UserFormComponent: Setting business unit value:', businessUnitId);
+          // Use setTimeout to ensure the autocomplete options are ready before setting the value
+          setTimeout(() => {
+            this.userForm.patchValue({
+              businessUnit: businessUnitId
+            });
+            // Force change detection to ensure autocomplete updates
+            this.userForm.get('businessUnit')?.updateValueAndValidity();
+            console.log('UserFormComponent: Business unit value set after timeout:', businessUnitId);
+          }, 10);
+        }
       },
       error: (err: HttpErrorResponse) => {
         this.showError(err.error.detail || 'Failed to load business units.');

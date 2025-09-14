@@ -152,7 +152,7 @@
             [disabled]="!selectedOrganizationId && !isEditMode"
             (optionSelected)="onBusinessUnitAutocompleteChange($event.id)"
             placeholder="{{ selectedOrganizationId || isEditMode ? 'Select Business Unit' : 'Select Organization First' }}"
-            emptyMessage="Select organization first"
+            emptyMessage="{{ isEditMode ? 'No business units available for this organization' : 'Select organization first' }}"
             inputClass="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
             [inputClass]="'mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ' + (userForm.get('businessUnit')?.invalid && userForm.get('businessUnit')?.touched ? 'border-red-500' : 'border-gray-300') + (!selectedOrganizationId && !isEditMode ? ' bg-gray-100 cursor-not-allowed' : '')">
           </app-autocomplete>
@@ -161,6 +161,9 @@
           </div>
           <div *ngIf="!selectedOrganizationId && !isEditMode" class="text-gray-500 text-xs mt-1">
             Please select an organization first to see available business units.
+          </div>
+          <div *ngIf="isEditMode" class="text-gray-500 text-xs mt-1">
+            Business unit can be changed to another unit within the same organization.
           </div>
         </div>
         

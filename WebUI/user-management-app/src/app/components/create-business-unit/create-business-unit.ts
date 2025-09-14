@@ -172,11 +172,11 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
       // Reset form and component state first
       this.resetComponent();
       this.checkMode();
+      
+      // Load available data after checking mode
+      this.loadOrganizations();
+      this.loadUsers();
     });
-
-    // Load available data
-    this.loadOrganizations();
-    this.loadUsers();
   }
 
   ngOnDestroy(): void {
@@ -250,9 +250,8 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
         this.businessUnitToEdit = businessUnit;
         this.selectedOrganizationId = businessUnit.organization_id;
         
-        // Populate form with business unit data
+        // Populate form with business unit data (except organization_id which we'll set later)
         this.businessUnitForm.patchValue({
-          organization_id: businessUnit.organization_id || '',
           name: businessUnit.name || '',
           parent_unit_id: businessUnit.parent_unit_id || '',
           code: businessUnit.code || '',
@@ -266,6 +265,22 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
           is_active: businessUnit.is_active
         });
         
+        // Set organization_id separately after ensuring autocomplete options are ready
+        if (businessUnit.organization_id) {
+          // Force update organization autocomplete options first
+          this.updateOrganizationOptions();
+          
+          // Set organization value after a small delay to ensure autocomplete options are ready
+          setTimeout(() => {
+            this.businessUnitForm.patchValue({
+              organization_id: businessUnit.organization_id || ''
+            });
+            // Force change detection to ensure autocomplete updates
+            this.businessUnitForm.get('organization_id')?.updateValueAndValidity();
+            console.log('CreateBusinessUnitComponent: Organization value set after timeout:', businessUnit.organization_id);
+          }, 10);
+        }
+        
         // Load parent units for the organization
         if (businessUnit.organization_id) {
           this.loadParentUnitsForOrganization(businessUnit.organization_id);
@@ -277,6 +292,9 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
           // Organizations will be filtered by the backend to show only user's organization
           console.log('Organization admin editing business unit - organizations will be filtered by backend');
         }
+        
+        // Force update organization autocomplete options to ensure proper display
+        this.updateOrganizationOptions();
         
         // Clear any previous alert messages
         this.alertMessage = null;
@@ -308,6 +326,17 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
       next: (organizations) => {
         this.availableOrganizations = organizations;
         this.updateOrganizationOptions();
+        
+        // For edit mode, ensure the organization is properly set in the autocomplete
+        if (this.isEditMode && this.businessUnitToEdit && this.businessUnitToEdit.organization_id) {
+          // Double-check that the form control has the correct value for the autocomplete
+          const currentOrgId = this.businessUnitForm.get('organization_id')?.value;
+          if (currentOrgId === this.businessUnitToEdit.organization_id) {
+            console.log('Organization properly set for edit mode:', this.businessUnitToEdit.organization_id);
+            // Trigger change detection to ensure autocomplete displays the selected organization
+            this.businessUnitForm.get('organization_id')?.updateValueAndValidity();
+          }
+        }
         
         // For firm_admin users who should only see their organization, 
         // auto-select it if there's only one organization available
