@@ -97,17 +97,17 @@ export class RoleService {
       return allRoles.filter(role => role.name !== SUPER_USER);
     }
     
-    // Firm admin cannot assign super_user, admin, but can assign firm_admin
+    // Firm admin cannot assign super_user, admin, firm_admin
     if (userRoles.includes(ORGANIZATION_ADMIN)) {
       return allRoles.filter(role => 
-        ![SUPER_USER, ADMIN].includes(role.name)
+        ![SUPER_USER, ADMIN, ORGANIZATION_ADMIN].includes(role.name)
       );
     }
     
-    // Group admin cannot assign super_user, admin, firm_admin, but can assign group_admin
+    // Group admin cannot assign super_user, admin, firm_admin, group_admin
     if (userRoles.includes(BUSINESS_UNIT_ADMIN)) {
       return allRoles.filter(role => 
-        ![SUPER_USER, ADMIN, ORGANIZATION_ADMIN].includes(role.name)
+        ![SUPER_USER, ADMIN, ORGANIZATION_ADMIN, BUSINESS_UNIT_ADMIN].includes(role.name)
       );
     }
     
@@ -172,16 +172,16 @@ export class RoleService {
       return !targetUserRoles.includes(SUPER_USER);
     }
     
-    // Firm admin can edit users except super_user, admin, but can edit other firm_admin users
+    // Firm admin can edit users except super_user, admin, firm_admin
     if (userRoles.includes(ORGANIZATION_ADMIN)) {
-      const restrictedRoles = [SUPER_USER, ADMIN];
+      const restrictedRoles = [SUPER_USER, ADMIN, ORGANIZATION_ADMIN];
       return !targetUserRoles.some(role => restrictedRoles.includes(role));
     }
     
     // Group admin can only edit users with lower roles (user, viewer, editor, etc.)
-    // Cannot edit firm_admin, admin, super_user, but can edit other group_admin users
+    // Cannot edit firm_admin, admin, super_user, group_admin
     if (userRoles.includes(BUSINESS_UNIT_ADMIN)) {
-      const restrictedRoles = [SUPER_USER, ADMIN, ORGANIZATION_ADMIN];
+      const restrictedRoles = [SUPER_USER, ADMIN, ORGANIZATION_ADMIN, BUSINESS_UNIT_ADMIN];
       return !targetUserRoles.some(role => restrictedRoles.includes(role));
     }
     
