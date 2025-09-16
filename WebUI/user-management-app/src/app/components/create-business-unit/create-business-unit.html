@@ -227,4 +227,17 @@
       </form>
     </div>
   </main>
+
+  <!-- Cancel Confirmation Dialog -->
+  <app-confirmation-dialog
+    *ngIf="showCancelConfirmDialog"
+    [show]="showCancelConfirmDialog"
+    title="Confirm Cancel"
+    message="Are you sure you want to cancel? Any unsaved changes will be lost."
+    confirmText="Yes, Cancel"
+    cancelText="Continue Editing"
+    (confirmed)="onCancelConfirmed()"
+    (cancelled)="onCancelDismissed()"
+    (closed)="onCancelDismissed()">
+  </app-confirmation-dialog>
 </div>

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -13,6 +13,7 @@ import { HeaderComponent } from '../../shared/components/header/header.component
 import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
 import { AlertComponent, AlertType } from '../../shared/components/alert/alert.component';
 import { AutocompleteComponent, AutocompleteOption } from '../../shared/components/autocomplete/autocomplete.component';
+import { ConfirmationDialogComponent } from '../../shared/components/confirmation-dialog/confirmation-dialog.component';
 import { APP_NAME } from '../../shared/constants/app-constants';
 import { 
   ADMIN, SUPER_USER, ORGANIZATION_ADMIN, BUSINESS_UNIT_ADMIN,
@@ -22,7 +23,7 @@ import {
 @Component({
   selector: 'app-create-business-unit',
   standalone: true,
-  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent, AutocompleteComponent],
+  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent, AutocompleteComponent, ConfirmationDialogComponent],
   templateUrl: './create-business-unit.html',
   styleUrl: './create-business-unit.scss'
 })
@@ -131,6 +132,9 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
 
   // Return navigation parameters
   private returnQueryParams: any = {};
+
+  // Confirmation dialog state
+  showCancelConfirmDialog = false;
 
   constructor(
     private authService: AuthService,
@@ -762,5 +766,26 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
 
   onManagerAutocompleteChange(managerId: string): void {
     this.businessUnitForm.get('manager_id')?.setValue(managerId);
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onEscapeKey(event: KeyboardEvent): void {
+    if (!this.showCancelConfirmDialog && event.key === 'Escape') {
+      event.preventDefault();
+      this.showCancelConfirmation();
+    }
+  }
+
+  showCancelConfirmation(): void {
+    this.showCancelConfirmDialog = true;
+  }
+
+  onCancelConfirmed(): void {
+    this.showCancelConfirmDialog = false;
+    this.navigateToAdmin();
+  }
+
+  onCancelDismissed(): void {
+    this.showCancelConfirmDialog = false;
   }
 }

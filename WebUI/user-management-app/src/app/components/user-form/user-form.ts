@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -22,11 +22,12 @@ import {
 } from '../../constants/roles';
 import { PasswordValidationService, PasswordRequirements } from '../../shared/services/password-validation.service';
 import { PasswordRequirementsComponent } from '../../shared/components/password-requirements/password-requirements.component';
+import { ConfirmationDialogComponent } from '../../shared/components/confirmation-dialog/confirmation-dialog.component';
 
 @Component({
   selector: 'app-user-form',
   standalone: true,
-  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent, PasswordRequirementsComponent, AutocompleteComponent],
+  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent, PasswordRequirementsComponent, AutocompleteComponent, ConfirmationDialogComponent],
   templateUrl: './user-form.html',
   styleUrl: './user-form.scss'
 })
@@ -104,6 +105,9 @@ export class UserFormComponent implements OnInit, OnDestroy {
 
   // Return navigation parameters
   private returnQueryParams: any = {};
+
+  // Confirmation dialog state
+  showCancelConfirmDialog = false;
 
   constructor(
     private fb: FormBuilder,
@@ -822,5 +826,26 @@ export class UserFormComponent implements OnInit, OnDestroy {
   isOrganizationAdmin(): boolean {
     const userRoles = this.authService.getUserRoles();
     return hasOrganizationAdminAccess(userRoles) || hasBusinessUnitAdminAccess(userRoles);
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onEscapeKey(event: KeyboardEvent): void {
+    if (!this.showCancelConfirmDialog && event.key === 'Escape') {
+      event.preventDefault();
+      this.showCancelConfirmation();
+    }
+  }
+
+  showCancelConfirmation(): void {
+    this.showCancelConfirmDialog = true;
+  }
+
+  onCancelConfirmed(): void {
+    this.showCancelConfirmDialog = false;
+    this.navigateToAdmin();
+  }
+
+  onCancelDismissed(): void {
+    this.showCancelConfirmDialog = false;
   }
 }
