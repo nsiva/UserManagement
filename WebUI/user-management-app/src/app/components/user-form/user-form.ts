@@ -396,18 +396,64 @@ export class UserFormComponent implements OnInit, OnDestroy {
   }
 
   loadOrganizations(): void {
+    console.log('UserFormComponent: Loading organizations...');
+    const userRoles = this.authService.getUserRoles();
+    console.log('UserFormComponent: Current user roles:', userRoles);
+    console.log('UserFormComponent: Has organization admin access:', hasOrganizationAdminAccess(userRoles));
+    console.log('UserFormComponent: Is edit mode:', this.isEditMode);
+    
     this.organizationService.getOrganizations().subscribe({
       next: (organizations) => {
+        console.log('UserFormComponent: Received organizations:', organizations.length, organizations.map(o => `${o.id}: ${o.company_name}`));
         this.organizationsOptions = organizations;
         this.updateOrganizationAutocompleteOptions();
+        console.log('UserFormComponent: Updated organization autocomplete options:', this.organizationAutocompleteOptions.length);
+        
+        // For organization_admin and business_unit_admin users who should only see their organization, 
+        // auto-select it if there's only one organization available
+        const isRestrictedAdmin = hasOrganizationAdminAccess(userRoles) || hasBusinessUnitAdminAccess(userRoles);
+        if (isRestrictedAdmin && organizations.length === 1 && !this.isEditMode) {
+          const adminType = hasOrganizationAdminAccess(userRoles) ? 'organization_admin' : 'business_unit_admin';
+          console.log(`UserFormComponent: Auto-selecting organization for ${adminType}...`);
+          // Ensure autocomplete options are ready first
+          this.updateOrganizationAutocompleteOptions();
+          
+          // Use longer timeout to ensure form and autocomplete are ready
+          setTimeout(() => {
+            this.selectedOrganizationId = organizations[0].id;
+            this.userForm.get('organization')?.setValue(organizations[0].id);
+            
+            // Load business units for the auto-selected organization first
+            this.loadBusinessUnitsForOrganization(organizations[0].id);
+            
+            // Force change detection and validation
+            this.userForm.get('organization')?.updateValueAndValidity();
+            this.userForm.get('organization')?.markAsTouched();
+            
+            console.log(`UserFormComponent: Auto-selected organization for ${adminType}:`, organizations[0].company_name);
+            console.log('UserFormComponent: Form organization value:', this.userForm.get('organization')?.value);
+            console.log('UserFormComponent: Selected organization ID:', this.selectedOrganizationId);
+            console.log('UserFormComponent: Organization autocomplete options:', this.organizationAutocompleteOptions);
+            
+            // Additional debug - check if the organization autocomplete will find the selected option
+            const selectedOption = this.organizationAutocompleteOptions.find(opt => opt.id === organizations[0].id);
+            console.log('UserFormComponent: Found matching option for organization:', selectedOption);
+          }, 200);
+        } else if (isRestrictedAdmin && organizations.length === 0) {
+          console.log('UserFormComponent: No organizations returned for restricted admin user');
+          this.showError('No organizations available for your role. Please contact your administrator.');
+        } else if (isRestrictedAdmin && organizations.length > 1) {
+          console.log('UserFormComponent: Multiple organizations returned for restricted admin user:', organizations.length);
+        }
+        
         // Clear alert message if it's not a user loading error
         if (this.alertMessage && !this.alertMessage.includes('load user')) {
           this.alertMessage = null;
         }
       },
       error: (err: HttpErrorResponse) => {
+        console.error('UserFormComponent: Error loading organizations:', err);
         this.showError(err.error.detail || 'Failed to load organizations.');
-        console.error('Error loading organizations:', err);
       }
     });
   }
@@ -442,6 +488,13 @@ export class UserFormComponent implements OnInit, OnDestroy {
         this.filteredBusinessUnitsOptions = response.business_units;
         this.updateBusinessUnitAutocompleteOptions();
         console.log('UserFormComponent: Filtered business units:', this.filteredBusinessUnitsOptions);
+        
+        // For business unit admin users, they should be able to select any business unit in their organization
+        // The business unit field remains enabled and selectable
+        const userRoles = this.authService.getUserRoles();
+        if (hasBusinessUnitAdminAccess(userRoles) && !this.isEditMode) {
+          console.log('UserFormComponent: Business unit admin - business units loaded and available for selection');
+        }
       },
       error: (err: HttpErrorResponse) => {
         this.showError(err.error.detail || 'Failed to load business units.');
@@ -762,5 +815,12 @@ export class UserFormComponent implements OnInit, OnDestroy {
       this.showPasswordField = false;
     }
     passwordControl?.updateValueAndValidity();
+  }
+
+  // Helper method to check if current user is organization admin or business unit admin
+  // Both roles should have restricted access to organization/business unit selection
+  isOrganizationAdmin(): boolean {
+    const userRoles = this.authService.getUserRoles();
+    return hasOrganizationAdminAccess(userRoles) || hasBusinessUnitAdminAccess(userRoles);
   }
 }

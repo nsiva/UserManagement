@@ -162,18 +162,21 @@
           <app-autocomplete
             [options]="organizationAutocompleteOptions"
             [value]="userForm.get('organization')?.value"
-            [disabled]="isEditMode"
+            [disabled]="isEditMode || isOrganizationAdmin()"
             (optionSelected)="onOrganizationAutocompleteChange($event.id)"
             placeholder="Select Organization"
             emptyMessage="No organizations available"
             inputClass="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            [inputClass]="'mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ' + (userForm.get('organization')?.invalid && userForm.get('organization')?.touched ? 'border-red-500' : 'border-gray-300') + (isEditMode ? ' bg-gray-100 cursor-not-allowed' : '')">
+            [inputClass]="'mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ' + (userForm.get('organization')?.invalid && userForm.get('organization')?.touched ? 'border-red-500' : 'border-gray-300') + ((isEditMode || isOrganizationAdmin()) ? ' bg-gray-100 cursor-not-allowed' : '')">
           </app-autocomplete>
           <div *ngIf="userForm.get('organization')?.invalid && userForm.get('organization')?.touched" class="text-red-500 text-xs mt-1">
             <span *ngIf="userForm.get('organization')?.errors?.['required']">Organization is required.</span>
           </div>
           <div *ngIf="isEditMode" class="text-gray-500 text-xs mt-1">
             Organization cannot be changed when editing existing users.
+          </div>
+          <div *ngIf="!isEditMode && isOrganizationAdmin()" class="text-gray-500 text-xs mt-1">
+            Users can only be created within your organization.
           </div>
         </div>
         
@@ -182,21 +185,24 @@
           <app-autocomplete
             [options]="businessUnitAutocompleteOptions"
             [value]="userForm.get('businessUnit')?.value"
-            [disabled]="!selectedOrganizationId && !isEditMode"
+            [disabled]="!selectedOrganizationId && !isEditMode && !isOrganizationAdmin()"
             (optionSelected)="onBusinessUnitAutocompleteChange($event.id)"
-            placeholder="{{ selectedOrganizationId || isEditMode ? 'Select Business Unit' : 'Select Organization First' }}"
-            emptyMessage="{{ isEditMode ? 'No business units available for this organization' : 'Select organization first' }}"
+            placeholder="{{ selectedOrganizationId || isEditMode || isOrganizationAdmin() ? 'Select Business Unit' : 'Select Organization First' }}"
+            emptyMessage="{{ isEditMode ? 'No business units available for this organization' : (isOrganizationAdmin() ? 'No business units available in your organization' : 'Select organization first') }}"
             inputClass="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            [inputClass]="'mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ' + (userForm.get('businessUnit')?.invalid && userForm.get('businessUnit')?.touched ? 'border-red-500' : 'border-gray-300') + (!selectedOrganizationId && !isEditMode ? ' bg-gray-100 cursor-not-allowed' : '')">
+            [inputClass]="'mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ' + (userForm.get('businessUnit')?.invalid && userForm.get('businessUnit')?.touched ? 'border-red-500' : 'border-gray-300') + (!selectedOrganizationId && !isEditMode && !isOrganizationAdmin() ? ' bg-gray-100 cursor-not-allowed' : '')">
           </app-autocomplete>
           <div *ngIf="userForm.get('businessUnit')?.invalid && userForm.get('businessUnit')?.touched" class="text-red-500 text-xs mt-1">
             <span *ngIf="userForm.get('businessUnit')?.errors?.['required']">Business unit is required.</span>
           </div>
-          <div *ngIf="!selectedOrganizationId && !isEditMode" class="text-gray-500 text-xs mt-1">
+          <div *ngIf="!selectedOrganizationId && !isEditMode && !isOrganizationAdmin()" class="text-gray-500 text-xs mt-1">
             Please select an organization first to see available business units.
           </div>
           <div *ngIf="isEditMode" class="text-gray-500 text-xs mt-1">
             Business unit can be changed to another unit within the same organization.
+          </div>
+          <div *ngIf="!isEditMode && isOrganizationAdmin()" class="text-gray-500 text-xs mt-1">
+            Select a business unit within your organization.
           </div>
         </div>
         

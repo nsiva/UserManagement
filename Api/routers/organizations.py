@@ -10,8 +10,8 @@ from models import TokenData
 from routers.auth import get_current_user
 from validators.organization_validator import OrganizationValidator, OrganizationValidationError
 from constants import (
-    ADMIN, SUPER_USER, ORGANIZATION_ADMIN,
-    ADMIN_ROLES, has_admin_access, has_organization_admin_access
+    ADMIN, SUPER_USER, ORGANIZATION_ADMIN, BUSINESS_UNIT_ADMIN,
+    ADMIN_ROLES, has_admin_access, has_organization_admin_access, has_business_unit_admin_access
 )
 
 organizations_router = APIRouter(prefix="/organizations", tags=["organizations"])
@@ -82,6 +82,7 @@ async def get_all_organizations(current_user: TokenData = Depends(get_current_us
     """Get organizations with role-based filtering:
     - admin/super_user: See all organizations
     - firm_admin: See only their organization
+    - group_admin: See only their organization
     - Other roles: Access denied
     """
     try:
@@ -89,11 +90,11 @@ async def get_all_organizations(current_user: TokenData = Depends(get_current_us
         current_user_roles = current_user.roles
         
         # Check if user has appropriate role
-        if not (has_admin_access(current_user_roles) or has_organization_admin_access(current_user_roles)):
+        if not (has_admin_access(current_user_roles) or has_organization_admin_access(current_user_roles) or has_business_unit_admin_access(current_user_roles)):
             logger.warning(f"User {current_user.email} with roles {current_user_roles} attempted to access organizations")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, 
-                detail=f"Admin, super_user, or {ORGANIZATION_ADMIN} access required"
+                detail=f"Admin, super_user, {ORGANIZATION_ADMIN}, or {BUSINESS_UNIT_ADMIN} access required"
             )
         
         # Determine filtering based on user role
@@ -115,6 +116,12 @@ async def get_all_organizations(current_user: TokenData = Depends(get_current_us
                 organization = await repo.get_organization_by_id(user_org_id)
                 organizations = [organization] if organization else []
                 logger.info(f"Firm admin {current_user.email} accessing their organization {user_context['organization_name']}")
+            elif has_business_unit_admin_access(current_user_roles):
+                # Business unit admin sees only their organization
+                user_org_id = user_context['organization_id']
+                organization = await repo.get_organization_by_id(user_org_id)
+                organizations = [organization] if organization else []
+                logger.info(f"Business unit admin {current_user.email} accessing their organization {user_context['organization_name']}")
             else:
                 logger.warning(f"User {current_user.email} with roles {current_user_roles} has no organization access permissions")
                 return []
