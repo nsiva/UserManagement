@@ -202,9 +202,22 @@ async def create_user(
                     detail="Invalid business unit ID. Business unit does not exist or is inactive."
                 )
         
-        # Generate UUID for new user
-        import uuid
-        user_id = str(uuid.uuid4())
+        # Validate role assignment permissions BEFORE creating user to prevent inconsistent states
+        if user_data.roles and current_admin_user:
+            # Generate temporary user ID for validation (we'll use the same ID for actual creation)
+            import uuid
+            temp_user_id = str(uuid.uuid4())
+            validate_role_assignment(
+                current_admin_user.roles, 
+                user_data.roles, 
+                current_admin_user.user_id, 
+                temp_user_id
+            )
+            user_id = temp_user_id  # Use the validated ID for creation
+        else:
+            # Generate UUID for new user
+            import uuid
+            user_id = str(uuid.uuid4())
         
         # Handle password based on selected option
         password_setup_sent = False
@@ -280,16 +293,8 @@ async def create_user(
         )
 
     if user_data.roles:
-        # Validate role assignment permissions for admin users
-        if current_admin_user:
-            validate_role_assignment(
-                current_admin_user.roles, 
-                user_data.roles, 
-                current_admin_user.user_id, 
-                user_id
-            )
-        # Note: Client-based authentication bypasses role assignment validation
-        # as clients with 'manage:users' scope are considered to have full permissions
+        # Role validation was already done earlier in the function for admin users
+        # For clients, we allow full permissions for now but this could be enhanced
         await assign_roles_to_user_by_names(user_id, user_data.roles)
 
     roles = await get_user_roles(str(user_id))
@@ -744,6 +749,16 @@ async def manage_user_roles(user_id: UUID, assignment: UserRoleAssignment, curre
         if user_id != assignment.user_id:
             logger.warning(f"User ID mismatch in manage_user_roles: {user_id} != {assignment.user_id}")
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User ID in path must match user ID in body.")
+        
+        # Validate role assignment permissions before making changes
+        if assignment.role_names:  # Only validate if roles are being assigned (not when clearing roles)
+            validate_role_assignment(
+                current_user.roles, 
+                assignment.role_names, 
+                current_user.user_id, 
+                str(user_id)
+            )
+        
         await assign_roles_to_user_by_names(user_id, assignment.role_names)
         logger.info(f"User roles updated for user {user_id}")
         return {"message": "User roles updated successfully."}
