@@ -46,8 +46,8 @@ async def get_my_profile(
                 detail="User profile not found."
             )
         
-        # Determine if MFA is enabled (mfa_secret exists and is not null/empty)
-        mfa_enabled = bool(profile_data.get('mfa_secret'))
+        # Determine if MFA is enabled (mfa_secret or mfa_method exists)
+        mfa_enabled = bool(profile_data.get('mfa_secret') or profile_data.get('mfa_method'))
         
         # Prepare profile data without the sensitive mfa_secret
         safe_profile_data = {
@@ -106,7 +106,7 @@ async def get_my_full_profile(
         
         roles = await get_user_roles(str(current_user.user_id))
         logger.info(f"Fetched user {current_user.user_id} with roles: {roles}")
-        mfa_enabled = bool(user_profile.get('mfa_secret'))
+        mfa_enabled = bool(user_profile.get('mfa_secret') or user_profile.get('mfa_method'))
         
         return UserWithRoles(
             id=user_profile['id'], 

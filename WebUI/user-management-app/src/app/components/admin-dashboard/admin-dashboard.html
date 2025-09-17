@@ -399,59 +399,13 @@
     </div>
   </div>
 
-  <!-- MFA Setup Modal -->
-  <div *ngIf="showMfaSetupModal" class="fixed inset-0 bg-theme-modal-overlay overflow-y-auto h-full w-full z-50" (click)="closeMfaSetupModal()">
-    <div class="relative top-20 mx-auto p-5 border border-theme-border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-theme-surface" (click)="$event.stopPropagation()">
-      <!-- Modal Header -->
-      <div class="flex items-center justify-between pb-4 border-b border-theme-border">
-        <h3 class="text-lg font-semibold text-theme-text">MFA Setup</h3>
-        <button (click)="closeMfaSetupModal()" class="text-theme-text-muted hover:text-theme-text-secondary focus:outline-none transition-colors">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
-        </button>
-      </div>
-      
-      <!-- Modal Body -->
-      <div class="py-4">
-        <div class="mb-6">
-          <p class="text-sm text-theme-text-secondary mb-4">
-            Set up Multi-Factor Authentication for <strong>{{ selectedUserForMfa?.email }}</strong>
-          </p>
-        </div>
-        
-        <!-- Secret Key Section -->
-        <div class="mb-6">
-          <label class="block text-sm font-medium text-theme-text-secondary mb-2">Secret Key</label>
-          <div class="bg-theme-surface-hover border border-theme-border rounded-md p-3">
-            <div class="flex items-center justify-between">
-              <code class="text-sm text-theme-text break-all">{{ mfaSecret }}</code>
-              <button (click)="copyToClipboard(mfaSecret || '')" class="ml-2 text-theme-primary hover:text-theme-primary-hover text-sm transition-colors">
-                Copy
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        <!-- QR Code Section -->
-        <div class="mb-6">
-          <label class="block text-sm font-medium text-theme-text-secondary mb-2">QR Code</label>
-          <div class="flex justify-center bg-theme-surface-hover border border-theme-border rounded-md p-4">
-            <img [src]="'data:image/png;base64,' + mfaQrCodeBase64" alt="MFA QR Code" class="max-w-64 max-h-64" />
-          </div>
-          <p class="text-xs text-theme-text-muted mt-2 text-center">
-            Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
-          </p>
-        </div>
-      </div>
-      
-      <!-- Modal Footer -->
-      <div class="flex justify-end pt-4 border-t border-theme-border">
-        <button (click)="closeMfaSetupModal()" class="w-auto flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-theme-primary-text bg-theme-primary hover:bg-theme-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-theme-border-focus transition-colors">
-          Close
-        </button>
-      </div>
-    </div>
-  </div>
+  <!-- Enhanced MFA Setup Modal -->
+  <app-enhanced-mfa-setup-modal
+    *ngIf="showEnhancedMfaSetupModal"
+    [userEmail]="selectedUserForMfa?.email || ''"
+    [show]="showEnhancedMfaSetupModal"
+    (closed)="onEnhancedMfaSetupClosed()"
+    (setupComplete)="onEnhancedMfaSetupComplete($event)">
+  </app-enhanced-mfa-setup-modal>
 
 </div>

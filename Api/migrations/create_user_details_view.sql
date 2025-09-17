@@ -14,6 +14,7 @@ SELECT
     p.last_name,
     p.is_admin,
     p.mfa_secret,
+    p.mfa_method,
     p.created_at as user_created_at,
     p.updated_at as user_updated_at,
     

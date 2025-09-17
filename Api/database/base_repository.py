@@ -80,6 +80,31 @@ class BaseRepository(ABC):
         """Update MFA secret for a user. None to disable MFA."""
         pass
     
+    @abstractmethod
+    async def create_email_otp(self, otp_data: Dict[str, Any]) -> bool:
+        """Create an email OTP record."""
+        pass
+    
+    @abstractmethod
+    async def get_email_otp(self, user_id: UUID, otp: str, purpose: str) -> Optional[Dict[str, Any]]:
+        """Get email OTP by user_id, otp and purpose."""
+        pass
+    
+    @abstractmethod
+    async def mark_email_otp_used(self, otp_id: UUID) -> bool:
+        """Mark an email OTP as used."""
+        pass
+    
+    @abstractmethod
+    async def cleanup_expired_email_otps(self) -> int:
+        """Remove expired email OTPs. Returns number of deleted records."""
+        pass
+    
+    @abstractmethod
+    async def update_user_mfa_method(self, user_id: UUID, mfa_method: str) -> bool:
+        """Update user's MFA method (totp or email)."""
+        pass
+    
     # Client Management
     @abstractmethod
     async def get_client_by_id(self, client_id: str) -> Optional[Dict[str, Any]]:

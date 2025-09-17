@@ -402,7 +402,7 @@ async def get_all_users(current_admin_user: TokenData = Depends(get_current_admi
         users_with_roles = []
         for user_profile in users_data:
             roles = await get_user_roles(str(user_profile['id']))
-            mfa_enabled = bool(user_profile.get('mfa_secret'))
+            mfa_enabled = bool(user_profile.get('mfa_secret') or user_profile.get('mfa_method'))
             users_with_roles.append(UserWithRoles(
                 id=user_profile['id'],
                 email=user_profile['email'],
@@ -576,7 +576,7 @@ async def get_user_by_id(user_id: UUID): # Removed unused current_user argument
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
         roles = await get_user_roles(str(user_id))
         logger.info(f"Fetched user {user_id} with roles: {roles}")
-        mfa_enabled = bool(user_profile.get('mfa_secret'))
+        mfa_enabled = bool(user_profile.get('mfa_secret') or user_profile.get('mfa_method'))
         return UserWithRoles(
             id=user_profile['id'], 
             email=user_profile['email'], 

@@ -23,7 +23,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 from database import get_repository
-from models import LoginRequest, MFARequest, PasswordResetRequest, TokenResponse, TokenData, UserInDB, ClientTokenRequest, ClientTokenResponse, ClientTokenData, ForgotPasswordRequest, SetNewPasswordRequest, VerifyResetTokenResponse
+from models import LoginRequest, MFARequest, EmailOtpSetupRequest, EmailOtpVerifyRequest, PasswordResetRequest, TokenResponse, TokenData, UserInDB, ClientTokenRequest, ClientTokenResponse, ClientTokenData, ForgotPasswordRequest, SetNewPasswordRequest, VerifyResetTokenResponse
 
 load_dotenv()
 
@@ -410,9 +410,39 @@ async def login_for_access_token(request: LoginRequest):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect email or password")
         
         # Check if MFA is required
-        if user.mfa_secret:
-            logger.info(f"MFA required for user {user.email}")
-            raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="MFA required. Please provide MFA code.")
+        mfa_method = getattr(user, 'mfa_method', None)
+        if user.mfa_secret or mfa_method:
+            if mfa_method == 'email':
+                # For email MFA, automatically send OTP
+                otp = generate_otp()
+                expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
+                
+                repo = get_repository()
+                otp_data = {
+                    'user_id': str(user.id),
+                    'email': user.email,
+                    'otp': otp,
+                    'purpose': 'login',
+                    'expires_at': expires_at,
+                    'created_at': datetime.now(timezone.utc)
+                }
+                
+                otp_stored = await repo.create_email_otp(otp_data)
+                if otp_stored:
+                    email_sent = await send_otp_email(user.email, otp, 'login')
+                    if email_sent:
+                        logger.info(f"Email MFA required for user {user.email}, OTP sent")
+                        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Email MFA required. Check your email for verification code.")
+                    else:
+                        logger.error(f"Failed to send email OTP for user {user.email}")
+                        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to send verification email.")
+                else:
+                    logger.error(f"Failed to store email OTP for user {user.email}")
+                    raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to process email verification.")
+            else:
+                # For TOTP MFA
+                logger.info(f"TOTP MFA required for user {user.email}")
+                raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="MFA required. Please provide MFA code.")
         
         # Get user roles
         roles = await get_user_roles(str(user.id))
@@ -446,13 +476,42 @@ async def login_for_access_token(request: LoginRequest):
 async def verify_mfa_code(request: MFARequest):
     try:
         user = await get_user_by_email(request.email)
-        if not user or not user.mfa_secret:
+        if not user:
+            logger.warning(f"MFA verification failed: User not found for {request.email}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email or MFA code.")
+        
+        mfa_method = getattr(user, 'mfa_method', None)
+        mfa_verified = False
+        
+        if mfa_method == 'email':
+            # Verify email OTP
+            repo = get_repository()
+            otp_record = await repo.get_email_otp(user.id, request.mfa_code, 'login')
+            
+            if otp_record:
+                # Mark OTP as used
+                await repo.mark_email_otp_used(otp_record['id'])
+                mfa_verified = True
+                logger.info(f"Email OTP verified for user {user.email}")
+            else:
+                logger.warning(f"Invalid or expired email OTP for user {request.email}")
+                
+        elif user.mfa_secret:
+            # Verify TOTP
+            totp = pyotp.TOTP(user.mfa_secret)
+            if totp.verify(request.mfa_code):
+                mfa_verified = True
+                logger.info(f"TOTP verified for user {user.email}")
+            else:
+                logger.warning(f"Invalid TOTP code for user {request.email}")
+        else:
             logger.warning(f"MFA verification failed: No MFA setup for {request.email}")
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="MFA not set up for this user or invalid email.")
-        totp = pyotp.TOTP(user.mfa_secret)
-        if not totp.verify(request.mfa_code):
-            logger.warning(f"Invalid MFA code for user {request.email}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="MFA not set up for this user.")
+        
+        if not mfa_verified:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid MFA code.")
+        
+        # Create access token
         roles = await get_user_roles(str(user.id))
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
@@ -727,3 +786,199 @@ async def set_new_password(request: SetNewPasswordRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
         )
+
+# Email OTP Helper Functions
+def generate_otp() -> str:
+    """Generate a 6-digit OTP."""
+    return str(secrets.randbelow(900000) + 100000)
+
+async def send_otp_email(email: str, otp: str, purpose: str) -> bool:
+    """Send OTP via email."""
+    try:
+        # Email configuration
+        smtp_server = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
+        smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+        smtp_username = os.environ.get("SMTP_USERNAME")
+        smtp_password = os.environ.get("SMTP_PASSWORD")
+        
+        if not smtp_username or not smtp_password:
+            logger.error("SMTP credentials not configured")
+            return False
+        
+        # Create message
+        msg = MIMEMultipart()
+        msg['From'] = smtp_username
+        msg['To'] = email
+        
+        if purpose == 'setup':
+            msg['Subject'] = "Multi-Factor Authentication Setup - Verification Code"
+            body = f"""
+            Your MFA setup verification code is: {otp}
+            
+            This code will expire in 10 minutes.
+            
+            If you did not request this code, please contact your administrator.
+            """
+        else:  # login
+            msg['Subject'] = "Login Verification Code"
+            body = f"""
+            Your login verification code is: {otp}
+            
+            This code will expire in 5 minutes.
+            
+            If you did not request this code, please contact your administrator immediately.
+            """
+        
+        msg.attach(MIMEText(body, 'plain'))
+        
+        # Send email
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+        server.send_message(msg)
+        server.quit()
+        
+        logger.info(f"OTP email sent to {email} for {purpose}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to send OTP email to {email}: {e}")
+        return False
+
+# Email OTP Endpoints
+@auth_router.post("/mfa/email/setup", summary="Send email OTP for MFA setup")
+async def setup_email_mfa(
+    request: EmailOtpSetupRequest,
+    current_user: TokenData = Depends(get_current_user)
+):
+    """Send email OTP for MFA setup verification."""
+    try:
+        user = await get_user_by_email(request.email)
+        if not user:
+            logger.warning(f"Email MFA setup failed: User not found for {request.email}")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+        
+        # Generate OTP
+        otp = generate_otp()
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+        
+        # Store OTP in database
+        repo = get_repository()
+        otp_data = {
+            'user_id': str(user.id),
+            'email': request.email,
+            'otp': otp,
+            'purpose': 'setup',
+            'expires_at': expires_at,
+            'created_at': datetime.now(timezone.utc)
+        }
+        
+        success = await repo.create_email_otp(otp_data)
+        if not success:
+            logger.error(f"Failed to store email OTP for user {user.email}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create verification code.")
+        
+        # Send OTP email
+        email_sent = await send_otp_email(request.email, otp, 'setup')
+        if not email_sent:
+            logger.error(f"Failed to send OTP email to {request.email}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to send verification email.")
+        
+        logger.info(f"Email MFA setup OTP sent to {request.email}")
+        return {"message": "Verification code sent to your email", "expires_at": expires_at.isoformat()}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in setup_email_mfa: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+
+@auth_router.post("/mfa/email/verify", summary="Verify email OTP for MFA setup")
+async def verify_email_mfa_setup(
+    request: EmailOtpVerifyRequest,
+    current_user: TokenData = Depends(get_current_user)
+):
+    """Verify email OTP and complete MFA setup."""
+    try:
+        user = await get_user_by_email(request.email)
+        if not user:
+            logger.warning(f"Email MFA verification failed: User not found for {request.email}")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+        
+        # Get and validate OTP
+        repo = get_repository()
+        otp_record = await repo.get_email_otp(user.id, request.otp, 'setup')
+        
+        if not otp_record:
+            logger.warning(f"Invalid or expired OTP for user {request.email}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired verification code.")
+        
+        # Mark OTP as used
+        otp_used = await repo.mark_email_otp_used(otp_record['id'])
+        if not otp_used:
+            logger.error(f"Failed to mark OTP as used for user {request.email}")
+        
+        # Enable email MFA for user
+        mfa_enabled = await repo.update_user_mfa_method(user.id, 'email')
+        if not mfa_enabled:
+            logger.error(f"Failed to enable email MFA for user {request.email}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to enable MFA.")
+        
+        logger.info(f"Email MFA setup completed for user {request.email}")
+        return {"message": "Email MFA has been successfully enabled.", "mfa_enabled": True}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in verify_email_mfa_setup: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+
+@auth_router.post("/mfa/email/send", summary="Send email OTP for login")
+async def send_login_email_otp(request: EmailOtpSetupRequest):
+    """Send email OTP for login verification."""
+    try:
+        user = await get_user_by_email(request.email)
+        if not user:
+            # Don't reveal if user exists
+            logger.warning(f"Login email OTP requested for non-existent user: {request.email}")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+        
+        # Check if user has email MFA enabled
+        if getattr(user, 'mfa_method', None) != 'email':
+            logger.warning(f"Login email OTP requested for user without email MFA: {request.email}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email MFA is not enabled for this user.")
+        
+        # Generate OTP
+        otp = generate_otp()
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)  # Shorter expiry for login
+        
+        # Store OTP in database
+        repo = get_repository()
+        otp_data = {
+            'user_id': str(user.id),
+            'email': request.email,
+            'otp': otp,
+            'purpose': 'login',
+            'expires_at': expires_at,
+            'created_at': datetime.now(timezone.utc)
+        }
+        
+        success = await repo.create_email_otp(otp_data)
+        if not success:
+            logger.error(f"Failed to store login email OTP for user {user.email}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create verification code.")
+        
+        # Send OTP email
+        email_sent = await send_otp_email(request.email, otp, 'login')
+        if not email_sent:
+            logger.error(f"Failed to send login OTP email to {request.email}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to send verification email.")
+        
+        logger.info(f"Login email OTP sent to {request.email}")
+        return {"message": "Verification code sent to your email", "expires_at": expires_at.isoformat()}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in send_login_email_otp: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")

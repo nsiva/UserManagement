@@ -39,7 +39,7 @@ class SupabaseRepository(BaseRepository):
         """Get user by ID."""
         try:
             response = self.client.from_('aaa_profiles').select(
-                'id, email, first_name, middle_name, last_name, is_admin, mfa_secret'
+                'id, email, first_name, middle_name, last_name, is_admin, mfa_secret, mfa_method'
             ).eq('id', str(user_id)).limit(1).execute()
             return response.data[0] if response.data else None
         except Exception as e:
@@ -50,7 +50,7 @@ class SupabaseRepository(BaseRepository):
         """Get all user profiles."""
         try:
             response = self.client.from_('aaa_profiles').select(
-                'id, email, first_name, middle_name, last_name, is_admin, mfa_secret'
+                'id, email, first_name, middle_name, last_name, is_admin, mfa_secret, mfa_method'
             ).execute()
             return response.data or []
         except Exception as e:
@@ -183,6 +183,78 @@ class SupabaseRepository(BaseRepository):
             return bool(response.data)
         except Exception as e:
             logger.error(f"Failed to update MFA secret for user {user_id}: {e}")
+            return False
+    
+    async def create_email_otp(self, otp_data: Dict[str, Any]) -> bool:
+        """Create an email OTP record."""
+        try:
+            # First, cleanup any existing unused OTPs for this user/purpose
+            await self.cleanup_user_email_otps(otp_data['user_id'], otp_data['purpose'])
+            
+            response = self.client.from_('aaa_email_otps').insert(otp_data).execute()
+            return bool(response.data)
+        except Exception as e:
+            logger.error(f"Failed to create email OTP: {e}")
+            return False
+    
+    async def get_email_otp(self, user_id: UUID, otp: str, purpose: str) -> Optional[Dict[str, Any]]:
+        """Get email OTP by user_id, otp and purpose."""
+        try:
+            response = self.client.from_('aaa_email_otps').select('*').eq(
+                'user_id', str(user_id)
+            ).eq('otp', otp).eq('purpose', purpose).eq('used', False).gte(
+                'expires_at', datetime.now(timezone.utc).isoformat()
+            ).limit(1).execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            logger.error(f"Failed to get email OTP for user {user_id}: {e}")
+            return None
+    
+    async def mark_email_otp_used(self, otp_id: UUID) -> bool:
+        """Mark an email OTP as used."""
+        try:
+            update_data = {
+                'used': True,
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            }
+            response = self.client.from_('aaa_email_otps').update(update_data).eq('id', str(otp_id)).execute()
+            return bool(response.data)
+        except Exception as e:
+            logger.error(f"Failed to mark email OTP as used {otp_id}: {e}")
+            return False
+    
+    async def cleanup_expired_email_otps(self) -> int:
+        """Remove expired email OTPs. Returns number of deleted records."""
+        try:
+            current_time = datetime.now(timezone.utc).isoformat()
+            response = self.client.from_('aaa_email_otps').delete().lt('expires_at', current_time).execute()
+            return len(response.data) if response.data else 0
+        except Exception as e:
+            logger.error(f"Failed to cleanup expired email OTPs: {e}")
+            return 0
+    
+    async def cleanup_user_email_otps(self, user_id: UUID, purpose: str) -> bool:
+        """Remove existing unused OTPs for a user/purpose combination."""
+        try:
+            response = self.client.from_('aaa_email_otps').delete().eq(
+                'user_id', str(user_id)
+            ).eq('purpose', purpose).eq('used', False).execute()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to cleanup user email OTPs for {user_id}: {e}")
+            return False
+    
+    async def update_user_mfa_method(self, user_id: UUID, mfa_method: str) -> bool:
+        """Update user's MFA method (totp or email)."""
+        try:
+            update_data = {
+                'mfa_method': mfa_method,
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            }
+            response = self.client.from_('aaa_profiles').update(update_data).eq('id', str(user_id)).execute()
+            return bool(response.data)
+        except Exception as e:
+            logger.error(f"Failed to update MFA method for user {user_id}: {e}")
             return False
     
     async def get_client_by_id(self, client_id: str) -> Optional[Dict[str, Any]]:

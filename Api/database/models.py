@@ -53,6 +53,18 @@ class DBPasswordResetToken(BaseModel):
     created_at: datetime
 
 
+class DBEmailOtp(BaseModel):
+    """Database email OTP entity model."""
+    id: UUID
+    user_id: UUID
+    email: EmailStr
+    otp: str
+    purpose: str  # 'setup' or 'login'
+    expires_at: datetime
+    used: bool = False
+    created_at: datetime
+
+
 class DBOrganization(BaseModel):
     """Database organization entity model."""
     id: UUID

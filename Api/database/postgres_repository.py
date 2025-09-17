@@ -97,7 +97,7 @@ class PostgresRepository(BaseRepository):
                 logger.info("Falling back to original query for get_user_by_id")
                 query_fallback = """
                     SELECT p.id, p.email, p.first_name, p.middle_name, p.last_name, 
-                           p.is_admin, p.mfa_secret,
+                           p.is_admin, p.mfa_secret, p.mfa_method,
                            ub.business_unit_id, bu.name as business_unit_name,
                            o.company_name as organization_name, bu.organization_id,
                            bu.code as business_unit_code, bu.location as business_unit_location,
@@ -130,6 +130,7 @@ class PostgresRepository(BaseRepository):
                         last_name,
                         is_admin,
                         mfa_secret,
+                        mfa_method,
                         business_unit_id,
                         business_unit_name,
                         business_unit_code,
@@ -151,7 +152,7 @@ class PostgresRepository(BaseRepository):
                 logger.info("Falling back to original query")
                 query_fallback = """
                     SELECT p.id, p.email, p.first_name, p.middle_name, p.last_name, 
-                           p.is_admin, p.mfa_secret,
+                           p.is_admin, p.mfa_secret, p.mfa_method,
                            ub.business_unit_id, bu.name as business_unit_name,
                            o.company_name as organization_name, bu.organization_id,
                            bu.code as business_unit_code, bu.location as business_unit_location,
@@ -345,6 +346,111 @@ class PostgresRepository(BaseRepository):
                 return "UPDATE 1" in result
             except Exception as e:
                 logger.error(f"Failed to update MFA secret for user {user_id}: {e}")
+                return False
+    
+    async def create_email_otp(self, otp_data: Dict[str, Any]) -> bool:
+        """Create an email OTP record."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                # First, cleanup any existing unused OTPs for this user/purpose
+                await self.cleanup_user_email_otps(otp_data['user_id'], otp_data['purpose'])
+                
+                columns = ', '.join(otp_data.keys())
+                placeholders = ', '.join(f'${i+1}' for i in range(len(otp_data)))
+                values = list(otp_data.values())
+                
+                query = f"""
+                    INSERT INTO aaa_email_otps ({columns})
+                    VALUES ({placeholders})
+                """
+                
+                result = await conn.execute(query, *values)
+                return "INSERT" in result
+            except Exception as e:
+                logger.error(f"Failed to create email OTP: {e}")
+                return False
+    
+    async def get_email_otp(self, user_id: UUID, otp: str, purpose: str) -> Optional[Dict[str, Any]]:
+        """Get email OTP by user_id, otp and purpose."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = """
+                    SELECT * FROM aaa_email_otps 
+                    WHERE user_id = $1 AND otp = $2 AND purpose = $3 
+                    AND used = FALSE AND expires_at > $4
+                    LIMIT 1
+                """
+                result = await conn.fetchrow(query, str(user_id), otp, purpose, datetime.now(timezone.utc))
+                return dict(result) if result else None
+            except Exception as e:
+                logger.error(f"Failed to get email OTP for user {user_id}: {e}")
+                return None
+    
+    async def mark_email_otp_used(self, otp_id: UUID) -> bool:
+        """Mark an email OTP as used."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = """
+                    UPDATE aaa_email_otps 
+                    SET used = TRUE, updated_at = $2 
+                    WHERE id = $1
+                """
+                result = await conn.execute(query, str(otp_id), datetime.now(timezone.utc))
+                return "UPDATE 1" in result
+            except Exception as e:
+                logger.error(f"Failed to mark email OTP as used {otp_id}: {e}")
+                return False
+    
+    async def cleanup_expired_email_otps(self) -> int:
+        """Remove expired email OTPs. Returns number of deleted records."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = """
+                    DELETE FROM aaa_email_otps 
+                    WHERE expires_at < $1
+                """
+                result = await conn.execute(query, datetime.now(timezone.utc))
+                # Extract the number of deleted rows from the result
+                if result.startswith("DELETE "):
+                    return int(result.split()[1])
+                return 0
+            except Exception as e:
+                logger.error(f"Failed to cleanup expired email OTPs: {e}")
+                return 0
+    
+    async def cleanup_user_email_otps(self, user_id: UUID, purpose: str) -> bool:
+        """Remove existing unused OTPs for a user/purpose combination."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = """
+                    DELETE FROM aaa_email_otps 
+                    WHERE user_id = $1 AND purpose = $2 AND used = FALSE
+                """
+                await conn.execute(query, str(user_id), purpose)
+                return True
+            except Exception as e:
+                logger.error(f"Failed to cleanup user email OTPs for {user_id}: {e}")
+                return False
+    
+    async def update_user_mfa_method(self, user_id: UUID, mfa_method: str) -> bool:
+        """Update user's MFA method (totp or email)."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = """
+                    UPDATE aaa_profiles 
+                    SET mfa_method = $2, updated_at = $3 
+                    WHERE id = $1
+                """
+                result = await conn.execute(query, str(user_id), mfa_method, datetime.now(timezone.utc))
+                return "UPDATE 1" in result
+            except Exception as e:
+                logger.error(f"Failed to update MFA method for user {user_id}: {e}")
                 return False
     
     async def get_client_by_id(self, client_id: str) -> Optional[Dict[str, Any]]:

@@ -12,6 +12,13 @@ class MFARequest(BaseModel):
     email: EmailStr
     mfa_code: str
 
+class EmailOtpSetupRequest(BaseModel):
+    email: EmailStr
+
+class EmailOtpVerifyRequest(BaseModel):
+    email: EmailStr
+    otp: str
+
 class PasswordResetRequest(BaseModel):
     current_password: str
     new_password: str
@@ -74,6 +81,7 @@ class UserInDB(UserBase):
     is_admin: bool
     password_hash: str # Stored hashed password
     mfa_secret: Optional[str] = None # Only for backend use
+    mfa_method: Optional[str] = None # MFA method: 'totp' or 'email'
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

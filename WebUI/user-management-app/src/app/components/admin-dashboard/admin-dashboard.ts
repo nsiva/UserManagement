@@ -16,6 +16,7 @@ import { HeaderComponent } from '../../shared/components/header/header.component
 import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
 import { AlertComponent, AlertType } from '../../shared/components/alert/alert.component';
 import { AutocompleteComponent, AutocompleteOption } from '../../shared/components/autocomplete/autocomplete.component';
+import { EnhancedMfaSetupModalComponent } from '../../shared/components/enhanced-mfa-setup-modal/enhanced-mfa-setup-modal.component';
 import { APP_NAME, PAGES } from '../../shared/constants/app-constants';
 import { 
   ADMIN, SUPER_USER, ORGANIZATION_ADMIN, BUSINESS_UNIT_ADMIN,
@@ -24,7 +25,7 @@ import {
 
 @Component({
   selector: 'app-admin-dashboard',
-  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent, AutocompleteComponent],
+  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent, AutocompleteComponent, EnhancedMfaSetupModalComponent],
   templateUrl: './admin-dashboard.html',
   styleUrls: ['./admin-dashboard.scss']
 
@@ -79,10 +80,7 @@ export class AdminDashboardComponent implements OnInit {
   selectedOrganizationId: string = '';
 
   // MFA Setup
-  showMfaSetupModal = false;
-  mfaQrCodeBase64: string | null = null;
-  mfaSecret: string | null = null;
-  mfaProvisioningUri: string | null = null;
+  showEnhancedMfaSetupModal = false;
   selectedUserForMfa: User | null = null;
 
   // Confirmation Modal
@@ -462,20 +460,7 @@ export class AdminDashboardComponent implements OnInit {
   // --- MFA Setup ---
   setupMfa(user: User): void {
     this.selectedUserForMfa = user;
-    this.userService.setupMfaForUser(user.email).subscribe({
-      next: (response) => {
-        this.mfaQrCodeBase64 = response.qr_code_base64;
-        this.mfaSecret = response.secret;
-        this.mfaProvisioningUri = response.provisioning_uri;
-        this.showMfaSetupModal = true;
-        this.showSuccess(`MFA setup initiated for ${user.email}.`);
-        this.loadUsers(); // Refresh users to update MFA status
-      },
-      error: (err: HttpErrorResponse) => {
-        this.showError(err.error.detail || 'Failed to setup MFA.');
-        console.error('Error setting up MFA:', err);
-      }
-    });
+    this.showEnhancedMfaSetupModal = true;
   }
 
   // --- MFA Removal ---
@@ -499,13 +484,16 @@ export class AdminDashboardComponent implements OnInit {
     );
   }
 
-  closeMfaSetupModal(): void {
-    this.showMfaSetupModal = false;
-    this.mfaQrCodeBase64 = null;
-    this.mfaSecret = null;
-    this.mfaProvisioningUri = null;
+  onEnhancedMfaSetupClosed(): void {
+    this.showEnhancedMfaSetupModal = false;
     this.selectedUserForMfa = null;
-    this.loadUsers(); // Refresh users to see if MFA secret is now set (though not displayed)
+  }
+
+  onEnhancedMfaSetupComplete(event: { method: 'totp' | 'email'; userEmail: string }): void {
+    this.showSuccess(`${event.method.toUpperCase()} MFA has been successfully enabled for ${event.userEmail}.`);
+    this.loadUsers(); // Refresh users to update MFA status
+    this.showEnhancedMfaSetupModal = false;
+    this.selectedUserForMfa = null;
   }
 
   copyToClipboard(text: string): void {

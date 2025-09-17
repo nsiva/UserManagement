@@ -1,0 +1,50 @@
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.enhanced-mfa-modal {
+  animation: fade-in 0.2s ease-out;
+}
+
+// Ensure QR code doesn't get distorted
+img[alt="MFA QR Code"] {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+// OTP input styling
+input[type="text"] {
+  letter-spacing: 0.2em;
+}
+
+// Method selection cards hover effects
+.method-card {
+  transition: all 0.2s ease-in-out;
+}
+
+.method-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+// Loading spinner
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
