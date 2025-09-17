@@ -1,0 +1,696 @@
+#!/usr/bin/env python3
+"""
+Database Setup Generator for User Management System
+
+This script generates a complete SQL setup file that includes:
+- All table definitions with constraints and indexes
+- Functions and triggers
+- Sample data for roles, organizations, business units, and users
+- Database views
+- Essential configuration
+
+Usage:
+    python generate_database_setup.py [output_file]
+
+If no output file is specified, it will create 'complete_database_setup.sql'
+"""
+
+import sys
+import os
+from datetime import datetime, timezone
+from typing import List, Dict, Any
+
+
+class DatabaseSetupGenerator:
+    def __init__(self, schema: str = "public"):
+        self.output_lines: List[str] = []
+        self.schema = schema
+        
+    def add_header(self):
+        """Add header with metadata"""
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        self.output_lines.extend([
+            "-- =====================================================",
+            "-- User Management System - Complete Database Setup",
+            f"-- Generated on: {timestamp}",
+            f"-- Target schema: {self.schema}",
+            "-- =====================================================",
+            "",
+            "-- This script creates the complete database structure for the User Management System.",
+            "-- It includes all tables, indexes, constraints, functions, triggers, views, and sample data.",
+            "",
+            "-- Prerequisites:",
+            "-- 1. PostgreSQL 12+ database",
+            "-- 2. UUID extension (usually available by default)",
+            "-- 3. Sufficient privileges to create schema, tables, functions, and triggers",
+            "",
+            "-- Usage:",
+            "-- psql -U your_username -d your_database_name -f complete_database_setup.sql",
+            "",
+            "BEGIN;",
+            "",
+            "-- Enable UUID extension if not already enabled",
+            "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";",
+            "",
+            f"-- Create schema if it doesn't exist",
+            f"CREATE SCHEMA IF NOT EXISTS {self.schema};",
+            "",
+            f"-- Set search path to target schema",
+            f"SET search_path TO {self.schema}, public;",
+            "",
+        ])
+    
+    def add_core_tables(self):
+        """Add core authentication and user management tables"""
+        self.output_lines.extend([
+            "-- =====================================================",
+            "-- CORE TABLES",
+            "-- =====================================================",
+            "",
+            "-- User profiles table (main user data with authentication)",
+            "CREATE TABLE IF NOT EXISTS aaa_profiles (",
+            "    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),",
+            "    email TEXT UNIQUE NOT NULL,",
+            "    password_hash TEXT NOT NULL,",
+            "    first_name TEXT,",
+            "    middle_name TEXT,",
+            "    last_name TEXT,",
+            "    is_admin BOOLEAN DEFAULT FALSE NOT NULL,",
+            "    mfa_secret TEXT,",
+            "    mfa_method TEXT CHECK (mfa_method IN ('totp', 'email')),",
+            "    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),",
+            "    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+            ");",
+            "",
+            "-- Roles definition table",
+            "CREATE TABLE IF NOT EXISTS aaa_roles (",
+            "    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),",
+            "    name TEXT UNIQUE NOT NULL,",
+            "    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+            ");",
+            "",
+            "-- User-Role junction table (many-to-many relationship)",
+            "CREATE TABLE IF NOT EXISTS aaa_user_roles (",
+            "    user_id UUID NOT NULL REFERENCES aaa_profiles(id) ON DELETE CASCADE,",
+            "    role_id UUID NOT NULL REFERENCES aaa_roles(id) ON DELETE CASCADE,",
+            "    assigned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),",
+            "    PRIMARY KEY (user_id, role_id)",
+            ");",
+            "",
+            "-- API clients for client credentials flow",
+            "CREATE TABLE IF NOT EXISTS aaa_clients (",
+            "    client_id TEXT PRIMARY KEY,",
+            "    client_secret TEXT NOT NULL,",
+            "    name TEXT,",
+            "    scopes TEXT[],",
+            "    is_active BOOLEAN DEFAULT TRUE NOT NULL,",
+            "    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),",
+            "    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+            ");",
+            "",
+        ])
+    
+    def add_organizational_tables(self):
+        """Add organizations and business units tables"""
+        self.output_lines.extend([
+            "-- =====================================================",
+            "-- ORGANIZATIONAL STRUCTURE TABLES",
+            "-- =====================================================",
+            "",
+            "-- Organizations table for company/organization management",
+            "CREATE TABLE IF NOT EXISTS aaa_organizations (",
+            "    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),",
+            "    company_name TEXT NOT NULL,",
+            "    address_1 TEXT,",
+            "    address_2 TEXT,",
+            "    city_town TEXT,",
+            "    state TEXT,",
+            "    zip TEXT,",
+            "    country TEXT,",
+            "    email TEXT,",
+            "    phone_number TEXT,",
+            "    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),",
+            "    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+            ");",
+            "",
+            "-- Business Units table for organizational structure management",
+            "CREATE TABLE IF NOT EXISTS aaa_business_units (",
+            "    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),",
+            "    name TEXT NOT NULL,",
+            "    description TEXT,",
+            "    code TEXT,",
+            "    organization_id UUID NOT NULL,",
+            "    parent_unit_id UUID,",
+            "    manager_id UUID,",
+            "    location TEXT,",
+            "    country TEXT,",
+            "    region TEXT,",
+            "    email TEXT,",
+            "    phone_number TEXT,",
+            "    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),",
+            "    created_by UUID,",
+            "    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),",
+            "    updated_by UUID,",
+            "    is_active BOOLEAN DEFAULT TRUE NOT NULL,",
+            "    ",
+            "    -- Foreign key constraints",
+            "    CONSTRAINT fk_business_unit_organization",
+            "        FOREIGN KEY (organization_id) REFERENCES aaa_organizations(id) ON DELETE CASCADE,",
+            "    CONSTRAINT fk_business_unit_parent",
+            "        FOREIGN KEY (parent_unit_id) REFERENCES aaa_business_units(id) ON DELETE SET NULL,",
+            "    CONSTRAINT fk_business_unit_manager",
+            "        FOREIGN KEY (manager_id) REFERENCES aaa_profiles(id) ON DELETE SET NULL,",
+            "    CONSTRAINT fk_business_unit_created_by",
+            "        FOREIGN KEY (created_by) REFERENCES aaa_profiles(id) ON DELETE SET NULL,",
+            "    CONSTRAINT fk_business_unit_updated_by",
+            "        FOREIGN KEY (updated_by) REFERENCES aaa_profiles(id) ON DELETE SET NULL,",
+            "    ",
+            "    -- Business logic constraints",
+            "    CONSTRAINT chk_business_unit_not_self_parent",
+            "        CHECK (parent_unit_id != id),",
+            "    CONSTRAINT chk_business_unit_name_length",
+            "        CHECK (LENGTH(TRIM(name)) >= 2),",
+            "    CONSTRAINT chk_business_unit_code_format",
+            "        CHECK (code IS NULL OR (LENGTH(TRIM(code)) >= 2 AND code ~ '^[A-Z0-9_-]+$')),",
+            "    CONSTRAINT chk_business_unit_email_format",
+            "        CHECK (email IS NULL OR email ~ '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$')",
+            ");",
+            "",
+            "-- User-Business Unit junction table",
+            "CREATE TABLE IF NOT EXISTS aaa_user_business_units (",
+            "    user_id UUID NOT NULL REFERENCES aaa_profiles(id) ON DELETE CASCADE,",
+            "    business_unit_id UUID NOT NULL REFERENCES aaa_business_units(id) ON DELETE CASCADE,",
+            "    assigned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),",
+            "    is_active BOOLEAN DEFAULT TRUE NOT NULL,",
+            "    PRIMARY KEY (user_id, business_unit_id)",
+            ");",
+            "",
+        ])
+    
+    def add_security_tables(self):
+        """Add security-related tables (MFA, password reset, etc.)"""
+        self.output_lines.extend([
+            "-- =====================================================",
+            "-- SECURITY TABLES",
+            "-- =====================================================",
+            "",
+            "-- Email OTP table for email-based MFA",
+            "CREATE TABLE IF NOT EXISTS aaa_email_otps (",
+            "    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),",
+            "    user_id UUID NOT NULL REFERENCES aaa_profiles(id) ON DELETE CASCADE,",
+            "    otp TEXT NOT NULL,",
+            "    purpose TEXT NOT NULL,",
+            "    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,",
+            "    used BOOLEAN DEFAULT FALSE NOT NULL,",
+            "    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),",
+            "    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+            ");",
+            "",
+            "-- Password reset tokens table",
+            "CREATE TABLE IF NOT EXISTS aaa_password_reset_tokens (",
+            "    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),",
+            "    user_id UUID NOT NULL REFERENCES aaa_profiles(id) ON DELETE CASCADE,",
+            "    token TEXT UNIQUE NOT NULL,",
+            "    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,",
+            "    used BOOLEAN DEFAULT FALSE NOT NULL,",
+            "    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+            ");",
+            "",
+        ])
+    
+    def add_rls_disabling(self):
+        """Disable Row Level Security on all tables"""
+        self.output_lines.extend([
+            "-- =====================================================",
+            "-- DISABLE ROW LEVEL SECURITY",
+            "-- =====================================================",
+            "",
+            "-- Disable RLS on all tables for direct API access",
+            "ALTER TABLE aaa_profiles DISABLE ROW LEVEL SECURITY;",
+            "ALTER TABLE aaa_roles DISABLE ROW LEVEL SECURITY;",
+            "ALTER TABLE aaa_user_roles DISABLE ROW LEVEL SECURITY;",
+            "ALTER TABLE aaa_clients DISABLE ROW LEVEL SECURITY;",
+            "ALTER TABLE aaa_organizations DISABLE ROW LEVEL SECURITY;",
+            "ALTER TABLE aaa_business_units DISABLE ROW LEVEL SECURITY;",
+            "ALTER TABLE aaa_user_business_units DISABLE ROW LEVEL SECURITY;",
+            "ALTER TABLE aaa_email_otps DISABLE ROW LEVEL SECURITY;",
+            "ALTER TABLE aaa_password_reset_tokens DISABLE ROW LEVEL SECURITY;",
+            "",
+        ])
+    
+    def add_indexes(self):
+        """Add performance indexes"""
+        self.output_lines.extend([
+            "-- =====================================================",
+            "-- INDEXES FOR PERFORMANCE",
+            "-- =====================================================",
+            "",
+            "-- Core table indexes",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_profiles_email ON aaa_profiles(email);",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_profiles_mfa_method ON aaa_profiles(mfa_method) WHERE mfa_method IS NOT NULL;",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_user_roles_user_id ON aaa_user_roles(user_id);",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_user_roles_role_id ON aaa_user_roles(role_id);",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_clients_active ON aaa_clients(is_active) WHERE is_active = TRUE;",
+            "",
+            "-- Organizational indexes",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_organizations_company_name ON aaa_organizations(company_name);",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_organizations_email ON aaa_organizations(email);",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_business_units_organization_id ON aaa_business_units(organization_id);",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_business_units_parent_unit_id ON aaa_business_units(parent_unit_id);",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_business_units_manager_id ON aaa_business_units(manager_id);",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_business_units_name ON aaa_business_units(name);",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_business_units_code ON aaa_business_units(code) WHERE code IS NOT NULL;",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_business_units_is_active ON aaa_business_units(is_active);",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_user_business_units_user_id ON aaa_user_business_units(user_id);",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_user_business_units_business_unit_id ON aaa_user_business_units(business_unit_id);",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_user_business_units_active ON aaa_user_business_units(is_active);",
+            "",
+            "-- Security table indexes",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_email_otps_user_id ON aaa_email_otps(user_id);",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_email_otps_expires_at ON aaa_email_otps(expires_at);",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_email_otps_used ON aaa_email_otps(used);",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_password_reset_tokens_user_id ON aaa_password_reset_tokens(user_id);",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_password_reset_tokens_token ON aaa_password_reset_tokens(token);",
+            "CREATE INDEX IF NOT EXISTS idx_aaa_password_reset_tokens_expires_at ON aaa_password_reset_tokens(expires_at);",
+            "",
+            "-- Unique constraints",
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_aaa_business_units_unique_code_per_org",
+            "    ON aaa_business_units(organization_id, code)",
+            "    WHERE code IS NOT NULL;",
+            "",
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_aaa_business_units_unique_name_per_parent",
+            "    ON aaa_business_units(organization_id, COALESCE(parent_unit_id, '00000000-0000-0000-0000-000000000000'), name);",
+            "",
+        ])
+    
+    def add_functions_and_triggers(self):
+        """Add database functions and triggers"""
+        self.output_lines.extend([
+            "-- =====================================================",
+            "-- FUNCTIONS AND TRIGGERS",
+            "-- =====================================================",
+            "",
+            "-- Function to update updated_at timestamp",
+            "CREATE OR REPLACE FUNCTION update_aaa_business_units_updated_at()",
+            "RETURNS TRIGGER AS $$",
+            "BEGIN",
+            "    NEW.updated_at = NOW();",
+            "    RETURN NEW;",
+            "END;",
+            "$$ LANGUAGE plpgsql;",
+            "",
+            "-- Trigger to automatically update updated_at timestamp",
+            "DROP TRIGGER IF EXISTS trigger_update_aaa_business_units_updated_at ON aaa_business_units;",
+            "CREATE TRIGGER trigger_update_aaa_business_units_updated_at",
+            "    BEFORE UPDATE ON aaa_business_units",
+            "    FOR EACH ROW",
+            "    EXECUTE FUNCTION update_aaa_business_units_updated_at();",
+            "",
+            "-- Function to prevent circular hierarchy",
+            "CREATE OR REPLACE FUNCTION check_business_unit_hierarchy()",
+            "RETURNS TRIGGER AS $$",
+            "BEGIN",
+            "    -- Only check if parent_unit_id is being set",
+            "    IF NEW.parent_unit_id IS NOT NULL THEN",
+            "        -- Check if the new parent would create a circular reference",
+            "        WITH RECURSIVE hierarchy_check AS (",
+            "            -- Start with the proposed parent",
+            "            SELECT parent_unit_id, 1 as level",
+            "            FROM aaa_business_units",
+            "            WHERE id = NEW.parent_unit_id",
+            "            ",
+            "            UNION ALL",
+            "            ",
+            "            -- Follow the hierarchy up",
+            "            SELECT bu.parent_unit_id, hc.level + 1",
+            "            FROM aaa_business_units bu",
+            "            JOIN hierarchy_check hc ON bu.id = hc.parent_unit_id",
+            "            WHERE hc.level < 10 -- Prevent infinite recursion",
+            "        )",
+            "        SELECT 1 FROM hierarchy_check",
+            "        WHERE parent_unit_id = NEW.id",
+            "        LIMIT 1;",
+            "        ",
+            "        -- If we found the current record in its own ancestry, it's circular",
+            "        IF FOUND THEN",
+            "            RAISE EXCEPTION 'Cannot create circular hierarchy: Business unit cannot be an ancestor of itself';",
+            "        END IF;",
+            "        ",
+            "        -- Also check that parent belongs to same organization",
+            "        IF EXISTS (",
+            "            SELECT 1 FROM aaa_business_units",
+            "            WHERE id = NEW.parent_unit_id",
+            "            AND organization_id != NEW.organization_id",
+            "        ) THEN",
+            "            RAISE EXCEPTION 'Parent business unit must belong to the same organization';",
+            "        END IF;",
+            "    END IF;",
+            "    ",
+            "    RETURN NEW;",
+            "END;",
+            "$$ LANGUAGE plpgsql;",
+            "",
+            "-- Trigger to enforce hierarchy constraints",
+            "DROP TRIGGER IF EXISTS trigger_check_business_unit_hierarchy ON aaa_business_units;",
+            "CREATE TRIGGER trigger_check_business_unit_hierarchy",
+            "    BEFORE INSERT OR UPDATE ON aaa_business_units",
+            "    FOR EACH ROW",
+            "    EXECUTE FUNCTION check_business_unit_hierarchy();",
+            "",
+        ])
+    
+    def add_views(self):
+        """Add database views for reporting and convenience"""
+        self.output_lines.extend([
+            "-- =====================================================",
+            "-- DATABASE VIEWS",
+            "-- =====================================================",
+            "",
+            "-- User details view with organizational context",
+            "CREATE OR REPLACE VIEW vw_user_details AS",
+            "SELECT",
+            "    p.id,",
+            "    p.email,",
+            "    p.first_name,",
+            "    p.middle_name,",
+            "    p.last_name,",
+            "    p.is_admin,",
+            "    p.mfa_secret,",
+            "    p.mfa_method,",
+            "    p.created_at,",
+            "    p.updated_at,",
+            "    -- Role information",
+            "    ARRAY_AGG(DISTINCT r.name ORDER BY r.name) FILTER (WHERE r.name IS NOT NULL) as roles,",
+            "    -- Business unit information",
+            "    bu.id as business_unit_id,",
+            "    bu.name as business_unit_name,",
+            "    -- Organization information",
+            "    org.id as organization_id,",
+            "    org.company_name as organization_name",
+            "FROM aaa_profiles p",
+            "LEFT JOIN aaa_user_roles ur ON p.id = ur.user_id",
+            "LEFT JOIN aaa_roles r ON ur.role_id = r.id",
+            "LEFT JOIN aaa_user_business_units ubu ON p.id = ubu.user_id AND ubu.is_active = true",
+            "LEFT JOIN aaa_business_units bu ON ubu.business_unit_id = bu.id AND bu.is_active = true",
+            "LEFT JOIN aaa_organizations org ON bu.organization_id = org.id",
+            "GROUP BY p.id, p.email, p.first_name, p.middle_name, p.last_name, p.is_admin,",
+            "         p.mfa_secret, p.mfa_method, p.created_at, p.updated_at,",
+            "         bu.id, bu.name, org.id, org.company_name;",
+            "",
+            "-- Business unit hierarchy view",
+            "CREATE OR REPLACE VIEW vw_business_unit_hierarchy AS",
+            "WITH RECURSIVE hierarchy AS (",
+            "    -- Root business units (no parent)",
+            "    SELECT",
+            "        bu.id,",
+            "        bu.name,",
+            "        bu.organization_id,",
+            "        org.company_name as organization_name,",
+            "        bu.parent_unit_id,",
+            "        NULL::TEXT as parent_name,",
+            "        bu.manager_id,",
+            "        CONCAT(p.first_name, ' ', p.last_name) as manager_name,",
+            "        bu.location,",
+            "        bu.email,",
+            "        bu.phone_number,",
+            "        bu.is_active,",
+            "        1 as level,",
+            "        ARRAY[bu.name] as path",
+            "    FROM aaa_business_units bu",
+            "    LEFT JOIN aaa_organizations org ON bu.organization_id = org.id",
+            "    LEFT JOIN aaa_profiles p ON bu.manager_id = p.id",
+            "    WHERE bu.parent_unit_id IS NULL",
+            "    ",
+            "    UNION ALL",
+            "    ",
+            "    -- Child business units",
+            "    SELECT",
+            "        bu.id,",
+            "        bu.name,",
+            "        bu.organization_id,",
+            "        h.organization_name,",
+            "        bu.parent_unit_id,",
+            "        h.name as parent_name,",
+            "        bu.manager_id,",
+            "        CONCAT(p.first_name, ' ', p.last_name) as manager_name,",
+            "        bu.location,",
+            "        bu.email,",
+            "        bu.phone_number,",
+            "        bu.is_active,",
+            "        h.level + 1,",
+            "        h.path || bu.name",
+            "    FROM aaa_business_units bu",
+            "    JOIN hierarchy h ON bu.parent_unit_id = h.id",
+            "    LEFT JOIN aaa_profiles p ON bu.manager_id = p.id",
+            ")",
+            "SELECT * FROM hierarchy;",
+            "",
+        ])
+    
+    def add_sample_data(self):
+        """Add sample data for testing and initial setup"""
+        self.output_lines.extend([
+            "-- =====================================================",
+            "-- SAMPLE DATA",
+            "-- =====================================================",
+            "",
+            "-- Insert default roles",
+            "INSERT INTO aaa_roles (name) VALUES",
+            "    ('admin'),",
+            "    ('super_user'),",
+            "    ('firm_admin'),",
+            "    ('group_admin'),",
+            "    ('user')",
+            "ON CONFLICT (name) DO NOTHING;",
+            "",
+            "-- Insert sample API client",
+            "INSERT INTO aaa_clients (client_id, client_secret, name, scopes) VALUES",
+            "    ('sample_client_id', 'sample_client_secret_change_in_production', 'Sample API Client', ARRAY['read:users', 'manage:users'])",
+            "ON CONFLICT (client_id) DO NOTHING;",
+            "",
+            "-- Insert sample organizations",
+            "INSERT INTO aaa_organizations (id, company_name, address_1, city_town, state, zip, country, email, phone_number) VALUES",
+            "    ('11111111-1111-1111-1111-111111111111', 'Tech Solutions Inc', '123 Innovation Drive', 'San Francisco', 'CA', '94105', 'USA', 'contact@techsolutions.com', '+1-555-0101'),",
+            "    ('22222222-2222-2222-2222-222222222222', 'Global Manufacturing Corp', '456 Industrial Blvd', 'Detroit', 'MI', '48201', 'USA', 'info@globalmanufacturing.com', '+1-555-0202')",
+            "ON CONFLICT (id) DO NOTHING;",
+            "",
+            "-- Insert sample business units",
+            "INSERT INTO aaa_business_units (id, name, description, code, organization_id, location, email, phone_number) VALUES",
+            "    ('33333333-3333-3333-3333-333333333333', 'Engineering', 'Software Development Team', 'ENG', '11111111-1111-1111-1111-111111111111', 'San Francisco, CA', 'engineering@techsolutions.com', '+1-555-0301'),",
+            "    ('44444444-4444-4444-4444-444444444444', 'Sales', 'Sales and Marketing Department', 'SALES', '11111111-1111-1111-1111-111111111111', 'San Francisco, CA', 'sales@techsolutions.com', '+1-555-0302'),",
+            "    ('55555555-5555-5555-5555-555555555555', 'Production', 'Manufacturing Production Line', 'PROD', '22222222-2222-2222-2222-222222222222', 'Detroit, MI', 'production@globalmanufacturing.com', '+1-555-0303'),",
+            "    ('66666666-6666-6666-6666-666666666666', 'Quality Assurance', 'Quality Control Department', 'QA', '22222222-2222-2222-2222-222222222222', 'Detroit, MI', 'qa@globalmanufacturing.com', '+1-555-0304')",
+            "ON CONFLICT (id) DO NOTHING;",
+            "",
+            "-- Insert sample admin user (password: admin123)",
+            "-- Note: In production, use proper password hashing and change default passwords",
+            "INSERT INTO aaa_profiles (id, email, password_hash, first_name, last_name, is_admin) VALUES",
+            "    ('77777777-7777-7777-7777-777777777777', 'admin@example.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj7fKnKw82cO', 'System', 'Administrator', true)",
+            "ON CONFLICT (email) DO NOTHING;",
+            "",
+            "-- Assign admin role to admin user",
+            "DO $$",
+            "DECLARE",
+            "    admin_role_id UUID;",
+            "    admin_user_id UUID := '77777777-7777-7777-7777-777777777777';",
+            "BEGIN",
+            "    SELECT id INTO admin_role_id FROM aaa_roles WHERE name = 'admin';",
+            "    ",
+            "    IF admin_role_id IS NOT NULL THEN",
+            "        INSERT INTO aaa_user_roles (user_id, role_id) VALUES",
+            "            (admin_user_id, admin_role_id)",
+            "        ON CONFLICT (user_id, role_id) DO NOTHING;",
+            "    END IF;",
+            "END $$;",
+            "",
+        ])
+    
+    def add_comments(self):
+        """Add helpful table and column comments"""
+        self.output_lines.extend([
+            "-- =====================================================",
+            "-- TABLE AND COLUMN COMMENTS",
+            "-- =====================================================",
+            "",
+            "-- Core table comments",
+            "COMMENT ON TABLE aaa_profiles IS 'User profiles with authentication data';",
+            "COMMENT ON TABLE aaa_roles IS 'System roles for authorization';",
+            "COMMENT ON TABLE aaa_user_roles IS 'Many-to-many relationship between users and roles';",
+            "COMMENT ON TABLE aaa_clients IS 'API clients for machine-to-machine authentication';",
+            "",
+            "-- Organizational table comments",
+            "COMMENT ON TABLE aaa_organizations IS 'Organizations/companies in the system';",
+            "COMMENT ON TABLE aaa_business_units IS 'Business units within organizations supporting hierarchical structure';",
+            "COMMENT ON TABLE aaa_user_business_units IS 'Assignment of users to business units';",
+            "",
+            "-- Security table comments",
+            "COMMENT ON TABLE aaa_email_otps IS 'Email-based one-time passwords for MFA';",
+            "COMMENT ON TABLE aaa_password_reset_tokens IS 'Tokens for password reset functionality';",
+            "",
+            "-- Key column comments",
+            "COMMENT ON COLUMN aaa_profiles.mfa_method IS 'MFA method: totp (authenticator app) or email';",
+            "COMMENT ON COLUMN aaa_business_units.parent_unit_id IS 'Parent business unit for hierarchical structure';",
+            "COMMENT ON COLUMN aaa_business_units.code IS 'Internal reference code (alphanumeric, unique per organization)';",
+            "",
+        ])
+    
+    def add_footer(self):
+        """Add footer with completion and verification steps"""
+        self.output_lines.extend([
+            "-- =====================================================",
+            "-- VERIFICATION AND COMPLETION",
+            "-- =====================================================",
+            "",
+            "-- Verify table creation",
+            "DO $$",
+            "DECLARE",
+            "    table_count INTEGER;",
+            "BEGIN",
+            "    SELECT COUNT(*) INTO table_count",
+            "    FROM information_schema.tables",
+            f"    WHERE table_schema = '{self.schema}'",
+            "    AND table_name LIKE 'aaa_%';",
+            "    ",
+            f"    RAISE NOTICE 'Created % AAA tables in schema {self.schema}', table_count;",
+            "    ",
+            "    IF table_count < 9 THEN",
+            "        RAISE WARNING 'Expected at least 9 AAA tables, but found %', table_count;",
+            "    ELSE",
+            f"        RAISE NOTICE 'Database setup completed successfully in schema {self.schema}!';",
+            "    END IF;",
+            "END $$;",
+            "",
+            "-- Display sample data counts",
+            "SELECT",
+            "    'Roles' as entity,",
+            "    COUNT(*) as count",
+            "FROM aaa_roles",
+            "UNION ALL",
+            "SELECT",
+            "    'Organizations' as entity,",
+            "    COUNT(*) as count",
+            "FROM aaa_organizations",
+            "UNION ALL",
+            "SELECT",
+            "    'Business Units' as entity,",
+            "    COUNT(*) as count",
+            "FROM aaa_business_units",
+            "UNION ALL",
+            "SELECT",
+            "    'Users' as entity,",
+            "    COUNT(*) as count",
+            "FROM aaa_profiles;",
+            "",
+            "COMMIT;",
+            "",
+            "-- =====================================================",
+            "-- SETUP COMPLETE",
+            "-- =====================================================",
+            "",
+            "-- The database setup is now complete. You can:",
+            "-- 1. Create additional users via the API or admin interface",
+            "-- 2. Add more organizations and business units as needed",
+            "-- 3. Configure MFA for users",
+            "-- 4. Set up API clients for external integrations",
+            "",
+            "-- Default admin credentials:",
+            "-- Email: admin@example.com",
+            "-- Password: admin123",
+            "-- IMPORTANT: Change the default password immediately in production!",
+            "",
+            f"-- Generated by User Management System Database Setup Generator",
+            f"-- {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}",
+            "",
+        ])
+    
+    def generate(self) -> str:
+        """Generate the complete database setup script"""
+        self.add_header()
+        self.add_core_tables()
+        self.add_organizational_tables()
+        self.add_security_tables()
+        self.add_rls_disabling()
+        self.add_indexes()
+        self.add_functions_and_triggers()
+        self.add_views()
+        self.add_sample_data()
+        self.add_comments()
+        self.add_footer()
+        
+        return "\n".join(self.output_lines)
+
+
+def main():
+    """Main function to generate the database setup file"""
+    import argparse
+    
+    parser = argparse.ArgumentParser(
+        description='Generate complete database setup for User Management System',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+Examples:
+  python generate_database_setup.py
+  python generate_database_setup.py --schema user_mgmt
+  python generate_database_setup.py --output my_setup.sql --schema company_users
+  python generate_database_setup.py my_setup.sql --schema test_env
+        '''
+    )
+    
+    parser.add_argument('output_file', nargs='?', 
+                        default='complete_database_setup.sql',
+                        help='Output SQL filename (default: complete_database_setup.sql)')
+    parser.add_argument('--schema', '-s', 
+                        default='public',
+                        help='Target database schema (default: public)')
+    parser.add_argument('--output', '-o',
+                        help='Output filename (alternative to positional argument)')
+    
+    args = parser.parse_args()
+    
+    # Use --output if provided, otherwise use positional argument
+    output_file = args.output if args.output else args.output_file
+    
+    # Validate schema name (basic validation)
+    if not args.schema.replace('_', '').replace('-', '').isalnum():
+        print(f"❌ Invalid schema name: {args.schema}")
+        print("   Schema names should contain only letters, numbers, underscores, and hyphens")
+        sys.exit(1)
+    
+    # Generate the setup script
+    generator = DatabaseSetupGenerator(schema=args.schema)
+    setup_script = generator.generate()
+    
+    # Write to file
+    try:
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(setup_script)
+        
+        print(f"✅ Database setup script generated successfully: {output_file}")
+        print(f"📊 Script length: {len(setup_script.splitlines())} lines")
+        print(f"📁 File size: {len(setup_script.encode('utf-8'))} bytes")
+        print(f"🗂️  Target schema: {args.schema}")
+        print()
+        print("🚀 To use this script:")
+        print(f"   psql -U your_username -d your_database_name -f {output_file}")
+        print()
+        if args.schema != 'public':
+            print("📋 Schema-specific notes:")
+            print(f"   • Tables will be created in '{args.schema}' schema")
+            print(f"   • Make sure your application connects to the correct schema")
+            print(f"   • Update your connection string or search_path as needed")
+            print()
+        print("⚠️  Remember to:")
+        print("   1. Change default passwords in production")
+        print("   2. Review and customize sample data")
+        print("   3. Set appropriate database permissions")
+        print("   4. Configure environment variables for your application")
+        if args.schema != 'public':
+            print(f"   5. Update application to use schema '{args.schema}'")
+        
+    except Exception as e:
+        print(f"❌ Error writing file: {e}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

@@ -31,6 +31,14 @@ uv run pytest tests/ -v
 
 # MFA testing
 ./scripts/test_mfa.sh
+
+# Database management tools
+./scripts/db-tools.sh help                        # Show database tools help
+./scripts/db-tools.sh setup                       # Generate database setup SQL (public schema)
+./scripts/db-tools.sh setup --schema user_mgmt    # Generate with custom schema
+./scripts/db-tools.sh quick-setup                 # Quick setup with instructions
+./scripts/db-tools.sh inspect                     # Inspect existing database
+./scripts/db-tools.sh export json                 # Export data as JSON
 ```
 
 ### Frontend (WebUI/user-management-app/)
