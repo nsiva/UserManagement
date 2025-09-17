@@ -194,6 +194,21 @@ class BaseRepository(ABC):
         """Validate that parent-child relationship doesn't create circular dependency."""
         pass
     
+    @abstractmethod
+    async def count_business_units_by_organization(self, organization_id: UUID) -> int:
+        """Count business units in an organization."""
+        pass
+    
+    @abstractmethod
+    async def count_users_by_organization(self, organization_id: UUID) -> int:
+        """Count users in an organization."""
+        pass
+    
+    @abstractmethod
+    async def count_users_by_business_unit(self, business_unit_id: UUID) -> int:
+        """Count users in a business unit."""
+        pass
+    
     # User-Business Unit Relationship Management
     @abstractmethod
     async def validate_business_unit_exists(self, business_unit_id: UUID) -> bool:

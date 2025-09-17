@@ -244,6 +244,8 @@
               <th class="py-3 px-6">Email</th>
               <th class="py-3 px-6">Phone</th>
               <th class="py-3 px-6">City</th>
+              <th class="py-3 px-6">Business Units</th>
+              <th class="py-3 px-6">Users</th>
               <th class="py-3 px-6">Actions</th>
             </tr>
           </thead>
@@ -253,6 +255,16 @@
               <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">{{ org.email || '-' }}</td>
               <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">{{ org.phone_number || '-' }}</td>
               <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">{{ org.city_town || '-' }}</td>
+              <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  {{ org.business_units_count || 0 }}
+                </span>
+              </td>
+              <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  {{ org.users_count || 0 }}
+                </span>
+              </td>
               <td class="py-4 px-6 whitespace-nowrap text-sm font-medium">
                 <button (click)="editOrganization(org)" class="inline-flex items-center text-theme-primary hover:text-theme-primary-hover mr-4 p-1 transition-colors">
                   <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -269,7 +281,7 @@
               </td>
             </tr>
             <tr *ngIf="organizations.length === 0">
-              <td colspan="5" class="py-4 px-6 text-center text-theme-text-muted">No organizations found.</td>
+              <td colspan="7" class="py-4 px-6 text-center text-theme-text-muted">No organizations found.</td>
             </tr>
           </tbody>
         </table>
@@ -314,6 +326,7 @@
               <th class="py-3 px-6">Parent Unit</th>
               <th class="py-3 px-6">Manager</th>
               <th class="py-3 px-6">Location</th>
+              <th class="py-3 px-6">Users</th>
               <th class="py-3 px-6">Actions</th>
             </tr>
           </thead>
@@ -324,6 +337,11 @@
               <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">{{ unit.parent_name || '-' }}</td>
               <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">{{ unit.manager_name || '-' }}</td>
               <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">{{ unit.location || '-' }}</td>
+              <td class="py-4 px-6 whitespace-nowrap text-sm text-theme-text">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  {{ unit.users_count || 0 }}
+                </span>
+              </td>
               <td class="py-4 px-6 whitespace-nowrap text-sm font-medium">
                 <button (click)="navigateToEditBusinessUnit(unit)" class="inline-flex items-center text-theme-primary hover:text-theme-primary-hover mr-4 p-1 transition-colors">
                   <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -340,10 +358,10 @@
               </td>
             </tr>
             <tr *ngIf="filteredBusinessUnits.length === 0 && selectedOrganizationId">
-              <td colspan="6" class="py-4 px-6 text-center text-theme-text-muted">No business units found for the selected organization.</td>
+              <td colspan="7" class="py-4 px-6 text-center text-theme-text-muted">No business units found for the selected organization.</td>
             </tr>
             <tr *ngIf="filteredBusinessUnits.length === 0 && !selectedOrganizationId && !hasFullAdminAccess()">
-              <td colspan="6" class="py-4 px-6 text-center text-theme-text-muted">No business units found.</td>
+              <td colspan="7" class="py-4 px-6 text-center text-theme-text-muted">No business units found.</td>
             </tr>
           </tbody>
         </table>
@@ -398,6 +416,21 @@
       </div>
     </div>
   </div>
+
+  <!-- Enhanced Confirmation Modal -->
+  <app-confirmation-dialog
+    *ngIf="showEnhancedConfirmModal"
+    [title]="enhancedConfirmTitle"
+    [message]="enhancedConfirmMessage"
+    [confirmText]="enhancedConfirmButtonText"
+    [show]="showEnhancedConfirmModal"
+    [dependencies]="enhancedConfirmDependencies"
+    [warningMessage]="enhancedConfirmWarningMessage"
+    [isDangerous]="enhancedConfirmIsDangerous"
+    (confirmed)="confirmEnhancedAction()"
+    (cancelled)="closeEnhancedConfirmModal()"
+    (closed)="closeEnhancedConfirmModal()">
+  </app-confirmation-dialog>
 
   <!-- Enhanced MFA Setup Modal -->
   <app-enhanced-mfa-setup-modal

@@ -159,6 +159,7 @@ class BusinessUnitResponse(BusinessUnitBase):
     organization_name: Optional[str] = Field(None, description="Organization name")
     parent_name: Optional[str] = Field(None, description="Parent unit name") 
     manager_name: Optional[str] = Field(None, description="Manager full name")
+    users_count: int = Field(0, description="Number of users assigned to this business unit")
 
     class Config:
         from_attributes = True

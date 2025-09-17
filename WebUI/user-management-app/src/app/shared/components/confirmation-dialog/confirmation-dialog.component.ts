@@ -1,6 +1,12 @@
 import { Component, EventEmitter, Input, Output, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
+export interface DependencyInfo {
+  type: string;
+  count: number;
+  entityName: string;
+}
+
 @Component({
   selector: 'app-confirmation-dialog',
   standalone: true,
@@ -14,6 +20,9 @@ export class ConfirmationDialogComponent implements OnInit {
   @Input() confirmText: string = 'Confirm';
   @Input() cancelText: string = 'Cancel';
   @Input() show: boolean = false;
+  @Input() dependencies: DependencyInfo[] = [];
+  @Input() warningMessage: string = '';
+  @Input() isDangerous: boolean = false;
 
   @Output() confirmed = new EventEmitter<void>();
   @Output() cancelled = new EventEmitter<void>();

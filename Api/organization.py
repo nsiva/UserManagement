@@ -108,6 +108,8 @@ class OrganizationResponse(OrganizationBase):
     id: UUID
     created_at: datetime
     updated_at: Optional[datetime] = None
+    business_units_count: int = 0
+    users_count: int = 0
 
     class Config:
         from_attributes = True

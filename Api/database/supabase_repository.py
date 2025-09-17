@@ -309,3 +309,54 @@ class SupabaseRepository(BaseRepository):
         except Exception as e:
             logger.error(f"Failed to mark token as used: {e}")
             return False
+    
+    async def count_business_units_by_organization(self, organization_id: UUID) -> int:
+        """Count business units in an organization."""
+        try:
+            response = self.client.from_('aaa_business_units')\
+                .select('id', count='exact')\
+                .eq('organization_id', str(organization_id))\
+                .execute()
+            return response.count or 0
+        except Exception as e:
+            logger.error(f"Failed to count business units for organization {organization_id}: {e}")
+            return 0
+    
+    async def count_users_by_organization(self, organization_id: UUID) -> int:
+        """Count users in an organization."""
+        try:
+            # Get all business units in the organization first
+            bu_response = self.client.from_('aaa_business_units')\
+                .select('id')\
+                .eq('organization_id', str(organization_id))\
+                .execute()
+            
+            if not bu_response.data:
+                return 0
+            
+            business_unit_ids = [bu['id'] for bu in bu_response.data]
+            
+            # Count users in those business units
+            user_response = self.client.from_('aaa_user_business_units')\
+                .select('user_id', count='exact')\
+                .in_('business_unit_id', business_unit_ids)\
+                .eq('is_active', True)\
+                .execute()
+            
+            return user_response.count or 0
+        except Exception as e:
+            logger.error(f"Failed to count users for organization {organization_id}: {e}")
+            return 0
+    
+    async def count_users_by_business_unit(self, business_unit_id: UUID) -> int:
+        """Count users in a business unit."""
+        try:
+            response = self.client.from_('aaa_user_business_units')\
+                .select('user_id', count='exact')\
+                .eq('business_unit_id', str(business_unit_id))\
+                .eq('is_active', True)\
+                .execute()
+            return response.count or 0
+        except Exception as e:
+            logger.error(f"Failed to count users for business unit {business_unit_id}: {e}")
+            return 0

@@ -126,8 +126,29 @@ async def get_all_organizations(current_user: TokenData = Depends(get_current_us
                 logger.warning(f"User {current_user.email} with roles {current_user_roles} has no organization access permissions")
                 return []
         
-        logger.info(f"Retrieved {len(organizations)} organizations for user {current_user.email}")
-        return [OrganizationResponse(**organization) for organization in organizations]
+        # Add counts to each organization
+        organizations_with_counts = []
+        for organization in organizations:
+            try:
+                business_units_count = await repo.count_business_units_by_organization(organization['id'])
+                users_count = await repo.count_users_by_organization(organization['id'])
+                
+                org_data = {**organization}
+                org_data['business_units_count'] = business_units_count
+                org_data['users_count'] = users_count
+                
+                organizations_with_counts.append(OrganizationResponse(**org_data))
+                
+            except Exception as e:
+                logger.error(f"Error getting counts for organization {organization['id']}: {e}")
+                # Include organization without counts if count fetch fails
+                org_data = {**organization}
+                org_data['business_units_count'] = 0
+                org_data['users_count'] = 0
+                organizations_with_counts.append(OrganizationResponse(**org_data))
+        
+        logger.info(f"Retrieved {len(organizations_with_counts)} organizations with counts for user {current_user.email}")
+        return organizations_with_counts
         
     except HTTPException:
         raise

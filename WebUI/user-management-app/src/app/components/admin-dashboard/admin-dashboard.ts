@@ -17,6 +17,7 @@ import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
 import { AlertComponent, AlertType } from '../../shared/components/alert/alert.component';
 import { AutocompleteComponent, AutocompleteOption } from '../../shared/components/autocomplete/autocomplete.component';
 import { EnhancedMfaSetupModalComponent } from '../../shared/components/enhanced-mfa-setup-modal/enhanced-mfa-setup-modal.component';
+import { ConfirmationDialogComponent, DependencyInfo } from '../../shared/components/confirmation-dialog/confirmation-dialog.component';
 import { APP_NAME, PAGES } from '../../shared/constants/app-constants';
 import { 
   ADMIN, SUPER_USER, ORGANIZATION_ADMIN, BUSINESS_UNIT_ADMIN,
@@ -25,7 +26,7 @@ import {
 
 @Component({
   selector: 'app-admin-dashboard',
-  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent, AutocompleteComponent, EnhancedMfaSetupModalComponent],
+  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent, AutocompleteComponent, EnhancedMfaSetupModalComponent, ConfirmationDialogComponent],
   templateUrl: './admin-dashboard.html',
   styleUrls: ['./admin-dashboard.scss']
 
@@ -89,6 +90,16 @@ export class AdminDashboardComponent implements OnInit {
   confirmMessage = '';
   confirmButtonText = '';
   confirmCallback: (() => void) | null = null;
+  
+  // Enhanced Confirmation Modal
+  showEnhancedConfirmModal = false;
+  enhancedConfirmTitle = '';
+  enhancedConfirmMessage = '';
+  enhancedConfirmButtonText = '';
+  enhancedConfirmCallback: (() => void) | null = null;
+  enhancedConfirmDependencies: DependencyInfo[] = [];
+  enhancedConfirmWarningMessage = '';
+  enhancedConfirmIsDangerous = false;
 
 
   // Alert properties
@@ -642,6 +653,44 @@ export class AdminDashboardComponent implements OnInit {
     }
     this.closeConfirmModal();
   }
+  
+  // --- Enhanced Confirmation Modal ---
+  showEnhancedConfirm(
+    title: string, 
+    message: string, 
+    buttonText: string, 
+    dependencies: DependencyInfo[], 
+    warningMessage: string, 
+    isDangerous: boolean, 
+    callback: () => void
+  ): void {
+    this.enhancedConfirmTitle = title;
+    this.enhancedConfirmMessage = message;
+    this.enhancedConfirmButtonText = buttonText;
+    this.enhancedConfirmDependencies = dependencies;
+    this.enhancedConfirmWarningMessage = warningMessage;
+    this.enhancedConfirmIsDangerous = isDangerous;
+    this.enhancedConfirmCallback = callback;
+    this.showEnhancedConfirmModal = true;
+  }
+
+  closeEnhancedConfirmModal(): void {
+    this.showEnhancedConfirmModal = false;
+    this.enhancedConfirmTitle = '';
+    this.enhancedConfirmMessage = '';
+    this.enhancedConfirmButtonText = '';
+    this.enhancedConfirmDependencies = [];
+    this.enhancedConfirmWarningMessage = '';
+    this.enhancedConfirmIsDangerous = false;
+    this.enhancedConfirmCallback = null;
+  }
+
+  confirmEnhancedAction(): void {
+    if (this.enhancedConfirmCallback) {
+      this.enhancedConfirmCallback();
+    }
+    this.closeEnhancedConfirmModal();
+  }
 
   // --- Tab Management ---
   setActiveTab(tab: 'users' | 'organizations' | 'business-units'): void {
@@ -886,10 +935,39 @@ export class AdminDashboardComponent implements OnInit {
     const organization = this.organizations.find(org => org.id === orgId);
     const orgName = organization?.company_name || 'this organization';
     
-    this.showConfirm(
+    // Prepare dependencies information
+    const dependencies: DependencyInfo[] = [];
+    const hasBusinessUnits = (organization?.business_units_count || 0) > 0;
+    const hasUsers = (organization?.users_count || 0) > 0;
+    
+    if (hasBusinessUnits) {
+      dependencies.push({
+        type: 'business units',
+        count: organization?.business_units_count || 0,
+        entityName: orgName
+      });
+    }
+    
+    if (hasUsers) {
+      dependencies.push({
+        type: 'users',
+        count: organization?.users_count || 0,
+        entityName: orgName
+      });
+    }
+    
+    const isDangerous = dependencies.length > 0;
+    const warningMessage = isDangerous 
+      ? 'Deleting this organization will also remove all associated business units and users. This action cannot be undone.'
+      : '';
+    
+    this.showEnhancedConfirm(
       'Delete Organization',
-      `Are you sure you want to delete "${orgName}"? This action cannot be undone.`,
-      'Delete',
+      `Are you sure you want to delete "${orgName}"?`,
+      'Delete Organization',
+      dependencies,
+      warningMessage,
+      isDangerous,
       () => {
         this.organizationService.deleteOrganization(orgId).subscribe({
           next: () => {
@@ -1098,10 +1176,30 @@ export class AdminDashboardComponent implements OnInit {
     const businessUnit = this.businessUnits.find(unit => unit.id === businessUnitId);
     const unitName = businessUnit?.name || 'this business unit';
     
-    this.showConfirm(
+    // Prepare dependencies information
+    const dependencies: DependencyInfo[] = [];
+    const hasUsers = (businessUnit?.users_count || 0) > 0;
+    
+    if (hasUsers) {
+      dependencies.push({
+        type: 'users',
+        count: businessUnit?.users_count || 0,
+        entityName: unitName
+      });
+    }
+    
+    const isDangerous = dependencies.length > 0;
+    const warningMessage = isDangerous 
+      ? 'Deleting this business unit will also remove all associated users. This action cannot be undone.'
+      : 'This action cannot be undone and may affect child business units.';
+    
+    this.showEnhancedConfirm(
       'Delete Business Unit',
-      `Are you sure you want to delete "${unitName}"? This action cannot be undone and may affect child business units.`,
-      'Delete',
+      `Are you sure you want to delete "${unitName}"?`,
+      'Delete Business Unit',
+      dependencies,
+      warningMessage,
+      isDangerous,
       () => {
         this.businessUnitService.deleteBusinessUnit(businessUnitId).subscribe({
           next: () => {

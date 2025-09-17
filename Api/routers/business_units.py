@@ -109,7 +109,17 @@ async def create_business_unit(
         
         logger.info(f"Business unit created: {created_unit['id']} by user {current_admin_user.user_id}")
         
-        return BusinessUnitResponse(**created_unit)
+        # Add user count to response
+        try:
+            users_count = await repo.count_users_by_business_unit(created_unit['id'])
+            created_unit_data = {**created_unit}
+            created_unit_data['users_count'] = users_count
+        except Exception as e:
+            logger.error(f"Error getting user count for new business unit {created_unit['id']}: {e}")
+            created_unit_data = {**created_unit}
+            created_unit_data['users_count'] = 0
+        
+        return BusinessUnitResponse(**created_unit_data)
     
     except BusinessUnitValidationError as e:
         logger.warning(f"Business unit validation failed: {e.errors}")
@@ -178,7 +188,17 @@ async def get_business_unit(
                     detail="You can only access business units within your organization"
                 )
         
-        return BusinessUnitResponse(**business_unit)
+        # Add user count to response
+        try:
+            users_count = await repo.count_users_by_business_unit(business_unit['id'])
+            business_unit_data = {**business_unit}
+            business_unit_data['users_count'] = users_count
+        except Exception as e:
+            logger.error(f"Error getting user count for business unit {business_unit_id}: {e}")
+            business_unit_data = {**business_unit}
+            business_unit_data['users_count'] = 0
+        
+        return BusinessUnitResponse(**business_unit_data)
     
     except HTTPException:
         raise
@@ -236,7 +256,16 @@ async def get_business_units(
                     # Get only the user's specific business unit
                     business_unit = await repo.get_business_unit_by_id(user_context['business_unit_id'])
                     if business_unit:
-                        business_unit_responses = [BusinessUnitResponse(**business_unit)]
+                        try:
+                            users_count = await repo.count_users_by_business_unit(business_unit['id'])
+                            business_unit_data = {**business_unit}
+                            business_unit_data['users_count'] = users_count
+                            business_unit_responses = [BusinessUnitResponse(**business_unit_data)]
+                        except Exception as e:
+                            logger.error(f"Error getting user count for business unit {business_unit['id']}: {e}")
+                            business_unit_data = {**business_unit}
+                            business_unit_data['users_count'] = 0
+                            business_unit_responses = [BusinessUnitResponse(**business_unit_data)]
                         return BusinessUnitListResponse(
                             business_units=business_unit_responses,
                             total_count=1,
@@ -278,7 +307,23 @@ async def get_business_units(
             business_units = await repo.get_all_business_units()
             organization_name = None
         
-        business_unit_responses = [BusinessUnitResponse(**unit) for unit in business_units]
+        # Add user counts to each business unit
+        business_unit_responses = []
+        for unit in business_units:
+            try:
+                users_count = await repo.count_users_by_business_unit(unit['id'])
+                
+                unit_data = {**unit}
+                unit_data['users_count'] = users_count
+                
+                business_unit_responses.append(BusinessUnitResponse(**unit_data))
+                
+            except Exception as e:
+                logger.error(f"Error getting user count for business unit {unit['id']}: {e}")
+                # Include business unit without count if count fetch fails
+                unit_data = {**unit}
+                unit_data['users_count'] = 0
+                business_unit_responses.append(BusinessUnitResponse(**unit_data))
         
         return BusinessUnitListResponse(
             business_units=business_unit_responses,
@@ -469,7 +514,17 @@ async def update_business_unit(
         
         logger.info(f"Business unit updated: {business_unit_id} by user {current_admin_user.user_id}")
         
-        return BusinessUnitResponse(**updated_unit)
+        # Add user count to response
+        try:
+            users_count = await repo.count_users_by_business_unit(business_unit_id)
+            updated_unit_data = {**updated_unit}
+            updated_unit_data['users_count'] = users_count
+        except Exception as e:
+            logger.error(f"Error getting user count for updated business unit {business_unit_id}: {e}")
+            updated_unit_data = {**updated_unit}
+            updated_unit_data['users_count'] = 0
+        
+        return BusinessUnitResponse(**updated_unit_data)
     
     except BusinessUnitValidationError as e:
         logger.warning(f"Business unit validation failed: {e.errors}")

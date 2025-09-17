@@ -842,6 +842,51 @@ class PostgresRepository(BaseRepository):
                 logger.error(f"Failed to validate business unit hierarchy: {e}")
                 return False
     
+    async def count_business_units_by_organization(self, organization_id: UUID) -> int:
+        """Count business units in an organization."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = "SELECT COUNT(*) FROM aaa_business_units WHERE organization_id = $1"
+                result = await conn.fetchval(query, str(organization_id))
+                return result or 0
+            except Exception as e:
+                logger.error(f"Failed to count business units for organization {organization_id}: {e}")
+                return 0
+    
+    async def count_users_by_organization(self, organization_id: UUID) -> int:
+        """Count users in an organization."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = """
+                    SELECT COUNT(DISTINCT ub.user_id) 
+                    FROM aaa_user_business_units ub
+                    JOIN aaa_business_units bu ON ub.business_unit_id = bu.id
+                    WHERE bu.organization_id = $1 AND ub.is_active = TRUE
+                """
+                result = await conn.fetchval(query, str(organization_id))
+                return result or 0
+            except Exception as e:
+                logger.error(f"Failed to count users for organization {organization_id}: {e}")
+                return 0
+    
+    async def count_users_by_business_unit(self, business_unit_id: UUID) -> int:
+        """Count users in a business unit."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = """
+                    SELECT COUNT(*) 
+                    FROM aaa_user_business_units 
+                    WHERE business_unit_id = $1 AND is_active = TRUE
+                """
+                result = await conn.fetchval(query, str(business_unit_id))
+                return result or 0
+            except Exception as e:
+                logger.error(f"Failed to count users for business unit {business_unit_id}: {e}")
+                return 0
+    
     # User-Business Unit Relationship Management
     async def validate_business_unit_exists(self, business_unit_id: UUID) -> bool:
         """Validate that a business unit exists and is active."""

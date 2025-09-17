@@ -27,6 +27,7 @@ export interface BusinessUnit {
   organization_name?: string;
   parent_name?: string;
   manager_name?: string;
+  users_count?: number;
 }
 
 export interface BusinessUnitCreate {

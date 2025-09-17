@@ -19,6 +19,8 @@ export interface Organization {
   phone_number?: string;
   created_at: string;
   updated_at?: string;
+  business_units_count?: number;
+  users_count?: number;
 }
 
 export interface OrganizationCreate {
