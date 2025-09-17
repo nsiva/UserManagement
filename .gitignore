@@ -27,6 +27,9 @@ tmp/
 *.tar.gz
 *.zip
 
+# Database exports
+exports/
+
 # IDE files
 .vscode/
 .idea/
