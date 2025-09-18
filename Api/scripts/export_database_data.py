@@ -129,51 +129,43 @@ class DatabaseExporter:
         filepath = output_dir / filename
         
         with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(f"-- User Management System Data Export\\n")
-            f.write(f"-- Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}\\n")
-            f.write(f"-- Sample Only: {sample_only}\\n")
-            f.write(f"-- Include Sensitive: {self.include_sensitive}\\n\\n")
-            
-            f.write("BEGIN;\\n\\n")
+            f.write("BEGIN;\n")
             
             for table_name in tables:
                 data = await self.get_table_data(table_name, sample_only)
                 
                 if not data:
-                    f.write(f"-- No data found for {table_name}\\n\\n")
                     continue
                 
-                f.write(f"-- Data for table: {table_name}\\n")
-                f.write(f"-- Records: {len(data)}\\n")
+                columns = list(data[0].keys())
                 
-                if data:
-                    columns = list(data[0].keys())
-                    f.write(f"INSERT INTO {table_name} ({', '.join(columns)}) VALUES\\n")
+                for row in data:
+                    values = []
+                    for col in columns:
+                        value = row[col]
+                        if value is None:
+                            values.append('NULL')
+                        elif isinstance(value, str):
+                            # Escape single quotes
+                            escaped = value.replace("'", "''")
+                            values.append(f"'{escaped}'")
+                        elif isinstance(value, (list, dict)):
+                            # Handle arrays and JSON
+                            escaped_json = json.dumps(value).replace("'", "''")
+                            values.append(f"'{escaped_json}'")
+                        elif isinstance(value, bool):
+                            values.append('TRUE' if value else 'FALSE')
+                        elif hasattr(value, 'isoformat'):
+                            # Handle datetime/date objects
+                            values.append(f"'{value.isoformat()}'")
+                        else:
+                            # Handle UUIDs, numbers, and other types - quote everything except NULL
+                            escaped = str(value).replace("'", "''")
+                            values.append(f"'{escaped}'")
                     
-                    for i, row in enumerate(data):
-                        values = []
-                        for col in columns:
-                            value = row[col]
-                            if value is None:
-                                values.append('NULL')
-                            elif isinstance(value, str):
-                                # Escape single quotes
-                                escaped = value.replace("'", "''")
-                                values.append(f"'{escaped}'")
-                            elif isinstance(value, (list, dict)):
-                                # Handle arrays and JSON
-                                values.append(f"'{json.dumps(value)}'")
-                            elif isinstance(value, bool):
-                                values.append('TRUE' if value else 'FALSE')
-                            else:
-                                values.append(str(value))
-                        
-                        line_end = ',' if i < len(data) - 1 else ';'
-                        f.write(f"    ({', '.join(values)}){line_end}\\n")
-                
-                f.write("\\n")
+                    f.write(f"INSERT INTO {table_name} ({', '.join(columns)}) VALUES ({', '.join(values)});\n")
             
-            f.write("COMMIT;\\n")
+            f.write("COMMIT;\n")
         
         print(f"✅ SQL export completed: {filepath}")
         return filepath
