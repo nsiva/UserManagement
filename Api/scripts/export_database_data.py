@@ -35,6 +35,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
+# Load environment variables
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv not available, rely on system environment
+    pass
+
 
 class DatabaseExporter:
     def __init__(self, connection_string: str, include_sensitive: bool = False):
@@ -63,10 +71,12 @@ class DatabaseExporter:
         sensitive_columns = ['password_hash', 'client_secret', 'mfa_secret']
         
         # Get column information
+        # Try different schemas: aaa (from search_path), public, then any schema
         columns_query = """
         SELECT column_name, data_type
         FROM information_schema.columns
-        WHERE table_name = $1 AND table_schema = 'public'
+        WHERE table_name = $1 
+        AND table_schema IN ('aaa', 'public')
         ORDER BY ordinal_position;
         """
         columns = await self.conn.fetch(columns_query, table_name)
@@ -347,7 +357,7 @@ async def main():
     # Get connection string
     connection_string = args.connection
     if not connection_string:
-        connection_string = os.getenv('DATABASE_URL') or os.getenv('SUPABASE_URL')
+        connection_string = os.getenv('POSTGRES_CONNECTION_STRING') or os.getenv('DATABASE_URL') or os.getenv('SUPABASE_URL')
         if not connection_string:
             host = os.getenv('DB_HOST', 'localhost')
             port = os.getenv('DB_PORT', '5432')
