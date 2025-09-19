@@ -74,6 +74,57 @@ class BaseRepository(ABC):
         """Delete all roles for a user."""
         pass
     
+    # --- Functional Roles Management ---
+    @abstractmethod
+    async def create_functional_role(self, role_data: "FunctionalRoleCreate", created_by: str) -> UUID:
+        """Create a new functional role."""
+        pass
+    
+    @abstractmethod
+    async def get_functional_role_by_id(self, role_id: UUID) -> Optional["FunctionalRoleInDB"]:
+        """Get functional role by ID."""
+        pass
+    
+    @abstractmethod
+    async def get_functional_role_by_name(self, name: str) -> Optional["FunctionalRoleInDB"]:
+        """Get functional role by name."""
+        pass
+    
+    @abstractmethod
+    async def get_functional_roles(self, category: Optional[str] = None, is_active: Optional[bool] = None) -> List["FunctionalRoleInDB"]:
+        """Get functional roles with optional filtering."""
+        pass
+    
+    @abstractmethod
+    async def update_functional_role(self, role_id: UUID, role_data: "FunctionalRoleUpdate", updated_by: str) -> bool:
+        """Update a functional role."""
+        pass
+    
+    @abstractmethod
+    async def delete_functional_role(self, role_id: UUID) -> bool:
+        """Delete a functional role."""
+        pass
+    
+    @abstractmethod
+    async def assign_functional_roles_to_user(self, user_id: UUID, role_names: List[str], assigned_by: str, replace_existing: bool = True, notes: Optional[str] = None) -> bool:
+        """Assign functional roles to a user."""
+        pass
+    
+    @abstractmethod
+    async def get_user_functional_roles(self, user_id: UUID, is_active: bool = True) -> List["FunctionalRoleInDB"]:
+        """Get functional roles assigned to a user."""
+        pass
+    
+    @abstractmethod
+    async def remove_functional_role_from_user(self, user_id: UUID, role_id: UUID) -> bool:
+        """Remove a functional role from a user."""
+        pass
+    
+    @abstractmethod
+    async def check_user_functional_permission(self, user_id: UUID, permission: str) -> tuple[bool, List[str]]:
+        """Check if user has permission through functional roles. Returns (has_permission, granted_by_roles)."""
+        pass
+    
     # MFA Management
     @abstractmethod
     async def update_mfa_secret(self, user_id: UUID, secret: Optional[str]) -> bool:

@@ -172,6 +172,211 @@ class SupabaseRepository(BaseRepository):
             logger.error(f"Failed to delete user roles for {user_id}: {e}")
             return False
     
+    # --- Functional Roles Management ---
+    
+    async def create_functional_role(self, role_data, created_by: str) -> UUID:
+        """Create a new functional role."""
+        try:
+            from uuid import uuid4
+            role_id = uuid4()
+            
+            insert_data = {
+                'id': str(role_id),
+                'name': role_data.name,
+                'label': role_data.label,
+                'description': role_data.description,
+                'category': role_data.category,
+                'permissions': role_data.permissions,
+                'is_active': role_data.is_active,
+                'created_by': created_by
+            }
+            
+            self.client.from_('aaa_functional_roles').insert(insert_data).execute()
+            return role_id
+            
+        except Exception as e:
+            logger.error(f"Failed to create functional role: {e}")
+            raise e
+    
+    async def get_functional_role_by_id(self, role_id: UUID):
+        """Get functional role by ID."""
+        try:
+            response = self.client.from_('aaa_functional_roles').select('*').eq('id', str(role_id)).execute()
+            if response.data:
+                from models import FunctionalRoleInDB
+                return FunctionalRoleInDB(**response.data[0])
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get functional role {role_id}: {e}")
+            return None
+    
+    async def get_functional_role_by_name(self, name: str):
+        """Get functional role by name."""
+        try:
+            response = self.client.from_('aaa_functional_roles').select('*').eq('name', name).execute()
+            if response.data:
+                from models import FunctionalRoleInDB
+                return FunctionalRoleInDB(**response.data[0])
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get functional role by name {name}: {e}")
+            return None
+    
+    async def get_functional_roles(self, category: Optional[str] = None, is_active: Optional[bool] = None):
+        """Get functional roles with optional filtering."""
+        try:
+            query = self.client.from_('aaa_functional_roles').select('*')
+            
+            if category:
+                query = query.eq('category', category)
+            if is_active is not None:
+                query = query.eq('is_active', is_active)
+                
+            response = query.order('category', desc=False).order('name', desc=False).execute()
+            
+            from models import FunctionalRoleInDB
+            return [FunctionalRoleInDB(**role) for role in response.data]
+            
+        except Exception as e:
+            logger.error(f"Failed to get functional roles: {e}")
+            return []
+    
+    async def update_functional_role(self, role_id: UUID, role_data, updated_by: str) -> bool:
+        """Update a functional role."""
+        try:
+            update_data = {
+                'updated_by': updated_by,
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            }
+            
+            if role_data.label is not None:
+                update_data['label'] = role_data.label
+            if role_data.description is not None:
+                update_data['description'] = role_data.description
+            if role_data.category is not None:
+                update_data['category'] = role_data.category
+            if role_data.permissions is not None:
+                update_data['permissions'] = role_data.permissions
+            if role_data.is_active is not None:
+                update_data['is_active'] = role_data.is_active
+            
+            self.client.from_('aaa_functional_roles').update(update_data).eq('id', str(role_id)).execute()
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to update functional role {role_id}: {e}")
+            return False
+    
+    async def delete_functional_role(self, role_id: UUID) -> bool:
+        """Delete a functional role."""
+        try:
+            self.client.from_('aaa_functional_roles').delete().eq('id', str(role_id)).execute()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete functional role {role_id}: {e}")
+            return False
+    
+    async def assign_functional_roles_to_user(self, user_id: UUID, role_names: List[str], assigned_by: str, replace_existing: bool = True, notes: Optional[str] = None) -> bool:
+        """Assign functional roles to a user."""
+        try:
+            # Get role IDs from names
+            role_ids = []
+            for role_name in role_names:
+                role = await self.get_functional_role_by_name(role_name)
+                if role:
+                    role_ids.append(role.id)
+            
+            if replace_existing:
+                # Remove existing assignments
+                self.client.from_('aaa_user_functional_roles').delete().eq('user_id', str(user_id)).execute()
+            
+            # Add new assignments
+            if role_ids:
+                from uuid import uuid4
+                assignments = []
+                for role_id in role_ids:
+                    assignments.append({
+                        'id': str(uuid4()),
+                        'user_id': str(user_id),
+                        'functional_role_id': str(role_id),
+                        'assigned_by': assigned_by,
+                        'notes': notes
+                    })
+                
+                self.client.from_('aaa_user_functional_roles').insert(assignments).execute()
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to assign functional roles to user {user_id}: {e}")
+            return False
+    
+    async def get_user_functional_roles(self, user_id: UUID, is_active: bool = True):
+        """Get functional roles assigned to a user."""
+        try:
+            query = (self.client
+                    .from_('aaa_user_functional_roles')
+                    .select('aaa_functional_roles(*)')
+                    .eq('user_id', str(user_id)))
+            
+            if is_active:
+                query = query.eq('is_active', True)
+                
+            response = query.execute()
+            
+            from models import FunctionalRoleInDB
+            roles = []
+            for assignment in response.data:
+                if assignment.get('aaa_functional_roles'):
+                    roles.append(FunctionalRoleInDB(**assignment['aaa_functional_roles']))
+            
+            return roles
+            
+        except Exception as e:
+            logger.error(f"Failed to get user functional roles for {user_id}: {e}")
+            return []
+    
+    async def remove_functional_role_from_user(self, user_id: UUID, role_id: UUID) -> bool:
+        """Remove a functional role from a user."""
+        try:
+            response = (self.client
+                       .from_('aaa_user_functional_roles')
+                       .delete()
+                       .eq('user_id', str(user_id))
+                       .eq('functional_role_id', str(role_id))
+                       .execute())
+            
+            return len(response.data) > 0
+            
+        except Exception as e:
+            logger.error(f"Failed to remove functional role {role_id} from user {user_id}: {e}")
+            return False
+    
+    async def check_user_functional_permission(self, user_id: UUID, permission: str) -> tuple[bool, List[str]]:
+        """Check if user has permission through functional roles."""
+        try:
+            # Get user's functional roles with permissions
+            query = (self.client
+                    .from_('aaa_user_functional_roles')
+                    .select('aaa_functional_roles(name, permissions)')
+                    .eq('user_id', str(user_id))
+                    .eq('is_active', True))
+            
+            response = query.execute()
+            
+            granted_by_roles = []
+            for assignment in response.data:
+                role_data = assignment.get('aaa_functional_roles')
+                if role_data and role_data.get('permissions'):
+                    if permission in role_data['permissions']:
+                        granted_by_roles.append(role_data['name'])
+            
+            return len(granted_by_roles) > 0, granted_by_roles
+            
+        except Exception as e:
+            logger.error(f"Failed to check user functional permission: {e}")
+            return False, []
+    
     async def update_mfa_secret(self, user_id: UUID, secret: Optional[str]) -> bool:
         """Update MFA secret for a user. None to disable MFA."""
         try:

@@ -30,7 +30,9 @@
       "Bash(mv:*)",
       "Bash(ng serve:*)",
       "Bash(psql:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(ng build)",
+      "Bash(ng build:*)"
     ],
     "deny": [],
     "ask": []

@@ -23,11 +23,12 @@ import {
 import { PasswordValidationService, PasswordRequirements } from '../../shared/services/password-validation.service';
 import { PasswordRequirementsComponent } from '../../shared/components/password-requirements/password-requirements.component';
 import { ConfirmationDialogComponent } from '../../shared/components/confirmation-dialog/confirmation-dialog.component';
+import { RoleSelectorComponent } from '../role-selector/role-selector.component';
 
 @Component({
   selector: 'app-user-form',
   standalone: true,
-  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent, PasswordRequirementsComponent, AutocompleteComponent, ConfirmationDialogComponent],
+  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent, PasswordRequirementsComponent, AutocompleteComponent, ConfirmationDialogComponent, RoleSelectorComponent],
   templateUrl: './user-form.html',
   styleUrl: './user-form.scss'
 })
@@ -69,6 +70,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
   userForm: FormGroup;
   userRolesOptions: Role[] = [];
   selectedUserRole: string = 'user';
+  selectedRoles: string[] = []; // New property for role-selector component
   organizationsOptions: Organization[] = [];
   businessUnitsOptions: BusinessUnit[] = [];
   filteredBusinessUnitsOptions: BusinessUnit[] = [];
@@ -129,7 +131,8 @@ export class UserFormComponent implements OnInit, OnDestroy {
       password: ['', [PasswordValidationService.validatePassword]], // Password with full validation
       passwordOption: ['send_link'], // Password setup option
       sendPasswordReset: [false], // For edit mode password reset (backward compatibility)
-      passwordResetOption: ['no_change'] // New radio button option for edit mode
+      passwordResetOption: ['no_change'], // New radio button option for edit mode
+      roles: [[], Validators.required] // New roles form control for role-selector
     });
   }
 
@@ -215,9 +218,11 @@ export class UserFormComponent implements OnInit, OnDestroy {
         businessUnit: '',
         password: '',
         passwordOption: 'send_link', // Set default password option
-        passwordResetOption: 'no_change' // Set default password reset option
+        passwordResetOption: 'no_change', // Set default password reset option
+        roles: [] // Reset roles array
       });
       this.selectedUserRole = 'user';
+      this.selectedRoles = [];
       
       // Configure password field based on default option (send_link)
       this.passwordOption = 'send_link';
@@ -324,7 +329,28 @@ export class UserFormComponent implements OnInit, OnDestroy {
           });
         }
         
-        this.selectedUserRole = user.roles.length > 0 ? user.roles[0] : 'user';
+        this.selectedRoles = user.roles || [];
+        
+        // Find the administrative role (for backward compatibility)
+        const adminRoles = ['super_user', 'admin', 'firm_admin', 'group_admin', 'user'];
+        this.selectedUserRole = this.selectedRoles.find(role => adminRoles.includes(role)) || 'user';
+        
+        console.log('UserFormComponent: Loading user roles:', { 
+          allRoles: this.selectedRoles, 
+          administrativeRole: this.selectedUserRole 
+        });
+        
+        // Set the roles in the form control for the role-selector
+        // Use setTimeout to ensure the role-selector component is ready
+        setTimeout(() => {
+          console.log('UserFormComponent: About to set form roles value:', this.selectedRoles);
+          console.log('UserFormComponent: Form control current value before set:', this.userForm.get('roles')?.value);
+          this.userForm.patchValue({
+            roles: this.selectedRoles
+          });
+          console.log('UserFormComponent: Form control value after set:', this.userForm.get('roles')?.value);
+          console.log('UserFormComponent: Set form roles value complete:', this.selectedRoles);
+        }, 100);
         
         // Check if current user has permission to edit this user
         if (!this.roleService.canEditUser(user.roles, user.email)) {
@@ -557,6 +583,21 @@ export class UserFormComponent implements OnInit, OnDestroy {
     this.selectedUserRole = roleName;
   }
 
+  // New method for role-selector component
+  onRolesChange(roles: string[]): void {
+    this.selectedRoles = roles;
+    this.userForm.get('roles')?.setValue(roles);
+    
+    // For backward compatibility, set the first role as selectedUserRole
+    if (roles.length > 0) {
+      this.selectedUserRole = roles[0];
+    } else {
+      this.selectedUserRole = '';
+    }
+    
+    console.log('Roles changed:', roles);
+  }
+
   onUserSubmit(): void {
     if (this.userForm.invalid) {
       this.showError('Please fill in all required user fields correctly.');
@@ -582,13 +623,25 @@ export class UserFormComponent implements OnInit, OnDestroy {
     if (this.isEditMode && this.userId) {
       // Edit mode - different handling for own profile vs other users
       if (this.isEditingOwnProfile) {
-        // When editing own profile, use the self-profile update endpoint
-        const profileData = {
+        // When editing own profile, check if functional roles have changed
+        // If so, use admin endpoint to update roles, otherwise use profile endpoint
+        const originalAdminRoles = ['super_user', 'admin', 'firm_admin', 'group_admin', 'user'];
+        const currentAdminRole = this.selectedRoles.find(role => originalAdminRoles.includes(role));
+        const currentFunctionalRoles = this.selectedRoles.filter(role => !originalAdminRoles.includes(role));
+        
+        // If functional roles are being updated, use admin endpoint
+        const userData: UserUpdate = {
           first_name: this.userForm.value.firstName,
-          last_name: this.userForm.value.lastName
+          last_name: this.userForm.value.lastName,
+          email: this.userForm.value.email,
+          password: undefined, // No password change for self-editing
+          send_password_reset: false,
+          // Keep administrative role and update functional roles
+          roles: currentAdminRole ? [currentAdminRole, ...currentFunctionalRoles] : currentFunctionalRoles,
+          business_unit_id: this.userForm.value.businessUnit || undefined
         };
 
-        this.userService.updateMyProfile(profileData).subscribe({
+        this.userService.updateUser(this.userId, userData).subscribe({
           next: () => {
             this.showSuccess('Profile updated successfully!');
             // Navigate back to admin page after 2 seconds
@@ -609,7 +662,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
           email: this.userForm.value.email,
           password: this.passwordResetOption === 'reset_now' ? this.userForm.value.password : undefined,
           send_password_reset: this.passwordResetOption === 'send_reset_email',
-          roles: this.selectedUserRole ? [this.selectedUserRole] : [],
+          roles: this.selectedRoles.length > 0 ? this.selectedRoles : (this.selectedUserRole ? [this.selectedUserRole] : []),
           business_unit_id: this.userForm.value.businessUnit || undefined
         };
 
@@ -642,7 +695,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
         email: this.userForm.value.email,
         password: passwordOption === 'generate_now' ? this.userForm.value.password : undefined,
         password_option: passwordOption,
-        roles: this.selectedUserRole ? [this.selectedUserRole] : [],
+        roles: this.selectedRoles.length > 0 ? this.selectedRoles : (this.selectedUserRole ? [this.selectedUserRole] : []),
         business_unit_id: this.userForm.value.businessUnit
       };
 
@@ -709,6 +762,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
     this.userToEdit = null;
     this.isLoading = false;
     this.selectedUserRole = 'user';
+    this.selectedRoles = [];
     
     // Multiple approaches to clear form
     console.log('UserFormComponent: Form values before reset:', this.userForm.value);
@@ -724,7 +778,8 @@ export class UserFormComponent implements OnInit, OnDestroy {
       organization: '',
       businessUnit: '',
       password: '',
-      passwordResetOption: 'no_change'
+      passwordResetOption: 'no_change',
+      roles: []
     });
     
     // Approach 3: Clear individual controls

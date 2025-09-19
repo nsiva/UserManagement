@@ -1,0 +1,134 @@
+.role-selector {
+  .loading-state {
+    @apply flex items-center justify-center p-4 text-gray-600;
+  }
+
+  .error-state {
+    @apply mb-4;
+  }
+
+  .form-group {
+    @apply mb-6;
+
+    label {
+      @apply block text-sm font-medium text-gray-700 mb-2;
+    }
+
+    select {
+      @apply mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm;
+      @apply focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm;
+      @apply disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed;
+
+      &.error {
+        @apply border-red-300 focus:ring-red-500 focus:border-red-500;
+      }
+    }
+
+    input[type="checkbox"] {
+      @apply h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded;
+      @apply disabled:bg-gray-50 disabled:cursor-not-allowed;
+    }
+  }
+
+  .checkbox-group {
+    @apply space-y-2;
+
+    .checkbox-item {
+      @apply flex items-start;
+
+      input {
+        @apply mt-0.5;
+      }
+
+      .checkbox-content {
+        @apply ml-3 flex-1;
+
+        label {
+          @apply text-sm font-medium text-gray-700 cursor-pointer mb-0;
+        }
+
+        .description {
+          @apply text-xs text-gray-500 mt-1;
+        }
+      }
+    }
+  }
+
+  .role-summary {
+    @apply p-4 bg-gray-50 rounded-lg border;
+
+    h4 {
+      @apply text-sm font-medium text-gray-700 mb-2;
+    }
+
+    .role-tags {
+      @apply space-y-1;
+
+      .admin-tag {
+        @apply text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium;
+      }
+
+      .functional-tags {
+        @apply flex flex-wrap gap-1;
+
+        .functional-tag {
+          @apply text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full;
+        }
+      }
+    }
+  }
+
+  .validation-error {
+    @apply mt-1 text-sm text-red-600;
+  }
+
+  .selected-summary {
+    @apply mt-3 p-2 bg-blue-50 rounded-md;
+
+    p {
+      @apply text-sm text-blue-700;
+    }
+  }
+}
+
+// Responsive design
+@media (max-width: 640px) {
+  .role-selector {
+    .form-group {
+      @apply mb-4;
+    }
+
+    .role-summary .role-tags .functional-tags {
+      @apply flex-col gap-1;
+    }
+  }
+}
+
+// Focus and hover states
+.role-selector {
+  input[type="checkbox"]:focus {
+    @apply ring-2 ring-blue-500 ring-offset-2;
+  }
+
+  label:hover {
+    @apply text-gray-900;
+  }
+
+  .checkbox-item:hover {
+    @apply bg-gray-50;
+  }
+}
+
+// Animation classes
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

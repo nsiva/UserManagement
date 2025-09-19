@@ -332,6 +332,239 @@ class PostgresRepository(BaseRepository):
                 logger.error(f"Failed to delete user roles for {user_id}: {e}")
                 return False
     
+    # --- Functional Roles Management ---
+    
+    async def create_functional_role(self, role_data, created_by: str) -> UUID:
+        """Create a new functional role."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                from uuid import uuid4
+                role_id = uuid4()
+                
+                await conn.execute("""
+                    INSERT INTO aaa_functional_roles 
+                    (id, name, label, description, category, permissions, is_active, created_by)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                """, str(role_id), role_data.name, role_data.label, role_data.description,
+                    role_data.category, role_data.permissions, role_data.is_active, created_by)
+                
+                return role_id
+                
+            except Exception as e:
+                logger.error(f"Failed to create functional role: {e}")
+                raise e
+    
+    async def get_functional_role_by_id(self, role_id: UUID):
+        """Get functional role by ID."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                row = await conn.fetchrow("SELECT * FROM aaa_functional_roles WHERE id = $1", str(role_id))
+                if row:
+                    from models import FunctionalRoleInDB
+                    return FunctionalRoleInDB(**dict(row))
+                return None
+            except Exception as e:
+                logger.error(f"Failed to get functional role {role_id}: {e}")
+                return None
+    
+    async def get_functional_role_by_name(self, name: str):
+        """Get functional role by name."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                row = await conn.fetchrow("SELECT * FROM aaa_functional_roles WHERE name = $1", name)
+                if row:
+                    from models import FunctionalRoleInDB
+                    return FunctionalRoleInDB(**dict(row))
+                return None
+            except Exception as e:
+                logger.error(f"Failed to get functional role by name {name}: {e}")
+                return None
+    
+    async def get_functional_roles(self, category: Optional[str] = None, is_active: Optional[bool] = None):
+        """Get functional roles with optional filtering."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = "SELECT * FROM aaa_functional_roles WHERE 1=1"
+                params = []
+                param_count = 0
+                
+                if category:
+                    param_count += 1
+                    query += f" AND category = ${param_count}"
+                    params.append(category)
+                    
+                if is_active is not None:
+                    param_count += 1
+                    query += f" AND is_active = ${param_count}"
+                    params.append(is_active)
+                
+                query += " ORDER BY category, name"
+                
+                rows = await conn.fetch(query, *params)
+                
+                from models import FunctionalRoleInDB
+                return [FunctionalRoleInDB(**dict(row)) for row in rows]
+                
+            except Exception as e:
+                logger.error(f"Failed to get functional roles: {e}")
+                return []
+    
+    async def update_functional_role(self, role_id: UUID, role_data, updated_by: str) -> bool:
+        """Update a functional role."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                update_fields = ["updated_by = $1", "updated_at = NOW()"]
+                params = [updated_by]
+                param_count = 1
+                
+                if role_data.label is not None:
+                    param_count += 1
+                    update_fields.append(f"label = ${param_count}")
+                    params.append(role_data.label)
+                    
+                if role_data.description is not None:
+                    param_count += 1
+                    update_fields.append(f"description = ${param_count}")
+                    params.append(role_data.description)
+                    
+                if role_data.category is not None:
+                    param_count += 1
+                    update_fields.append(f"category = ${param_count}")
+                    params.append(role_data.category)
+                    
+                if role_data.permissions is not None:
+                    param_count += 1
+                    update_fields.append(f"permissions = ${param_count}")
+                    params.append(role_data.permissions)
+                    
+                if role_data.is_active is not None:
+                    param_count += 1
+                    update_fields.append(f"is_active = ${param_count}")
+                    params.append(role_data.is_active)
+                
+                param_count += 1
+                query = f"UPDATE aaa_functional_roles SET {', '.join(update_fields)} WHERE id = ${param_count}"
+                params.append(str(role_id))
+                
+                await conn.execute(query, *params)
+                return True
+                
+            except Exception as e:
+                logger.error(f"Failed to update functional role {role_id}: {e}")
+                return False
+    
+    async def delete_functional_role(self, role_id: UUID) -> bool:
+        """Delete a functional role."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                await conn.execute("DELETE FROM aaa_functional_roles WHERE id = $1", str(role_id))
+                return True
+            except Exception as e:
+                logger.error(f"Failed to delete functional role {role_id}: {e}")
+                return False
+    
+    async def assign_functional_roles_to_user(self, user_id: UUID, role_names: List[str], assigned_by: str, replace_existing: bool = True, notes: Optional[str] = None) -> bool:
+        """Assign functional roles to a user."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                try:
+                    # Get role IDs from names
+                    role_ids = []
+                    for role_name in role_names:
+                        row = await conn.fetchrow("SELECT id FROM aaa_functional_roles WHERE name = $1", role_name)
+                        if row:
+                            role_ids.append(row['id'])
+                    
+                    if replace_existing:
+                        # Remove existing assignments
+                        await conn.execute("DELETE FROM aaa_user_functional_roles WHERE user_id = $1", str(user_id))
+                    
+                    # Add new assignments
+                    if role_ids:
+                        from uuid import uuid4
+                        for role_id in role_ids:
+                            await conn.execute("""
+                                INSERT INTO aaa_user_functional_roles 
+                                (id, user_id, functional_role_id, assigned_by, notes)
+                                VALUES ($1, $2, $3, $4, $5)
+                            """, str(uuid4()), str(user_id), str(role_id), assigned_by, notes)
+                    
+                    return True
+                    
+                except Exception as e:
+                    logger.error(f"Failed to assign functional roles to user {user_id}: {e}")
+                    return False
+    
+    async def get_user_functional_roles(self, user_id: UUID, is_active: bool = True):
+        """Get functional roles assigned to a user."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = """
+                    SELECT fr.* FROM aaa_functional_roles fr
+                    JOIN aaa_user_functional_roles ufr ON fr.id = ufr.functional_role_id
+                    WHERE ufr.user_id = $1
+                """
+                params = [str(user_id)]
+                
+                if is_active:
+                    query += " AND ufr.is_active = $2"
+                    params.append(True)
+                
+                rows = await conn.fetch(query, *params)
+                
+                from models import FunctionalRoleInDB
+                return [FunctionalRoleInDB(**dict(row)) for row in rows]
+                
+            except Exception as e:
+                logger.error(f"Failed to get user functional roles for {user_id}: {e}")
+                return []
+    
+    async def remove_functional_role_from_user(self, user_id: UUID, role_id: UUID) -> bool:
+        """Remove a functional role from a user."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                result = await conn.execute("""
+                    DELETE FROM aaa_user_functional_roles 
+                    WHERE user_id = $1 AND functional_role_id = $2
+                """, str(user_id), str(role_id))
+                
+                return result != "DELETE 0"
+                
+            except Exception as e:
+                logger.error(f"Failed to remove functional role {role_id} from user {user_id}: {e}")
+                return False
+    
+    async def check_user_functional_permission(self, user_id: UUID, permission: str) -> tuple[bool, List[str]]:
+        """Check if user has permission through functional roles."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                rows = await conn.fetch("""
+                    SELECT fr.name, fr.permissions FROM aaa_functional_roles fr
+                    JOIN aaa_user_functional_roles ufr ON fr.id = ufr.functional_role_id
+                    WHERE ufr.user_id = $1 AND ufr.is_active = true
+                """, str(user_id))
+                
+                granted_by_roles = []
+                for row in rows:
+                    if permission in row['permissions']:
+                        granted_by_roles.append(row['name'])
+                
+                return len(granted_by_roles) > 0, granted_by_roles
+                
+            except Exception as e:
+                logger.error(f"Failed to check user functional permission: {e}")
+                return False, []
+    
     async def update_mfa_secret(self, user_id: UUID, secret: Optional[str]) -> bool:
         """Update MFA secret for a user. None to disable MFA."""
         pool = await self.get_connection_pool()

@@ -19,8 +19,10 @@ from exceptions import UserManagementError, DuplicateEmailError, ConstraintViola
 # get_current_admin_user, get_user_roles, get_current_client are needed.
 from routers.auth import get_current_admin_user, get_user_roles, get_current_client, get_password_hash, send_password_setup_email, generate_reset_token
 from constants import (
-    ADMIN, SUPER_USER, ORGANIZATION_ADMIN, BUSINESS_UNIT_ADMIN,
-    ADMIN_ROLES, has_admin_access, has_organization_admin_access, has_business_unit_admin_access
+    ADMIN, SUPER_USER, ORGANIZATION_ADMIN, BUSINESS_UNIT_ADMIN, USER,
+    ADMIN_ROLES, has_admin_access, has_organization_admin_access, has_business_unit_admin_access,
+    validate_role_categories_legacy, get_administrative_role, get_functional_roles,
+    ADMINISTRATIVE_ROLES
 )
 
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
@@ -106,8 +108,21 @@ def validate_user_edit_permission(current_user_roles: List[str], target_user_rol
         HTTPException: If the current user cannot edit the target user
     """
     # Allow users to edit their own profile
-    if current_user_id and target_user_id and current_user_id == target_user_id:
+    logger.info(f"validate_user_edit_permission: current_user_id={current_user_id} (type: {type(current_user_id)}), target_user_id={target_user_id} (type: {type(target_user_id)}), current_user_roles={current_user_roles}, target_user_roles={target_user_roles}")
+    
+    # Ensure both IDs are strings for proper comparison
+    current_user_id_str = str(current_user_id).lower().strip() if current_user_id else None
+    target_user_id_str = str(target_user_id).lower().strip() if target_user_id else None
+    
+    # Check for self-editing with robust comparison
+    is_self_editing = (current_user_id_str and target_user_id_str and 
+                      current_user_id_str == target_user_id_str)
+    
+    if is_self_editing:
+        logger.info(f"Self-editing detected: user {current_user_id_str} editing own profile")
         return  # Users can always edit their own profile
+    
+    logger.info(f"Not self-editing: current_user_id_str='{current_user_id_str}' != target_user_id_str='{target_user_id_str}'")
     # Super user can edit anyone
     if SUPER_USER in current_user_roles:
         return
@@ -126,6 +141,7 @@ def validate_user_edit_permission(current_user_roles: List[str], target_user_rol
         restricted_roles = [SUPER_USER, ADMIN, ORGANIZATION_ADMIN]
         forbidden_roles = [role for role in target_user_roles if role in restricted_roles]
         if forbidden_roles:
+            logger.warning(f"Firm admin edit permission denied: current_user_id={current_user_id}, target_user_id={target_user_id}, forbidden_roles={forbidden_roles}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Firm admins cannot edit users with roles: {', '.join(forbidden_roles)}"
@@ -137,6 +153,7 @@ def validate_user_edit_permission(current_user_roles: List[str], target_user_rol
         restricted_roles = [SUPER_USER, ADMIN, ORGANIZATION_ADMIN, BUSINESS_UNIT_ADMIN]
         forbidden_roles = [role for role in target_user_roles if role in restricted_roles]
         if forbidden_roles:
+            logger.warning(f"Group admin edit permission denied: current_user_id={current_user_id}, target_user_id={target_user_id}, forbidden_roles={forbidden_roles}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Group admins cannot edit users with roles: {', '.join(forbidden_roles)}"
@@ -202,18 +219,27 @@ async def create_user(
                     detail="Invalid business unit ID. Business unit does not exist or is inactive."
                 )
         
-        # Validate role assignment permissions BEFORE creating user to prevent inconsistent states
-        if user_data.roles and current_admin_user:
-            # Generate temporary user ID for validation (we'll use the same ID for actual creation)
-            import uuid
-            temp_user_id = str(uuid.uuid4())
-            validate_role_assignment(
-                current_admin_user.roles, 
-                user_data.roles, 
-                current_admin_user.user_id, 
-                temp_user_id
-            )
-            user_id = temp_user_id  # Use the validated ID for creation
+        # Validate role categories BEFORE creating user to prevent inconsistent states
+        if user_data.roles:
+            is_valid, error_message = validate_role_categories_legacy(user_data.roles)
+            if not is_valid:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid role combination: {error_message}"
+                )
+            
+            # Validate role assignment permissions 
+            if current_admin_user:
+                # Generate temporary user ID for validation (we'll use the same ID for actual creation)
+                import uuid
+                temp_user_id = str(uuid.uuid4())
+                validate_role_assignment(
+                    current_admin_user.roles, 
+                    user_data.roles, 
+                    current_admin_user.user_id, 
+                    temp_user_id
+                )
+                user_id = temp_user_id  # Use the validated ID for creation
         else:
             # Generate UUID for new user
             import uuid
@@ -458,7 +484,9 @@ async def update_user(user_id: UUID, user_data: UserUpdate, current_user: TokenD
     
     # Get the current user's roles to validate edit permission
     existing_user = await get_user_by_id(user_id)
+    logger.info(f"About to validate edit permission for user {user_id}")
     validate_user_edit_permission(current_user.roles, existing_user.roles, current_user.user_id, str(user_id))
+    logger.info(f"Edit permission validation passed for user {user_id}")
     
     # Validate business unit if provided
     if user_data.business_unit_id is not None:
@@ -510,15 +538,57 @@ async def update_user(user_id: UUID, user_data: UserUpdate, current_user: TokenD
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update user profile.")
 
     if user_data.roles is not None: # `is not None` allows passing empty list to clear roles
+        logger.info(f"Processing role assignment for user {user_id}: {user_data.roles}")
         # Validate role assignment permissions
         if user_data.roles:  # Only validate if roles are being assigned (not when clearing roles)
-            validate_role_assignment(
-                current_user.roles, 
-                user_data.roles, 
-                current_user.user_id, 
-                str(user_id)
-            )
+            logger.info(f"Roles are being assigned, validating permissions")
+            # Check if user is editing their own profile
+            current_user_id_str = str(current_user.user_id)
+            target_user_id_str = str(user_id)
+            logger.info(f"Role assignment self-edit check: current_user_id_str='{current_user_id_str}' vs target_user_id_str='{target_user_id_str}'")
+            if current_user_id_str == target_user_id_str:
+                logger.info(f"Self-editing detected in role assignment section for user {current_user.user_id}")
+                # For self-editing, get the current user's administrative role level
+                repo = get_repository()
+                current_administrative_roles = await get_user_roles(str(user_id))
+                
+                # Find current user's administrative role
+                current_admin_role = None
+                for role in current_administrative_roles:
+                    if role in ADMINISTRATIVE_ROLES:
+                        current_admin_role = role
+                        break
+                
+                # Find new administrative role in the submitted roles
+                new_admin_role = None
+                for role in user_data.roles:
+                    if role in ADMINISTRATIVE_ROLES:
+                        new_admin_role = role
+                        break
+                
+                logger.info(f"Self-editing role validation: current_admin_role={current_admin_role}, new_admin_role={new_admin_role}, submitted_roles={user_data.roles}")
+                
+                # Check if the administrative role is changing
+                if current_admin_role != new_admin_role:
+                    logger.warning(f"Administrative role change attempt for self-editing user {current_user.user_id}: {current_admin_role} -> {new_admin_role}")
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Users cannot change their own administrative role for security reasons"
+                    )
+                
+                # Allow the role assignment to proceed (administrative role unchanged, functional roles can change)
+                logger.info(f"User {current_user.user_id} editing own profile - administrative role unchanged: {current_admin_role}")
+            else:
+                # Normal role assignment validation for other users
+                validate_role_assignment(
+                    current_user.roles, 
+                    user_data.roles, 
+                    current_user.user_id, 
+                    str(user_id)
+                )
+        logger.info(f"About to assign roles to user {user_id}: {user_data.roles}")
         await assign_roles_to_user_by_names(user_id, user_data.roles)
+        logger.info(f"Successfully assigned roles to user {user_id}")
     
     # Update business unit assignment if provided
     if user_data.business_unit_id is not None:
@@ -574,8 +644,14 @@ async def get_user_by_id(user_id: UUID): # Removed unused current_user argument
         if not user_profile:
             logger.warning(f"User not found for user_id: {user_id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
-        roles = await get_user_roles(str(user_id))
-        logger.info(f"Fetched user {user_id} with roles: {roles}")
+        # Get both administrative and functional roles
+        administrative_roles = await get_user_roles(str(user_id))
+        functional_roles_db = await repo.get_user_functional_roles(user_id, is_active=True)
+        functional_role_names = [role.name for role in functional_roles_db]
+        
+        # Combine all roles
+        roles = administrative_roles + functional_role_names
+        logger.info(f"Fetched user {user_id} with administrative roles: {administrative_roles}, functional roles: {functional_role_names}")
         mfa_enabled = bool(user_profile.get('mfa_secret') or user_profile.get('mfa_method'))
         return UserWithRoles(
             id=user_profile['id'], 
@@ -719,20 +795,54 @@ async def delete_role(role_id: UUID, current_user: TokenData = Depends(get_curre
 
 async def assign_roles_to_user_by_names(user_id: UUID, role_names: List[str]):
     """
-    Helper function to assign roles to a user by role names.
-    Deletes existing roles for the user and inserts the new set.
+    Helper function to assign both administrative and functional roles to a user.
+    Separates role names into administrative and functional roles, then assigns them separately.
     """
     try:
         repo = get_repository()
-        success = await repo.assign_user_roles(user_id, role_names)
-        if not success:
-            logger.error(f"Failed to assign roles to user {user_id}")
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to assign roles")
+        
+        # Get functional roles from database to separate them from administrative roles
+        functional_roles_db = await repo.get_functional_roles(is_active=True)
+        functional_role_names = {role.name for role in functional_roles_db}
+        
+        # Separate administrative and functional roles
+        administrative_roles = []
+        functional_roles = []
+        
+        for role_name in role_names:
+            if role_name in functional_role_names:
+                functional_roles.append(role_name)
+            else:
+                administrative_roles.append(role_name)
+        
+        # Assign administrative roles (these go to aaa_user_roles)
+        if administrative_roles:
+            admin_success = await repo.assign_user_roles(user_id, administrative_roles)
+            if not admin_success:
+                logger.error(f"Failed to assign administrative roles {administrative_roles} to user {user_id}")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to assign administrative roles")
+        else:
+            # If no administrative roles, clear existing ones
+            await repo.delete_user_roles(user_id)
+        
+        # Assign functional roles (these go to aaa_user_functional_roles)
+        # Always call this to either assign new roles or clear existing ones
+        current_user_id = str(user_id)  # For now, use the same user ID - this should be updated to track who made the assignment
+        functional_success = await repo.assign_functional_roles_to_user(
+            user_id, 
+            functional_roles,  # Empty list will clear existing roles
+            current_user_id, 
+            replace_existing=True
+        )
+        if not functional_success:
+            logger.error(f"Failed to assign functional roles {functional_roles} to user {user_id}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to assign functional roles")
         
         if role_names:
-            logger.info(f"Roles {role_names} assigned to user {user_id}")
+            logger.info(f"Roles assigned to user {user_id} - Administrative: {administrative_roles}, Functional: {functional_roles}")
         else:
             logger.info(f"All roles removed for user {user_id}")
+            
     except HTTPException:
         raise
     except Exception as e:
@@ -750,8 +860,16 @@ async def manage_user_roles(user_id: UUID, assignment: UserRoleAssignment, curre
             logger.warning(f"User ID mismatch in manage_user_roles: {user_id} != {assignment.user_id}")
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User ID in path must match user ID in body.")
         
-        # Validate role assignment permissions before making changes
+        # Validate role categories (exactly one administrative role + optional functional roles)
         if assignment.role_names:  # Only validate if roles are being assigned (not when clearing roles)
+            is_valid, error_message = validate_role_categories_legacy(assignment.role_names)
+            if not is_valid:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid role combination: {error_message}"
+                )
+            
+            # Validate role assignment permissions before making changes
             validate_role_assignment(
                 current_user.roles, 
                 assignment.role_names, 
@@ -767,3 +885,105 @@ async def manage_user_roles(user_id: UUID, assignment: UserRoleAssignment, curre
     except Exception as e:
         logger.error(f"Error managing user roles for user {user_id}: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+
+@admin_router.get("/role-categories")
+async def get_role_categories(
+    current_user: TokenData = Depends(get_current_admin_user),
+    self_edit: bool = False
+):
+    """
+    Get role categories for frontend role selection UI.
+    Returns administrative roles and functional roles separately.
+    Administrative roles are filtered based on current user's permissions.
+    Functional roles are loaded from database.
+    """
+    try:
+        repo = get_repository()
+        
+        # Get functional roles from database
+        functional_roles_db = await repo.get_functional_roles(is_active=True)
+        
+        # Convert to frontend format
+        functional_roles = []
+        for role in functional_roles_db:
+            functional_roles.append({
+                "value": role.name,
+                "label": role.label,
+                "description": role.description or f"{role.label} role",
+                "category": role.category,
+                "permissions": role.permissions
+            })
+        
+        # Define role hierarchy - users can assign roles lower than their own
+        all_administrative_roles = [
+            {"value": "user", "label": "User", "description": "Basic user with limited access"},
+            {"value": "group_admin", "label": "Group Admin", "description": "Manages users within business unit"},
+            {"value": "firm_admin", "label": "Firm Admin", "description": "Manages users across organization"},
+            {"value": "admin", "label": "System Admin", "description": "Full system administration access"},
+            {"value": "super_user", "label": "Super User", "description": "Highest level access with all permissions"}
+        ]
+        
+        # Filter available roles based on current user's role
+        current_user_role = current_user.roles[0] if current_user.roles else "user"
+        available_roles = []
+        
+        # Role hierarchy: super_user > admin > firm_admin > group_admin > user
+        role_hierarchy = ["user", "group_admin", "firm_admin", "admin", "super_user"]
+        
+        try:
+            current_user_level = role_hierarchy.index(current_user_role)
+            # Users can assign roles below their level, and their own level only for self-editing
+            for role in all_administrative_roles:
+                role_level = role_hierarchy.index(role["value"])
+                if role_level < current_user_level:  # Can assign lower level roles
+                    available_roles.append(role)
+                elif role_level == current_user_level and self_edit:  # Include own level only for self-editing
+                    # Add current user's role so they can see it when editing themselves
+                    # (though it will be disabled in frontend)
+                    available_roles.append(role)
+        except ValueError:
+            # If current user's role is not in hierarchy, default to allowing only "user"
+            available_roles = [{"value": "user", "label": "User", "description": "Basic user with limited access"}]
+        
+        return {
+            "administrative": {
+                "name": "Administrative Level",
+                "description": "User's access level and organizational permissions",
+                "required": True,
+                "multiple_selection": False,
+                "roles": available_roles
+            },
+            "functional": {
+                "name": "Functional Roles",
+                "description": "Job-specific roles defining what the user can do",
+                "required": False,
+                "multiple_selection": True,
+                "roles": functional_roles
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting role categories: {e}", exc_info=True)
+        # Return minimal structure if database fails
+        return {
+            "administrative": {
+                "name": "Administrative Level",
+                "description": "User's access level and organizational permissions",
+                "required": True,
+                "multiple_selection": False,
+                "roles": [
+                    {"value": "user", "label": "User", "description": "Basic user with limited access"},
+                    {"value": "group_admin", "label": "Group Admin", "description": "Manages users within business unit"},
+                    {"value": "firm_admin", "label": "Firm Admin", "description": "Manages users across organization"},
+                    {"value": "admin", "label": "System Admin", "description": "Full system administration access"},
+                    {"value": "super_user", "label": "Super User", "description": "Highest level access with all permissions"}
+                ]
+            },
+            "functional": {
+                "name": "Functional Roles",
+                "description": "Job-specific roles defining what the user can do",
+                "required": False,
+                "multiple_selection": True,
+                "roles": []
+            }
+        }

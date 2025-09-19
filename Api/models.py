@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
@@ -149,5 +149,107 @@ class ProfileResponse(BaseModel):
     mfa_enabled: bool = False  # Indicates whether MFA is set up (without exposing the secret)
     # Add any other non-sensitive profile fields you want to return
     # is_admin: bool # You might include this if you want the client to know their admin status
+
+
+# --- Functional Role Models ---
+
+class FunctionalRoleBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=50, description="Unique role name")
+    label: str = Field(..., min_length=1, max_length=100, description="Display label")
+    description: Optional[str] = Field(None, description="Role description")
+    category: str = Field(default="general", max_length=50, description="Role category")
+    permissions: List[str] = Field(default_factory=list, description="List of permissions")
+    is_active: bool = Field(default=True, description="Whether role is active")
+
+class FunctionalRoleCreate(FunctionalRoleBase):
+    pass
+
+class FunctionalRoleUpdate(BaseModel):
+    label: Optional[str] = Field(None, min_length=1, max_length=100)
+    description: Optional[str] = None
+    category: Optional[str] = Field(None, max_length=50)
+    permissions: Optional[List[str]] = None
+    is_active: Optional[bool] = None
+
+class FunctionalRoleInDB(FunctionalRoleBase):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+    created_by: Optional[UUID] = None
+    updated_by: Optional[UUID] = None
+
+    class Config:
+        from_attributes = True
+
+# --- User Functional Role Assignment Models ---
+
+class UserFunctionalRoleAssignmentBase(BaseModel):
+    user_id: UUID
+    functional_role_id: UUID
+    is_active: bool = Field(default=True)
+    expires_at: Optional[datetime] = None
+    notes: Optional[str] = None
+
+class UserFunctionalRoleAssignmentCreate(UserFunctionalRoleAssignmentBase):
+    pass
+
+class UserFunctionalRoleAssignmentUpdate(BaseModel):
+    is_active: Optional[bool] = None
+    expires_at: Optional[datetime] = None
+    notes: Optional[str] = None
+
+class UserFunctionalRoleAssignmentInDB(UserFunctionalRoleAssignmentBase):
+    id: UUID
+    assigned_at: datetime
+    assigned_by: Optional[UUID] = None
+
+    class Config:
+        from_attributes = True
+
+# --- Bulk Assignment Models ---
+
+class BulkUserFunctionalRoleAssignment(BaseModel):
+    user_id: UUID
+    functional_role_names: List[str] = Field(..., description="List of functional role names to assign")
+    replace_existing: bool = Field(default=True, description="Whether to replace existing assignments")
+    notes: Optional[str] = None
+
+class UserFunctionalRoleAssignmentResponse(BaseModel):
+    user_id: UUID
+    functional_roles: List[FunctionalRoleInDB]
+    assigned_count: int
+    message: str
+
+# --- Role Category Response Models ---
+
+class FunctionalRoleCategory(BaseModel):
+    category: str
+    roles: List[FunctionalRoleInDB]
+    count: int
+
+class FunctionalRoleCategoriesResponse(BaseModel):
+    categories: List[FunctionalRoleCategory]
+    total_roles: int
+
+# --- Role Permission Models ---
+
+class RolePermissionCheck(BaseModel):
+    user_id: UUID
+    permission: str
+
+class RolePermissionResponse(BaseModel):
+    user_id: UUID
+    permission: str
+    has_permission: bool
+    granted_by_roles: List[str] = Field(default_factory=list)
+
+# --- User Roles Summary Models ---
+
+class UserRolesSummary(BaseModel):
+    user_id: UUID
+    administrative_role: Optional[str] = None
+    functional_roles: List[FunctionalRoleInDB] = Field(default_factory=list)
+    all_permissions: List[str] = Field(default_factory=list)
+    is_complete: bool = Field(..., description="Whether user has both admin and functional roles")
 
 

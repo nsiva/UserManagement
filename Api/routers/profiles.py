@@ -104,8 +104,14 @@ async def get_my_full_profile(
             logger.warning(f"User profile not found for user_id: {current_user.user_id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
         
-        roles = await get_user_roles(str(current_user.user_id))
-        logger.info(f"Fetched user {current_user.user_id} with roles: {roles}")
+        # Get both administrative and functional roles
+        administrative_roles = await get_user_roles(str(current_user.user_id))
+        functional_roles_db = await repo.get_user_functional_roles(current_user.user_id, is_active=True)
+        functional_role_names = [role.name for role in functional_roles_db]
+        
+        # Combine all roles
+        roles = administrative_roles + functional_role_names
+        logger.info(f"Fetched user {current_user.user_id} with administrative roles: {administrative_roles}, functional roles: {functional_role_names}")
         mfa_enabled = bool(user_profile.get('mfa_secret') or user_profile.get('mfa_method'))
         
         return UserWithRoles(
