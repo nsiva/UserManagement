@@ -50,10 +50,16 @@ WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 
 # Copy application code (specific files to avoid overwriting .venv)
-COPY main.py models.py database.py exceptions.py ./
+COPY main.py models.py database.py exceptions.py role.py ./
+COPY business_unit.py organization.py ./
 COPY routers/ ./routers/
 COPY database/ ./database/
 COPY migrations/ ./migrations/
+COPY constants/ ./constants/
+COPY validators/ ./validators/
+
+# Create models directory if it doesn't exist (empty directory)
+RUN mkdir -p models
 
 # Remove unnecessary files
 RUN rm -rf .git .env.example scripts/install.sh scripts/test_*.sh env/ __pycache__/ *.pyc || true
