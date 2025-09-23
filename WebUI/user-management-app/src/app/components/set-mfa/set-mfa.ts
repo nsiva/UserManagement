@@ -5,12 +5,13 @@ import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth';
 import { RoleService } from '../../services/role.service';
 import { HeaderComponent } from '../../shared/components/header/header.component';
+import { EnhancedMfaSetupModalComponent } from '../../shared/components/enhanced-mfa-setup-modal/enhanced-mfa-setup-modal.component';
 import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
 import { APP_NAME, PAGES } from '../../shared/constants/app-constants';
 
 @Component({
   selector: 'app-set-mfa',
-  imports: [CommonModule, FormsModule, HeaderComponent],
+  imports: [CommonModule, FormsModule, HeaderComponent, EnhancedMfaSetupModalComponent],
   templateUrl: './set-mfa.html',
   styleUrl: './set-mfa.scss'
 })
@@ -21,14 +22,10 @@ export class SetMfaComponent implements OnInit {
     subtitle: PAGES.SET_MFA,
     showUserMenu: true
   };
-  qrCodeBase64: string | null = null;
-  secret: string | null = null;
-  provisioningUri: string | null = null;
-  loading = false;
-  error: string | null = null;
-  success = false;
+  
   userEmail: string | null = null;
   showPrompt = true; // Start with prompt instead of auto-generating
+  showEnhancedMfaSetupModal = false;
 
   constructor(
     private authService: AuthService,
@@ -42,37 +39,21 @@ export class SetMfaComponent implements OnInit {
   }
 
   confirmSetupMfa(): void {
-    // User confirmed they want to set up MFA
+    // User confirmed they want to set up MFA - show enhanced modal
     this.showPrompt = false;
-    this.setupMfa();
+    this.showEnhancedMfaSetupModal = true;
   }
 
-  setupMfa(): void {
-    this.loading = true;
-    this.error = null;
-
-    this.authService.setupMfa().subscribe({
-      next: (response) => {
-        this.qrCodeBase64 = response.qr_code_base64;
-        this.secret = response.secret;
-        this.provisioningUri = response.provisioning_uri;
-        this.success = true;
-        this.loading = false;
-      },
-      error: (error) => {
-        console.error('MFA setup error:', error);
-        this.error = error.error?.detail || 'Failed to setup MFA. Please try again.';
-        this.loading = false;
-      }
-    });
+  onMfaSetupClosed(): void {
+    this.showEnhancedMfaSetupModal = false;
+    // Return to prompt in case user wants to try again
+    this.showPrompt = true;
   }
 
-  copySecret(): void {
-    if (this.secret) {
-      navigator.clipboard.writeText(this.secret).then(() => {
-        // You might want to show a toast notification here
-      });
-    }
+  onMfaSetupComplete(event: { method: 'totp' | 'email'; userEmail: string }): void {
+    this.showEnhancedMfaSetupModal = false;
+    // MFA setup is complete - redirect to appropriate page
+    this.redirectToLandingPage();
   }
 
   // Header event handlers
