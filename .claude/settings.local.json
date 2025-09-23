@@ -32,7 +32,9 @@
       "Bash(psql:*)",
       "Bash(grep:*)",
       "Bash(ng build)",
-      "Bash(ng build:*)"
+      "Bash(ng build:*)",
+      "Bash(./run-docker-images.sh load:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

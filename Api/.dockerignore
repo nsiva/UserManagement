@@ -1,0 +1,122 @@
+# Git and version control
+.git
+.gitignore
+.gitattributes
+
+# Environment files
+.env*
+!.env.example
+env/
+.venv/
+venv/
+
+# Python cache and build artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Development and testing
+tests/
+test_*.py
+*_test.py
+scripts/
+unittest/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Documentation (keep CLAUDE.md as it's required by pyproject.toml)
+README.md
+*.md
+!CLAUDE.md
+docs/
+
+# Logs and temporary files
+*.log
+logs/
+tmp/
+temp/
+.tmp/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Development scripts
+scripts/install.sh
+scripts/test_*.sh
+scripts/start.sh
+scripts/stop_server.sh
+scripts/db-tools.sh
+scripts/test_mfa*.sh
+scripts/check_*.py
+scripts/disable_*.py
+scripts/fix_*.py
+
+# Development utilities
+create_test_token.py
+demo_dynamic_roles.py
+dumm.py
+export_supabase_data.py
+generate_admin_sql.py
+generate_export_queries.py
+postgres_db_exporter.py
+query_current_data.py
+simple_hash.py
+start_auth_server
+
+# SQL and migration files that aren't needed at runtime
+drop_triggers.sql
+sql_queries/
+migrations/*.sql
+!migrations/Tables.sql
+
+# Test and example files
+test_*.py
+*_test.py
+demo_*.py
+example_*.py
+
+# Troubleshooting and documentation
+TROUBLESHOOTING.md
+REFACTORING_SUMMARY.md
+FORGOT_PASSWORD_SETUP.md
+
+# Note: uv.lock is needed during the builder stage, so don't exclude it
+
+# Requirements file (using pyproject.toml instead)
+requirements.txt

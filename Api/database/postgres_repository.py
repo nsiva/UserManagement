@@ -670,8 +670,8 @@ class PostgresRepository(BaseRepository):
                 logger.error(f"Failed to cleanup user email OTPs for {user_id}: {e}")
                 return False
     
-    async def update_user_mfa_method(self, user_id: UUID, mfa_method: str) -> bool:
-        """Update user's MFA method (totp or email)."""
+    async def update_user_mfa_method(self, user_id: UUID, mfa_method: Optional[str]) -> bool:
+        """Update user's MFA method (totp or email). None to clear MFA method."""
         pool = await self.get_connection_pool()
         async with pool.acquire() as conn:
             try:
@@ -1223,6 +1223,7 @@ class PostgresRepository(BaseRepository):
                         last_name,
                         is_admin,
                         mfa_secret,
+                        mfa_method,
                         business_unit_id,
                         business_unit_name,
                         business_unit_code,
@@ -1277,6 +1278,7 @@ class PostgresRepository(BaseRepository):
                         last_name,
                         is_admin,
                         mfa_secret,
+                        mfa_method,
                         business_unit_id,
                         business_unit_name,
                         business_unit_code,

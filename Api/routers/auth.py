@@ -572,7 +572,8 @@ async def setup_mfa(email: str, current_user: TokenData = Depends(get_current_us
 @auth_router.delete("/mfa/remove", summary="Remove MFA for a user (Admin only)")
 async def remove_mfa(email: str, current_user: TokenData = Depends(get_current_admin_user)):
     """
-    Remove MFA for a user by setting their mfa_secret to NULL.
+    Remove MFA for a user by clearing both mfa_secret and mfa_method.
+    Supports both TOTP (authenticator app) and email MFA removal.
     This endpoint is protected by admin role.
     """
     try:
@@ -581,18 +582,23 @@ async def remove_mfa(email: str, current_user: TokenData = Depends(get_current_a
             logger.warning(f"MFA removal failed: User not found for {email}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
         
-        if not user.mfa_secret:
+        # Check if user has any MFA enabled (either TOTP secret or email method)
+        has_mfa = bool(user.mfa_secret or user.mfa_method)
+        if not has_mfa:
             logger.info(f"MFA removal: User {email} already has no MFA setup")
             return {"message": "MFA is not enabled for this user."}
         
-        # Remove MFA secret
         repo = get_repository()
-        success = await repo.update_mfa_secret(user.id, None)
-        if not success:
+        
+        # Remove both MFA secret (for TOTP) and MFA method (for email/TOTP)
+        success_secret = await repo.update_mfa_secret(user.id, None)
+        success_method = await repo.update_user_mfa_method(user.id, None)
+        
+        if not (success_secret and success_method):
             logger.error(f"Failed to remove MFA for user {user.email}")
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to remove MFA.")
         
-        logger.info(f"MFA removed for user {user.email}")
+        logger.info(f"MFA removed for user {user.email} (secret: {bool(user.mfa_secret)}, method: {user.mfa_method})")
         return {"message": "MFA has been successfully removed."}
     except HTTPException:
         raise

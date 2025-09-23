@@ -1,5 +1,5 @@
 # Use Python 3.11 slim base image for smaller size
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -27,7 +27,7 @@ RUN uv venv --python 3.11 && \
     uv sync --frozen --no-dev
 
 # Production stage
-FROM python:3.11-slim as production
+FROM python:3.11-slim AS production
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -49,20 +49,12 @@ WORKDIR /app
 # Copy virtual environment from builder stage
 COPY --from=builder /app/.venv /app/.venv
 
-# Copy application code (specific files to avoid overwriting .venv)
-COPY main.py models.py database.py exceptions.py role.py ./
-COPY business_unit.py organization.py ./
-COPY routers/ ./routers/
-COPY database/ ./database/
-COPY migrations/ ./migrations/
-COPY constants/ ./constants/
-COPY validators/ ./validators/
+# Copy application code (everything except what's in .dockerignore)
+COPY . ./
 
-# Create models directory if it doesn't exist (empty directory)
-RUN mkdir -p models
-
-# Remove unnecessary files
-RUN rm -rf .git .env.example scripts/install.sh scripts/test_*.sh env/ __pycache__/ *.pyc || true
+# Clean up any files that might have been copied despite .dockerignore
+# Note: Don't remove .venv as it was copied from builder stage
+RUN rm -rf .git .env* env/ __pycache__/ *.pyc scripts/ tests/ unittest/ || true
 
 # Change ownership to non-root user
 RUN chown -R appuser:appuser /app

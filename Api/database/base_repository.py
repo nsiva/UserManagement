@@ -152,8 +152,8 @@ class BaseRepository(ABC):
         pass
     
     @abstractmethod
-    async def update_user_mfa_method(self, user_id: UUID, mfa_method: str) -> bool:
-        """Update user's MFA method (totp or email)."""
+    async def update_user_mfa_method(self, user_id: UUID, mfa_method: Optional[str]) -> bool:
+        """Update user's MFA method (totp or email). None to clear MFA method."""
         pass
     
     # Client Management

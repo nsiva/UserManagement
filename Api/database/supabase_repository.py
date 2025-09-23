@@ -449,8 +449,8 @@ class SupabaseRepository(BaseRepository):
             logger.error(f"Failed to cleanup user email OTPs for {user_id}: {e}")
             return False
     
-    async def update_user_mfa_method(self, user_id: UUID, mfa_method: str) -> bool:
-        """Update user's MFA method (totp or email)."""
+    async def update_user_mfa_method(self, user_id: UUID, mfa_method: Optional[str]) -> bool:
+        """Update user's MFA method (totp or email). None to clear MFA method."""
         try:
             update_data = {
                 'mfa_method': mfa_method,
