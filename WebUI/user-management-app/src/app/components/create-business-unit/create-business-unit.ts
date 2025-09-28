@@ -133,6 +133,10 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
   // Alert properties
   alertMessage: string | null = null;
   alertType: AlertType = 'info';
+  
+  // Inline alert properties (for alerts above save buttons)
+  inlineAlertMessage: string | null = null;
+  inlineAlertType: AlertType = 'info';
 
   // Return navigation parameters
   private returnQueryParams: any = {};
@@ -547,6 +551,21 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
     this.alertMessage = null;
   }
 
+  // Inline alert methods
+  showInlineError(message: string): void {
+    this.inlineAlertMessage = message;
+    this.inlineAlertType = 'error';
+  }
+
+  showInlineSuccess(message: string): void {
+    this.inlineAlertMessage = message;
+    this.inlineAlertType = 'success';
+  }
+
+  onInlineAlertDismissed(): void {
+    this.inlineAlertMessage = null;
+  }
+
   onActiveStatusChange(event: Event): void {
     const target = event.target as HTMLInputElement;
     const isChecked = target.checked;
@@ -724,7 +743,9 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
   // Submit method for business unit creation/update
   onSubmit(): void {
     if (this.businessUnitForm.invalid) {
-      this.showError('Please fill in all required fields correctly.');
+      const message = 'Please fill in all required fields correctly.';
+      this.showError(message);
+      this.showInlineError(message);
       this.markFormGroupTouched();
       return;
     }
@@ -735,6 +756,7 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
 
     this.isSubmitting = true;
     this.alertMessage = null;
+    this.inlineAlertMessage = null;
 
     const formData = this.businessUnitForm.value;
     const businessUnitData = {
@@ -756,7 +778,9 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
       // Update existing business unit
       this.businessUnitService.updateBusinessUnit(this.businessUnitId, businessUnitData).subscribe({
         next: (response) => {
-          this.showSuccess('Business unit updated successfully!');
+          const message = 'Business unit updated successfully!';
+          this.showSuccess(message);
+          this.showInlineSuccess(message);
           // Functional roles section is already visible from checkMode()
           this.isSubmitting = false;
         },
@@ -772,7 +796,9 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
           this.businessUnitId = response.id;
           this.businessUnitToEdit = response;
           this.isEditMode = true;
-          this.showSuccess('Business unit created successfully! Functional roles are now available for configuration.');
+          const message = 'Business unit created successfully! Functional roles are now available for configuration.';
+          this.showSuccess(message);
+          this.showInlineSuccess(message);
           // Functional roles section is already visible from checkMode()
           this.isSubmitting = false;
         },
@@ -796,6 +822,7 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
     }
     
     this.showError(errorMessage);
+    this.showInlineError(errorMessage);
     console.error(`Error ${operation}ing business unit:`, err);
   }
 
@@ -807,7 +834,9 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
   onFunctionalRolesChanged(event: any): void {
     console.log('Business unit functional roles changed:', event);
     if (event.context === 'business_unit') {
-      this.showSuccess(`Business unit functional roles updated: ${event.roles.join(', ')}`);
+      const message = `Business unit functional roles updated: ${event.roles.join(', ')}`;
+      this.showSuccess(message);
+      this.showInlineSuccess(message);
     }
   }
 

@@ -254,6 +254,15 @@
           </div>
         </div>
         
+        <!-- Inline Alert above save buttons -->
+        <app-alert 
+          *ngIf="inlineAlertMessage" 
+          [message]="inlineAlertMessage" 
+          [type]="inlineAlertType"
+          (dismissed)="onInlineAlertDismissed()"
+          class="mt-4">
+        </app-alert>
+        
         <div class="flex justify-end space-x-4 pt-4">
           <button type="button" (click)="cancel()"
                   class="inline-flex items-center px-6 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition-colors">

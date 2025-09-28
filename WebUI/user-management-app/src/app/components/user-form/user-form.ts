@@ -89,6 +89,10 @@ export class UserFormComponent implements OnInit, OnDestroy {
   // Alert properties
   alertMessage: string | null = null;
   alertType: AlertType = 'info';
+  
+  // Inline alert properties (for alerts above save buttons)
+  inlineAlertMessage: string | null = null;
+  inlineAlertType: AlertType = 'info';
   isEditMode = false;
   userId: string | null = null;
   userToEdit: User | null = null;
@@ -605,8 +609,13 @@ export class UserFormComponent implements OnInit, OnDestroy {
   }
 
   onUserSubmit(): void {
+    // Clear any existing inline alerts
+    this.inlineAlertMessage = null;
+    
     if (this.userForm.invalid) {
-      this.showError('Please fill in all required user fields correctly.');
+      const message = 'Please fill in all required user fields correctly.';
+      this.showError(message);
+      this.showInlineError(message);
       return;
     }
 
@@ -616,12 +625,16 @@ export class UserFormComponent implements OnInit, OnDestroy {
     
     if (needsPasswordValidation) {
       if (this.isEditMode && this.passwordResetOption === 'reset_now' && !this.userForm.value.password) {
-        this.showError('Password is required when "Reset password now" option is selected.');
+        const message = 'Password is required when "Reset password now" option is selected.';
+        this.showError(message);
+        this.showInlineError(message);
         return;
       }
       
       if (this.userForm.value.password && !PasswordValidationService.areAllRequirementsMet(this.userForm.value.password)) {
-        this.showError('Please ensure your password meets all the requirements below.');
+        const message = 'Please ensure your password meets all the requirements below.';
+        this.showError(message);
+        this.showInlineError(message);
         return;
       }
     }
@@ -674,14 +687,18 @@ export class UserFormComponent implements OnInit, OnDestroy {
 
         this.userService.updateUser(this.userId, userData).subscribe({
           next: () => {
-            this.showSuccess('User updated successfully!');
+            const message = 'User updated successfully!';
+            this.showSuccess(message);
+            this.showInlineSuccess(message);
             // Navigate back to admin page after 2 seconds
             setTimeout(() => {
               this.navigateToAdmin();
             }, 2000);
           },
           error: (err: HttpErrorResponse) => {
-            this.showError(err.error.detail || 'Failed to update user.');
+            const message = err.error.detail || 'Failed to update user.';
+            this.showError(message);
+            this.showInlineError(message);
             console.error('Error updating user:', err);
           }
         });
@@ -691,7 +708,9 @@ export class UserFormComponent implements OnInit, OnDestroy {
       const passwordOption = this.userForm.value.passwordOption || 'generate_now';
       
       if (passwordOption === 'generate_now' && !this.userForm.value.password) {
-        this.showError('Password is required when "Generate password now" option is selected.');
+        const message = 'Password is required when "Generate password now" option is selected.';
+        this.showError(message);
+        this.showInlineError(message);
         return;
       }
 
@@ -710,12 +729,16 @@ export class UserFormComponent implements OnInit, OnDestroy {
           this.userId = response.id; // Set the user ID for functional roles
           this.userToEdit = response;
           this.isEditMode = true; // Switch to edit mode
-          this.showSuccess('User created successfully! Functional roles are now available for configuration.');
+          const message = 'User created successfully! Functional roles are now available for configuration.';
+          this.showSuccess(message);
+          this.showInlineSuccess(message);
           // Show functional roles section
           this.showFunctionalRoles = true;
         },
         error: (err: HttpErrorResponse) => {
-          this.showError(err.error.detail || 'Failed to create user.');
+          const message = err.error.detail || 'Failed to create user.';
+          this.showError(message);
+          this.showInlineError(message);
           console.error('Error creating user:', err);
         }
       });
@@ -738,6 +761,21 @@ export class UserFormComponent implements OnInit, OnDestroy {
 
   onAlertDismissed(): void {
     this.alertMessage = null;
+  }
+
+  // Inline alert methods
+  showInlineError(message: string): void {
+    this.inlineAlertMessage = message;
+    this.inlineAlertType = 'error';
+  }
+
+  showInlineSuccess(message: string): void {
+    this.inlineAlertMessage = message;
+    this.inlineAlertType = 'success';
+  }
+
+  onInlineAlertDismissed(): void {
+    this.inlineAlertMessage = null;
   }
 
   // Navigation methods for dropdown

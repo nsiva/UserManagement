@@ -129,6 +129,10 @@ export class CreateOrganizationComponent implements OnInit, OnDestroy {
   // Alert properties
   alertMessage: string | null = null;
   alertType: AlertType = 'info';
+  
+  // Inline alert properties (for alerts above save buttons)
+  inlineAlertMessage: string | null = null;
+  inlineAlertType: AlertType = 'info';
 
   constructor(
     private authService: AuthService,
@@ -284,7 +288,9 @@ export class CreateOrganizationComponent implements OnInit, OnDestroy {
 
   onSubmit(): void {
     if (this.organizationForm.invalid) {
-      this.showError('Please fill in all required fields correctly.');
+      const message = 'Please fill in all required fields correctly.';
+      this.showError(message);
+      this.showInlineError(message);
       this.markFormGroupTouched();
       return;
     }
@@ -295,6 +301,7 @@ export class CreateOrganizationComponent implements OnInit, OnDestroy {
 
     this.isSubmitting = true;
     this.alertMessage = null;
+    this.inlineAlertMessage = null;
 
     const formData = this.organizationForm.value;
     const organizationData = {
@@ -313,7 +320,9 @@ export class CreateOrganizationComponent implements OnInit, OnDestroy {
       // Edit mode - update existing organization
       this.organizationService.updateOrganization(this.organizationId, organizationData as OrganizationUpdate).subscribe({
         next: (response) => {
-          this.showSuccess('Organization updated successfully!');
+          const message = 'Organization updated successfully!';
+          this.showSuccess(message);
+          this.showInlineSuccess(message);
           this.isSubmitting = false;
           // Functional roles section already visible in edit mode
         },
@@ -332,6 +341,7 @@ export class CreateOrganizationComponent implements OnInit, OnDestroy {
           }
           
           this.showError(errorMessage);
+          this.showInlineError(errorMessage);
           console.error('Error updating organization:', err);
         }
       });
@@ -342,7 +352,9 @@ export class CreateOrganizationComponent implements OnInit, OnDestroy {
           this.organizationId = response.id; // Set the organization ID for functional roles
           this.organizationToEdit = response;
           this.isEditMode = true; // Switch to edit mode
-          this.showSuccess('Organization created successfully! Functional roles are now available for configuration.');
+          const message = 'Organization created successfully! Functional roles are now available for configuration.';
+          this.showSuccess(message);
+          this.showInlineSuccess(message);
           // Functional roles section is already visible from checkMode()
           this.isSubmitting = false;
         },
@@ -359,6 +371,7 @@ export class CreateOrganizationComponent implements OnInit, OnDestroy {
           }
           
           this.showError(errorMessage);
+          this.showInlineError(errorMessage);
           console.error('Error creating organization:', err);
         }
       });
@@ -384,6 +397,21 @@ export class CreateOrganizationComponent implements OnInit, OnDestroy {
 
   onAlertDismissed(): void {
     this.alertMessage = null;
+  }
+
+  // Inline alert methods
+  showInlineError(message: string): void {
+    this.inlineAlertMessage = message;
+    this.inlineAlertType = 'error';
+  }
+
+  showInlineSuccess(message: string): void {
+    this.inlineAlertMessage = message;
+    this.inlineAlertType = 'success';
+  }
+
+  onInlineAlertDismissed(): void {
+    this.inlineAlertMessage = null;
   }
 
   // Header event handlers
@@ -495,7 +523,9 @@ export class CreateOrganizationComponent implements OnInit, OnDestroy {
   onFunctionalRolesChanged(event: any): void {
     console.log('Functional roles changed:', event);
     if (event.context === 'organization') {
-      this.showSuccess(`Organization functional roles updated: ${event.roles.join(', ')}`);
+      const message = `Organization functional roles updated: ${event.roles.join(', ')}`;
+      this.showSuccess(message);
+      this.showInlineSuccess(message);
     }
   }
 

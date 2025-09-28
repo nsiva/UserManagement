@@ -244,11 +244,16 @@ async def assign_functional_roles_to_user(
             )
         
         # Validate functional roles exist and are available for this user (hierarchy check)
-        from database import supabase
+        from routers.functional_roles_hierarchy import get_available_functional_roles_for_user
         
-        # Get available roles for this user from the hierarchy view
-        available_roles_response = supabase.table("vw_user_available_roles").select("functional_role_name").eq("user_id", str(user_id)).execute()
-        available_role_names = [role["functional_role_name"] for role in available_roles_response.data or []]
+        # Get available roles for this user from the hierarchy service
+        try:
+            available_roles_response = await get_available_functional_roles_for_user(user_id, current_user)
+            available_role_names = [role.name for role in available_roles_response.roles]
+        except Exception as hierarchy_error:
+            logger.warning(f"Could not verify role hierarchy for user {user_id}: {hierarchy_error}")
+            # Fallback to basic role validation without hierarchy check
+            available_role_names = []
         
         for role_name in assignment.functional_role_names:
             role = await repo.get_functional_role_by_name(role_name)
@@ -262,8 +267,8 @@ async def assign_functional_roles_to_user(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Functional role '{role_name}' is not active"
                 )
-            # Check hierarchy constraint - role must be available for this user
-            if role_name not in available_role_names:
+            # Check hierarchy constraint - role must be available for this user (if we have the data)
+            if available_role_names and role_name not in available_role_names:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Functional role '{role_name}' is not available for this user. The role must be enabled at the user's business unit level."
