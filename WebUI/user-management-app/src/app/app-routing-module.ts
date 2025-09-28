@@ -12,6 +12,7 @@ import { ResetPasswordComponent } from './components/reset-password/reset-passwo
 import { ForgotPasswordComponent } from './components/forgot-password/forgot-password';
 import { SetNewPasswordComponent } from './components/set-new-password/set-new-password';
 import { SetMfaComponent } from './components/set-mfa/set-mfa';
+import { FunctionalRolesHierarchyViewComponent } from './components/functional-roles-hierarchy-view/functional-roles-hierarchy-view';
 
 
 export const routes: Routes = [
@@ -23,6 +24,7 @@ export const routes: Routes = [
   { path: 'admin/edit-organization/:id', component: CreateOrganizationComponent, canActivate: [AuthGuard], data: { roles: ['admin', 'firm_admin', 'group_admin', 'super_user'] } },
   { path: 'admin/create-business-unit', component: CreateBusinessUnitComponent, canActivate: [AuthGuard], data: { roles: ['admin', 'firm_admin', 'group_admin', 'super_user'] } },
   { path: 'admin/edit-business-unit/:id', component: CreateBusinessUnitComponent, canActivate: [AuthGuard], data: { roles: ['admin', 'firm_admin', 'group_admin', 'super_user'] } },
+  { path: 'admin/roles-hierarchy', component: FunctionalRolesHierarchyViewComponent, canActivate: [AuthGuard], data: { roles: ['admin', 'firm_admin', 'super_user'] } },
   { path: '', redirectTo: '/login', pathMatch: 'full' },
   { path: 'profile', component: ProfileComponent, canActivate: [AuthGuard] },
   { path: 'set-mfa', component: SetMfaComponent, canActivate: [AuthGuard] },

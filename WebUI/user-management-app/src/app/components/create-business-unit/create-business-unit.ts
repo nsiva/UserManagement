@@ -14,6 +14,7 @@ import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
 import { AlertComponent, AlertType } from '../../shared/components/alert/alert.component';
 import { AutocompleteComponent, AutocompleteOption } from '../../shared/components/autocomplete/autocomplete.component';
 import { ConfirmationDialogComponent } from '../../shared/components/confirmation-dialog/confirmation-dialog.component';
+import { EntityTabsComponent } from '../entity-tabs/entity-tabs.component';
 import { APP_NAME } from '../../shared/constants/app-constants';
 import { 
   ADMIN, SUPER_USER, ORGANIZATION_ADMIN, BUSINESS_UNIT_ADMIN,
@@ -23,7 +24,7 @@ import {
 @Component({
   selector: 'app-create-business-unit',
   standalone: true,
-  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent, AutocompleteComponent, ConfirmationDialogComponent],
+  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent, AutocompleteComponent, ConfirmationDialogComponent, EntityTabsComponent],
   templateUrl: './create-business-unit.html',
   styleUrl: './create-business-unit.scss'
 })
@@ -113,6 +114,9 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
   businessUnitToEdit: BusinessUnit | null = null;
   isLoading = false;
   private routeSubscription: Subscription | null = null;
+  
+  // Functional roles management
+  showFunctionalRoles = false;
 
   // Available options
   availableOrganizations: Organization[] = [];
@@ -219,6 +223,8 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
     if (this.isEditMode && this.businessUnitId) {
       // Load business unit data for editing
       this.loadBusinessUnitForEdit(this.businessUnitId);
+      // Show functional roles section immediately for edit mode
+      this.showFunctionalRoles = true;
     } else {
       // Ensure form is blank for create mode
       this.businessUnitForm.reset({
@@ -238,6 +244,9 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
       
       console.log('CreateBusinessUnitComponent: Create mode - form reset to blank values:', this.businessUnitForm.value);
     }
+
+    // Show functional roles section for both create and edit modes
+    this.showFunctionalRoles = true;
 
     // Check if user has appropriate role
     if (!this.hasBusinessUnitAccess()) {
@@ -490,84 +499,7 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
     return hasAnyAdminAccess(roles);
   }
 
-  onSubmit(): void {
-    if (this.businessUnitForm.invalid) {
-      this.showError('Please fill in all required fields correctly.');
-      this.markFormGroupTouched();
-      return;
-    }
-
-    if (this.isSubmitting) {
-      return;
-    }
-
-    this.isSubmitting = true;
-    this.alertMessage = null;
-
-    const formData = this.businessUnitForm.value;
-    console.log('=== FORM DATA DEBUG ===');
-    console.log('Raw form data:', formData);
-    console.log('is_active raw value:', formData.is_active);
-    console.log('is_active type:', typeof formData.is_active);
-    console.log('is_active === true:', formData.is_active === true);
-    console.log('is_active === false:', formData.is_active === false);
-    console.log('is_active === null:', formData.is_active === null);
-    console.log('is_active === undefined:', formData.is_active === undefined);
-    
-    const convertedBoolean = this.ensureBoolean(formData.is_active);
-    console.log('Converted boolean value:', convertedBoolean);
-    console.log('=====================');
-    
-    const businessUnitData = {
-      organization_id: formData.organization_id,
-      name: formData.name.trim(),
-      parent_unit_id: formData.parent_unit_id || undefined,
-      code: formData.code ? formData.code.trim() : undefined,
-      description: formData.description ? formData.description.trim() : undefined,
-      manager_id: formData.manager_id || undefined,
-      location: formData.location ? formData.location.trim() : undefined,
-      country: formData.country ? formData.country.trim() : undefined,
-      region: formData.region ? formData.region.trim() : undefined,
-      email: formData.email ? formData.email.trim() : undefined,
-      phone_number: formData.phone_number ? formData.phone_number.trim() : undefined,
-      is_active: convertedBoolean
-    };
-    
-    console.log('Final business unit data being sent:', businessUnitData);
-
-    if (this.isEditMode && this.businessUnitId) {
-      // Edit mode - update existing business unit
-      // Remove organization_id from update data as it shouldn't be changed
-      const { organization_id, ...updateData } = businessUnitData;
-      
-      this.businessUnitService.updateBusinessUnit(this.businessUnitId, updateData as BusinessUnitUpdate).subscribe({
-        next: () => {
-          this.showSuccess('Business unit updated successfully!');
-          setTimeout(() => {
-            this.navigateToAdmin();
-          }, 2000);
-        },
-        error: (err: HttpErrorResponse) => {
-          this.isSubmitting = false;
-          this.handleBusinessUnitError(err, 'update');
-        }
-      });
-    } else {
-      // Create mode - create new business unit
-      this.businessUnitService.createBusinessUnit(businessUnitData as BusinessUnitCreate).subscribe({
-        next: () => {
-          this.showSuccess('Business unit created successfully!');
-          setTimeout(() => {
-            this.navigateToAdmin();
-          }, 2000);
-        },
-        error: (err: HttpErrorResponse) => {
-          this.isSubmitting = false;
-          this.handleBusinessUnitError(err, 'create');
-        }
-      });
-    }
-  }
+  // The complete onSubmit method is implemented below with functional roles integration
 
   handleBusinessUnitError(err: HttpErrorResponse, operation: string): void {
     console.error(`Error ${operation} business unit:`, err);
@@ -787,5 +719,99 @@ export class CreateBusinessUnitComponent implements OnInit, OnDestroy {
 
   onCancelDismissed(): void {
     this.showCancelConfirmDialog = false;
+  }
+
+  // Submit method for business unit creation/update
+  onSubmit(): void {
+    if (this.businessUnitForm.invalid) {
+      this.showError('Please fill in all required fields correctly.');
+      this.markFormGroupTouched();
+      return;
+    }
+
+    if (this.isSubmitting) {
+      return;
+    }
+
+    this.isSubmitting = true;
+    this.alertMessage = null;
+
+    const formData = this.businessUnitForm.value;
+    const businessUnitData = {
+      organization_id: formData.organization_id,
+      name: formData.name?.trim(),
+      parent_unit_id: formData.parent_unit_id || null,
+      code: formData.code?.trim() || null,
+      description: formData.description?.trim() || null,
+      manager_id: formData.manager_id || null,
+      location: formData.location?.trim() || null,
+      country: formData.country?.trim() || null,
+      region: formData.region?.trim() || null,
+      email: formData.email?.trim() || null,
+      phone_number: formData.phone_number?.trim() || null,
+      is_active: this.ensureBoolean(formData.is_active)
+    };
+
+    if (this.isEditMode && this.businessUnitId) {
+      // Update existing business unit
+      this.businessUnitService.updateBusinessUnit(this.businessUnitId, businessUnitData).subscribe({
+        next: (response) => {
+          this.showSuccess('Business unit updated successfully!');
+          // Functional roles section is already visible from checkMode()
+          this.isSubmitting = false;
+        },
+        error: (err: HttpErrorResponse) => {
+          this.isSubmitting = false;
+          this.handleSubmitError(err, 'update');
+        }
+      });
+    } else {
+      // Create new business unit
+      this.businessUnitService.createBusinessUnit(businessUnitData).subscribe({
+        next: (response) => {
+          this.businessUnitId = response.id;
+          this.businessUnitToEdit = response;
+          this.isEditMode = true;
+          this.showSuccess('Business unit created successfully! Functional roles are now available for configuration.');
+          // Functional roles section is already visible from checkMode()
+          this.isSubmitting = false;
+        },
+        error: (err: HttpErrorResponse) => {
+          this.isSubmitting = false;
+          this.handleSubmitError(err, 'create');
+        }
+      });
+    }
+  }
+
+  private handleSubmitError(err: HttpErrorResponse, operation: 'create' | 'update'): void {
+    let errorMessage = `Failed to ${operation} business unit.`;
+    
+    if (err.error?.detail) {
+      errorMessage = err.error.detail;
+    } else if (err.status === 409) {
+      errorMessage = 'A business unit with this information already exists.';
+    } else if (err.status === 403) {
+      errorMessage = `You do not have permission to ${operation} business units.`;
+    }
+    
+    this.showError(errorMessage);
+    console.error(`Error ${operation}ing business unit:`, err);
+  }
+
+  // Tab and functional roles event handlers
+  onTabChanged(tabId: string): void {
+    console.log('Tab changed to:', tabId);
+  }
+
+  onFunctionalRolesChanged(event: any): void {
+    console.log('Business unit functional roles changed:', event);
+    if (event.context === 'business_unit') {
+      this.showSuccess(`Business unit functional roles updated: ${event.roles.join(', ')}`);
+    }
+  }
+
+  finishAndNavigateToAdmin(): void {
+    this.router.navigate(['/admin']);
   }
 }

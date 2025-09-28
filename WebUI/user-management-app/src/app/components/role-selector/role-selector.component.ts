@@ -24,7 +24,6 @@ interface RoleCategories {
 
 interface RoleSelection {
   administrative: string;
-  functional: string[];
 }
 
 @Component({
@@ -52,7 +51,7 @@ export class RoleSelectorComponent implements OnInit, ControlValueAccessor {
 
   roleCategories: RoleCategories | null = null;
   selectedAdministrative: string = '';
-  selectedFunctional: string[] = [];
+  // Note: Functional roles are now handled by the FunctionalRolesManagerComponent in the tabs
   loading: boolean = false;
   error: string = '';
 
@@ -97,17 +96,7 @@ export class RoleSelectorComponent implements OnInit, ControlValueAccessor {
     this.onTouched();
   }
 
-  onFunctionalChange(role: string, checked: boolean): void {
-    if (checked) {
-      if (!this.selectedFunctional.includes(role)) {
-        this.selectedFunctional.push(role);
-      }
-    } else {
-      this.selectedFunctional = this.selectedFunctional.filter(r => r !== role);
-    }
-    this.emitChange();
-    this.onTouched();
-  }
+  // Functional roles are now handled by the EntityTabsComponent
 
   private emitChange(): void {
     const allRoles = this.getCombinedRoles();
@@ -122,14 +111,11 @@ export class RoleSelectorComponent implements OnInit, ControlValueAccessor {
       roles.push(this.selectedAdministrative);
     }
     
-    roles.push(...this.selectedFunctional);
-    
+    // Functional roles are handled separately by EntityTabsComponent
     return roles;
   }
 
-  isFunctionalRoleSelected(role: string): boolean {
-    return this.selectedFunctional.includes(role);
-  }
+  // Functional role selection is handled by EntityTabsComponent
 
   // ControlValueAccessor implementation
   writeValue(roles: string[]): void {
@@ -143,7 +129,6 @@ export class RoleSelectorComponent implements OnInit, ControlValueAccessor {
     if (!roles || roles.length === 0) {
       console.log('RoleSelector: Empty or null roles, clearing selections');
       this.selectedAdministrative = '';
-      this.selectedFunctional = [];
       return;
     }
 
@@ -154,28 +139,21 @@ export class RoleSelectorComponent implements OnInit, ControlValueAccessor {
       return;
     }
 
-    // Separate administrative and functional roles
+    // Only handle administrative roles - functional roles are managed by EntityTabsComponent
     const adminRoles = this.roleCategories.administrative.roles.map(r => r.value);
-    const functionalRoles = this.roleCategories.functional.roles.map(r => r.value);
-
     const foundAdminRole = roles.find(role => adminRoles.includes(role)) || '';
-    const foundFunctionalRoles = roles.filter(role => functionalRoles.includes(role));
 
-    console.log('RoleSelector: Role separation:', { 
+    console.log('RoleSelector: Admin role extraction:', { 
       inputRoles: roles,
       availableAdminRoles: adminRoles,
-      availableFunctionalRoles: functionalRoles,
       foundAdminRole,
-      foundFunctionalRoles,
       disableAdministrativeRole: this.disableAdministrativeRole
     });
 
     this.selectedAdministrative = foundAdminRole;
-    this.selectedFunctional = foundFunctionalRoles;
     
     console.log('RoleSelector writeValue complete:', { 
-      selectedAdministrative: this.selectedAdministrative, 
-      selectedFunctional: this.selectedFunctional,
+      selectedAdministrative: this.selectedAdministrative,
       disableAdministrativeRole: this.disableAdministrativeRole,
       timestamp: new Date().toISOString()
     });
@@ -209,13 +187,9 @@ export class RoleSelectorComponent implements OnInit, ControlValueAccessor {
   getRoleLabel(roleValue: string): string {
     if (!this.roleCategories) return roleValue;
     
-    // Check administrative roles
+    // Only check administrative roles (functional roles handled by EntityTabsComponent)
     const adminRole = this.roleCategories.administrative.roles.find(r => r.value === roleValue);
     if (adminRole) return adminRole.label;
-    
-    // Check functional roles
-    const functionalRole = this.roleCategories.functional.roles.find(r => r.value === roleValue);
-    if (functionalRole) return functionalRole.label;
     
     return roleValue;
   }

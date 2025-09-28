@@ -1,0 +1,117 @@
+<div class="functional-roles-manager bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+  <div class="mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ getContextTitle() }}</h3>
+    <p class="text-sm text-gray-600">{{ getContextDescription() }}</p>
+  </div>
+
+  <!-- Alert Component -->
+  <app-alert
+    *ngIf="alertMessage"
+    [type]="alertType"
+    [message]="alertMessage"
+    (dismissed)="onAlertDismissed()">
+  </app-alert>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="flex items-center justify-center py-8">
+    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+    <span class="ml-3 text-gray-600">Loading functional roles...</span>
+  </div>
+
+  <!-- No Roles Available -->
+  <div *ngIf="!isLoading && availableRoles.length === 0" 
+       class="text-center py-8 text-gray-500">
+    <p>No functional roles available for this {{ context.replace('_', ' ') }}.</p>
+    <p *ngIf="context === 'business_unit'" class="mt-2 text-sm">
+      Roles must be enabled at the organization level first.
+    </p>
+  </div>
+
+  <!-- Roles List -->
+  <div *ngIf="!isLoading && availableRoles.length > 0" class="space-y-6">
+    <!-- Group roles by category -->
+    <div *ngFor="let category of getCategories()" class="border border-gray-200 rounded-lg overflow-hidden">
+      <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+        <h4 class="font-medium text-gray-900 capitalize">{{ category }}</h4>
+      </div>
+      
+      <div class="divide-y divide-gray-200">
+        <div *ngFor="let role of getRolesByCategory()[category]" 
+             class="p-4 hover:bg-gray-50 transition-colors">
+          <div class="flex items-start">
+            <div class="flex items-center h-5">
+              <input 
+                [id]="'role-' + role.functional_role_id"
+                type="checkbox"
+                [checked]="isRoleSelected(role.functional_role_id)"
+                [disabled]="readonly || isSubmitting"
+                (change)="onRoleToggle(role.functional_role_id, $any($event.target).checked)"
+                class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+            </div>
+            
+            <div class="ml-3 flex-1">
+              <label 
+                [for]="'role-' + role.functional_role_id" 
+                class="font-medium text-gray-900 cursor-pointer">
+                {{ role.label }}
+              </label>
+              
+              <p class="text-sm text-gray-600 mt-1">{{ role.description }}</p>
+              
+              <!-- Status indicators -->
+              <div class="flex items-center mt-2 space-x-3">
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                      [class]="role.is_currently_enabled || role.is_currently_assigned ? 
+                               'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'">
+                  <span class="w-1.5 h-1.5 rounded-full mr-1.5"
+                        [class]="role.is_currently_enabled || role.is_currently_assigned ? 'bg-green-400' : 'bg-gray-400'">
+                  </span>
+                  {{ context === 'user' ? 
+                      (role.is_currently_assigned ? 'Assigned' : 'Available') : 
+                      (role.is_currently_enabled ? 'Enabled' : 'Available') }}
+                </span>
+                
+                <!-- Show business unit context for user roles -->
+                <span *ngIf="context === 'user' && role.business_unit_name" 
+                      class="text-xs text-gray-500">
+                  via {{ role.business_unit_name }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div *ngIf="!readonly" class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+      <button
+        type="button"
+        (click)="loadData()"
+        [disabled]="isSubmitting"
+        class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50">
+        Refresh
+      </button>
+      
+      <button
+        type="button"
+        (click)="saveChanges()"
+        [disabled]="isSubmitting"
+        class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50">
+        <span *ngIf="isSubmitting" class="inline-flex items-center">
+          <div class="animate-spin -ml-1 mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+          Saving...
+        </span>
+        <span *ngIf="!isSubmitting">Save Changes</span>
+      </button>
+    </div>
+
+    <!-- Information note for user context -->
+    <div *ngIf="context === 'user'" class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+      <p class="text-sm text-blue-800">
+        <strong>Note:</strong> Only functional roles enabled at the user's business unit level are available for assignment.
+        Users can only be assigned roles that are active in their business unit.
+      </p>
+    </div>
+  </div>
+</div>

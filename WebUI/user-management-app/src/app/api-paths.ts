@@ -14,5 +14,19 @@ export const API_PATHS = {
   businessUnits: '/business-units',
   businessUnitById: (id: string) => `/business-units/${id}`,
   businessUnitHierarchy: (organizationId: string) => `/business-units/hierarchy/${organizationId}`,
+  // Basic Functional Roles endpoints
+  functionalRoles: '/functional-roles',
+  functionalRoleById: (id: string) => `/functional-roles/${id}`,
+  functionalRolesByCategory: '/functional-roles/categories',
+  // Functional Roles Hierarchy endpoints
+  functionalRolesHierarchy: '/functional-roles-hierarchy',
+  orgFunctionalRoles: (orgId: string) => `/functional-roles-hierarchy/organizations/${orgId}/roles`,
+  orgFunctionalRolesBulk: (orgId: string) => `/functional-roles-hierarchy/organizations/${orgId}/roles/bulk`,
+  buFunctionalRoles: (buId: string) => `/functional-roles-hierarchy/business-units/${buId}/roles`,
+  buFunctionalRolesBulk: (buId: string) => `/functional-roles-hierarchy/business-units/${buId}/roles/bulk`,
+  buAvailableRoles: (buId: string) => `/functional-roles-hierarchy/business-units/${buId}/available-roles`,
+  userAvailableRoles: (userId: string) => `/functional-roles-hierarchy/users/${userId}/available-roles`,
+  userFunctionalRolesAssign: (userId: string) => `/functional-roles/users/${userId}/assign`,
+  functionalRoleHierarchyView: '/functional-roles-hierarchy/hierarchy',
   // Add other endpoints as needed
 };

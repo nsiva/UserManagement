@@ -252,4 +252,100 @@ class UserRolesSummary(BaseModel):
     all_permissions: List[str] = Field(default_factory=list)
     is_complete: bool = Field(..., description="Whether user has both admin and functional roles")
 
+# --- Hierarchical Functional Role Models ---
+
+class OrganizationFunctionalRoleBase(BaseModel):
+    organization_id: UUID
+    functional_role_id: UUID
+    is_enabled: bool = Field(default=True, description="Whether role is enabled at organization level")
+    notes: Optional[str] = None
+
+class OrganizationFunctionalRoleCreate(OrganizationFunctionalRoleBase):
+    pass
+
+class OrganizationFunctionalRoleUpdate(BaseModel):
+    is_enabled: Optional[bool] = None
+    notes: Optional[str] = None
+
+class OrganizationFunctionalRoleInDB(OrganizationFunctionalRoleBase):
+    id: UUID
+    assigned_at: datetime
+    assigned_by: Optional[UUID] = None
+
+    class Config:
+        from_attributes = True
+
+class BusinessUnitFunctionalRoleBase(BaseModel):
+    business_unit_id: UUID
+    functional_role_id: UUID
+    is_enabled: bool = Field(default=True, description="Whether role is enabled at business unit level")
+    notes: Optional[str] = None
+
+class BusinessUnitFunctionalRoleCreate(BusinessUnitFunctionalRoleBase):
+    pass
+
+class BusinessUnitFunctionalRoleUpdate(BaseModel):
+    is_enabled: Optional[bool] = None
+    notes: Optional[str] = None
+
+class BusinessUnitFunctionalRoleInDB(BusinessUnitFunctionalRoleBase):
+    id: UUID
+    assigned_at: datetime
+    assigned_by: Optional[UUID] = None
+
+    class Config:
+        from_attributes = True
+
+# --- Available Functional Roles Models ---
+
+class AvailableFunctionalRole(BaseModel):
+    functional_role_id: UUID
+    name: str
+    label: str
+    description: Optional[str] = None
+    category: str
+    is_currently_enabled: Optional[bool] = None
+    is_currently_assigned: Optional[bool] = None
+    business_unit_name: Optional[str] = None
+
+class AvailableFunctionalRolesResponse(BaseModel):
+    roles: List[AvailableFunctionalRole]
+    total_count: int
+    context: str = Field(..., description="Context: 'business_unit' or 'user'")
+
+# --- Bulk Assignment Models for Hierarchy ---
+
+class BulkOrganizationFunctionalRoleAssignment(BaseModel):
+    organization_id: UUID
+    functional_role_names: List[str] = Field(..., description="List of functional role names to enable")
+    is_enabled: bool = Field(default=True, description="Enable or disable roles")
+    notes: Optional[str] = None
+
+class BulkBusinessUnitFunctionalRoleAssignment(BaseModel):
+    business_unit_id: UUID
+    functional_role_names: List[str] = Field(..., description="List of functional role names to enable")
+    is_enabled: bool = Field(default=True, description="Enable or disable roles")
+    notes: Optional[str] = None
+
+# --- Hierarchy Response Models ---
+
+class FunctionalRoleHierarchyItem(BaseModel):
+    organization_id: UUID
+    organization_name: str
+    business_unit_id: Optional[UUID] = None
+    business_unit_name: Optional[str] = None
+    functional_role_id: UUID
+    functional_role_name: str
+    functional_role_label: str
+    functional_role_category: str
+    enabled_at_org: Optional[bool] = None
+    enabled_at_bu: Optional[bool] = None
+    users_with_role: int = 0
+
+class FunctionalRoleHierarchyResponse(BaseModel):
+    hierarchy: List[FunctionalRoleHierarchyItem]
+    total_organizations: int
+    total_business_units: int
+    total_roles: int
+
 

@@ -22,133 +22,146 @@
         <span class="ml-3 text-gray-600">Loading organization data...</span>
       </div>
       
-      <form *ngIf="!isLoading" [formGroup]="organizationForm" (ngSubmit)="onSubmit()" class="space-y-6" autocomplete="off">
-        <!-- Company Information Section -->
-        <div class="border-b border-theme-border pb-6">
-          <h4 class="text-lg font-medium text-theme-text mb-4">Company Information</h4>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="md:col-span-2">
-              <label for="companyName" class="block text-sm font-medium text-theme-text-secondary">Company Name *</label>
-              <input type="text" id="companyName" formControlName="companyName"
-                     class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
-                     [ngClass]="{'border-theme-error': isFieldInvalid('companyName')}"
-                     placeholder="Enter company name">
-              <div *ngIf="isFieldInvalid('companyName')" class="text-theme-error text-xs mt-1">
-                {{ getFieldError('companyName') }}
+      <!-- Tabbed Interface -->
+      <app-entity-tabs
+        *ngIf="!isLoading"
+        entityType="organization"
+        [entityId]="organizationId"
+        [showFunctionalRoles]="true"
+        (tabChanged)="onTabChanged($event)"
+        (functionalRolesChanged)="onFunctionalRolesChanged($event)">
+        
+        <!-- Basic Information Content -->
+        <div slot="basic-content">
+          <form [formGroup]="organizationForm" (ngSubmit)="onSubmit()" class="space-y-6" autocomplete="off">
+            <!-- Company Information Section -->
+            <div class="border-b border-theme-border pb-6">
+              <h4 class="text-lg font-medium text-theme-text mb-4">Company Information</h4>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="md:col-span-2">
+                  <label for="companyName" class="block text-sm font-medium text-theme-text-secondary">Company Name *</label>
+                  <input type="text" id="companyName" formControlName="companyName"
+                         class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+                         [ngClass]="{'border-theme-error': isFieldInvalid('companyName')}"
+                         placeholder="Enter company name">
+                  <div *ngIf="isFieldInvalid('companyName')" class="text-theme-error text-xs mt-1">
+                    {{ getFieldError('companyName') }}
+                  </div>
+                </div>
+                
+                <div>
+                  <label for="email" class="block text-sm font-medium text-theme-text-secondary">Email *</label>
+                  <input type="email" id="email" formControlName="email"
+                         class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+                         [ngClass]="{'border-theme-error': isFieldInvalid('email')}"
+                         placeholder="company@example.com">
+                  <div *ngIf="isFieldInvalid('email')" class="text-theme-error text-xs mt-1">
+                    {{ getFieldError('email') }}
+                  </div>
+                </div>
+                
+                <div>
+                  <label for="phoneNumber" class="block text-sm font-medium text-theme-text-secondary">Phone Number *</label>
+                  <input type="tel" id="phoneNumber" formControlName="phoneNumber"
+                         class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+                         [ngClass]="{'border-theme-error': isFieldInvalid('phoneNumber')}"
+                         placeholder="+1 (555) 123-4567">
+                  <div *ngIf="isFieldInvalid('phoneNumber')" class="text-theme-error text-xs mt-1">
+                    {{ getFieldError('phoneNumber') }}
+                  </div>
+                </div>
               </div>
             </div>
-            
-            <div>
-              <label for="email" class="block text-sm font-medium text-theme-text-secondary">Email *</label>
-              <input type="email" id="email" formControlName="email"
-                     class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
-                     [ngClass]="{'border-theme-error': isFieldInvalid('email')}"
-                     placeholder="company@example.com">
-              <div *ngIf="isFieldInvalid('email')" class="text-theme-error text-xs mt-1">
-                {{ getFieldError('email') }}
-              </div>
-            </div>
-            
-            <div>
-              <label for="phoneNumber" class="block text-sm font-medium text-theme-text-secondary">Phone Number *</label>
-              <input type="tel" id="phoneNumber" formControlName="phoneNumber"
-                     class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
-                     [ngClass]="{'border-theme-error': isFieldInvalid('phoneNumber')}"
-                     placeholder="+1 (555) 123-4567">
-              <div *ngIf="isFieldInvalid('phoneNumber')" class="text-theme-error text-xs mt-1">
-                {{ getFieldError('phoneNumber') }}
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <!-- Address Information Section -->
-        <div>
-          <h4 class="text-lg font-medium text-theme-text mb-4">Address Information</h4>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="md:col-span-2">
-              <label for="address1" class="block text-sm font-medium text-theme-text-secondary">Address Line 1 *</label>
-              <input type="text" id="address1" formControlName="address1"
-                     class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
-                     [ngClass]="{'border-theme-error': isFieldInvalid('address1')}"
-                     placeholder="Street address">
-              <div *ngIf="isFieldInvalid('address1')" class="text-theme-error text-xs mt-1">
-                {{ getFieldError('address1') }}
-              </div>
-            </div>
-            
-            <div class="md:col-span-2">
-              <label for="address2" class="block text-sm font-medium text-theme-text-secondary">Address Line 2</label>
-              <input type="text" id="address2" formControlName="address2"
-                     class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
-                     placeholder="Apartment, suite, etc. (optional)">
-            </div>
-            
+            <!-- Address Information Section -->
             <div>
-              <label for="cityTown" class="block text-sm font-medium text-theme-text-secondary">City/Town *</label>
-              <input type="text" id="cityTown" formControlName="cityTown"
-                     class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
-                     [ngClass]="{'border-theme-error': isFieldInvalid('cityTown')}"
-                     placeholder="City or town">
-              <div *ngIf="isFieldInvalid('cityTown')" class="text-theme-error text-xs mt-1">
-                {{ getFieldError('cityTown') }}
+              <h4 class="text-lg font-medium text-theme-text mb-4">Address Information</h4>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="md:col-span-2">
+                  <label for="address1" class="block text-sm font-medium text-theme-text-secondary">Address Line 1 *</label>
+                  <input type="text" id="address1" formControlName="address1"
+                         class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+                         [ngClass]="{'border-theme-error': isFieldInvalid('address1')}"
+                         placeholder="Street address">
+                  <div *ngIf="isFieldInvalid('address1')" class="text-theme-error text-xs mt-1">
+                    {{ getFieldError('address1') }}
+                  </div>
+                </div>
+                
+                <div class="md:col-span-2">
+                  <label for="address2" class="block text-sm font-medium text-theme-text-secondary">Address Line 2</label>
+                  <input type="text" id="address2" formControlName="address2"
+                         class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+                         placeholder="Apartment, suite, etc. (optional)">
+                </div>
+                
+                <div>
+                  <label for="cityTown" class="block text-sm font-medium text-theme-text-secondary">City/Town *</label>
+                  <input type="text" id="cityTown" formControlName="cityTown"
+                         class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+                         [ngClass]="{'border-theme-error': isFieldInvalid('cityTown')}"
+                         placeholder="City or town">
+                  <div *ngIf="isFieldInvalid('cityTown')" class="text-theme-error text-xs mt-1">
+                    {{ getFieldError('cityTown') }}
+                  </div>
+                </div>
+                
+                <div>
+                  <label for="state" class="block text-sm font-medium text-theme-text-secondary">State/Province *</label>
+                  <input type="text" id="state" formControlName="state"
+                         class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+                         [ngClass]="{'border-theme-error': isFieldInvalid('state')}"
+                         placeholder="State or province">
+                  <div *ngIf="isFieldInvalid('state')" class="text-theme-error text-xs mt-1">
+                    {{ getFieldError('state') }}
+                  </div>
+                </div>
+                
+                <div>
+                  <label for="zip" class="block text-sm font-medium text-theme-text-secondary">ZIP/Postal Code *</label>
+                  <input type="text" id="zip" formControlName="zip"
+                         class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+                         [ngClass]="{'border-theme-error': isFieldInvalid('zip')}"
+                         placeholder="ZIP or postal code">
+                  <div *ngIf="isFieldInvalid('zip')" class="text-theme-error text-xs mt-1">
+                    {{ getFieldError('zip') }}
+                  </div>
+                </div>
+                
+                <div>
+                  <label for="country" class="block text-sm font-medium text-theme-text-secondary">Country *</label>
+                  <input type="text" id="country" formControlName="country"
+                         class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
+                         [ngClass]="{'border-theme-error': isFieldInvalid('country')}"
+                         placeholder="Country">
+                  <div *ngIf="isFieldInvalid('country')" class="text-theme-error text-xs mt-1">
+                    {{ getFieldError('country') }}
+                  </div>
+                </div>
               </div>
             </div>
-            
-            <div>
-              <label for="state" class="block text-sm font-medium text-theme-text-secondary">State/Province *</label>
-              <input type="text" id="state" formControlName="state"
-                     class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
-                     [ngClass]="{'border-theme-error': isFieldInvalid('state')}"
-                     placeholder="State or province">
-              <div *ngIf="isFieldInvalid('state')" class="text-theme-error text-xs mt-1">
-                {{ getFieldError('state') }}
-              </div>
-            </div>
-            
-            <div>
-              <label for="zip" class="block text-sm font-medium text-theme-text-secondary">ZIP/Postal Code *</label>
-              <input type="text" id="zip" formControlName="zip"
-                     class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
-                     [ngClass]="{'border-theme-error': isFieldInvalid('zip')}"
-                     placeholder="ZIP or postal code">
-              <div *ngIf="isFieldInvalid('zip')" class="text-theme-error text-xs mt-1">
-                {{ getFieldError('zip') }}
-              </div>
-            </div>
-            
-            <div>
-              <label for="country" class="block text-sm font-medium text-theme-text-secondary">Country *</label>
-              <input type="text" id="country" formControlName="country"
-                     class="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm bg-theme-background text-theme-text border-theme-border"
-                     [ngClass]="{'border-theme-error': isFieldInvalid('country')}"
-                     placeholder="Country">
-              <div *ngIf="isFieldInvalid('country')" class="text-theme-error text-xs mt-1">
-                {{ getFieldError('country') }}
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <!-- Form Actions -->
-        <div class="flex justify-end space-x-3 pt-6 border-t border-theme-border">
-          <button type="button" (click)="navigateToAdmin()" 
-                  class="px-4 py-2 border border-theme-border rounded-md shadow-sm text-sm font-medium text-theme-text bg-theme-background hover:bg-theme-surface-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-theme-primary transition-colors">
-            Cancel
-          </button>
-          <button type="submit" [disabled]="organizationForm.invalid || isSubmitting"
-                  class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-theme-primary-text bg-theme-primary hover:bg-theme-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-theme-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-            <span *ngIf="isSubmitting" class="inline-flex items-center">
-              <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-theme-primary-text" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              {{ isEditMode ? 'Updating...' : 'Creating...' }}
-            </span>
-            <span *ngIf="!isSubmitting">{{ isEditMode ? 'Update Organization' : 'Create Organization' }}</span>
-          </button>
+            <!-- Form Actions -->
+            <div class="flex justify-end space-x-3 pt-6 border-t border-theme-border">
+              <button type="button" (click)="navigateToAdmin()" 
+                      class="px-4 py-2 border border-theme-border rounded-md shadow-sm text-sm font-medium text-theme-text bg-theme-background hover:bg-theme-surface-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-theme-primary transition-colors">
+                Cancel
+              </button>
+              <button type="submit" [disabled]="organizationForm.invalid || isSubmitting"
+                      class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-theme-primary-text bg-theme-primary hover:bg-theme-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-theme-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                <span *ngIf="isSubmitting" class="inline-flex items-center">
+                  <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-theme-primary-text" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  {{ isEditMode ? 'Updating...' : 'Creating...' }}
+                </span>
+                <span *ngIf="!isSubmitting">{{ isEditMode ? 'Update Organization' : 'Create Organization' }}</span>
+              </button>
+            </div>
+          </form>
         </div>
-      </form>
+      </app-entity-tabs>
     </div>
   </main>
 </div>

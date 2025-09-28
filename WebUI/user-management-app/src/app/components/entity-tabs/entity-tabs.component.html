@@ -1,0 +1,49 @@
+<!-- Tab Navigation -->
+<div class="mb-6">
+  <div class="border-b border-theme-border">
+    <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+      <button
+        *ngFor="let tab of tabs"
+        (click)="selectTab(tab.id)"
+        [class]="tab.active ? 
+          'border-theme-primary text-theme-primary whitespace-nowrap border-b-2 py-2 px-1 text-sm font-medium' :
+          'border-transparent text-theme-text-secondary hover:text-theme-text hover:border-theme-border whitespace-nowrap border-b-2 py-2 px-1 text-sm font-medium'"
+        type="button"
+        [attr.aria-current]="tab.active ? 'page' : null">
+        {{ tab.label }}
+      </button>
+    </nav>
+  </div>
+</div>
+
+<!-- Tab Content -->
+<div class="tab-content">
+  <!-- Basic Information Tab -->
+  <div *ngIf="showBasicTab" class="tab-pane">
+    <!-- This is where the basic form content will be injected by parent component -->
+    <ng-content select="[slot=basic-content]"></ng-content>
+  </div>
+
+  <!-- Functional Roles Tab -->
+  <div *ngIf="showFunctionalRolesTab" class="tab-pane">
+    <div class="bg-theme-surface rounded-lg shadow-sm border border-theme-border p-6">
+      <div class="mb-6">
+        <h3 class="text-lg font-semibold text-theme-text mb-2">Functional Roles Management</h3>
+        <p class="text-sm text-theme-text-secondary">
+          Configure functional roles for this {{ entityType.replace('_', ' ') }}.
+          <span *ngIf="entityType === 'business_unit'">Only roles enabled at the organization level are available.</span>
+          <span *ngIf="entityType === 'user'">Only roles enabled at the user's business unit level are available.</span>
+        </p>
+      </div>
+
+      <app-functional-roles-manager
+        [context]="functionalRoleContext"
+        [organizationId]="entityType === 'organization' ? entityId : null"
+        [businessUnitId]="entityType === 'business_unit' ? entityId : null"
+        [userId]="entityType === 'user' ? entityId : null"
+        [readonly]="readonly"
+        (rolesChanged)="onFunctionalRolesChanged($event)">
+      </app-functional-roles-manager>
+    </div>
+  </div>
+</div>

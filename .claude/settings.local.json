@@ -34,7 +34,11 @@
       "Bash(ng build)",
       "Bash(ng build:*)",
       "Bash(./run-docker-images.sh load:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(chmod:*)",
+      "Bash(./test_hierarchy_implementation.sh:*)",
+      "Bash(true)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

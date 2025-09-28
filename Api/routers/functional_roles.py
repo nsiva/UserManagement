@@ -243,7 +243,13 @@ async def assign_functional_roles_to_user(
                 detail="User not found"
             )
         
-        # Validate functional roles exist
+        # Validate functional roles exist and are available for this user (hierarchy check)
+        from database import supabase
+        
+        # Get available roles for this user from the hierarchy view
+        available_roles_response = supabase.table("vw_user_available_roles").select("functional_role_name").eq("user_id", str(user_id)).execute()
+        available_role_names = [role["functional_role_name"] for role in available_roles_response.data or []]
+        
         for role_name in assignment.functional_role_names:
             role = await repo.get_functional_role_by_name(role_name)
             if not role:
@@ -255,6 +261,12 @@ async def assign_functional_roles_to_user(
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Functional role '{role_name}' is not active"
+                )
+            # Check hierarchy constraint - role must be available for this user
+            if role_name not in available_role_names:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Functional role '{role_name}' is not available for this user. The role must be enabled at the user's business unit level."
                 )
         
         # Assign roles

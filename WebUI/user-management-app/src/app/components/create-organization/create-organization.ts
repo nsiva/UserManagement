@@ -11,11 +11,12 @@ import { HeaderComponent } from '../../shared/components/header/header.component
 import { HeaderConfig } from '../../shared/interfaces/header-config.interface';
 import { AlertComponent, AlertType } from '../../shared/components/alert/alert.component';
 import { APP_NAME, PAGES } from '../../shared/constants/app-constants';
+import { EntityTabsComponent } from '../entity-tabs/entity-tabs.component';
 
 @Component({
   selector: 'app-create-organization',
   standalone: true,
-  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent],
+  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent, EntityTabsComponent],
   templateUrl: './create-organization.html',
   styleUrl: './create-organization.scss'
 })
@@ -121,6 +122,9 @@ export class CreateOrganizationComponent implements OnInit, OnDestroy {
   organizationToEdit: Organization | null = null;
   isLoading = false;
   private routeSubscription: Subscription | null = null;
+  
+  // Functional roles management
+  showFunctionalRoles = false;
 
   // Alert properties
   alertMessage: string | null = null;
@@ -182,6 +186,8 @@ export class CreateOrganizationComponent implements OnInit, OnDestroy {
     if (this.isEditMode && this.organizationId) {
       // Load organization data for editing
       this.loadOrganizationForEdit(this.organizationId);
+      // Show functional roles section immediately for edit mode
+      this.showFunctionalRoles = true;
     } else {
       // Ensure form is blank for create mode
       this.organizationForm.reset({
@@ -198,6 +204,9 @@ export class CreateOrganizationComponent implements OnInit, OnDestroy {
       
       console.log('CreateOrganizationComponent: Create mode - form reset to blank values:', this.organizationForm.value);
     }
+
+    // Show functional roles section for both create and edit modes
+    this.showFunctionalRoles = true;
 
     // Check if user has admin or super_user role
     if (!this.hasAdminOrSuperUserRole()) {
@@ -305,9 +314,8 @@ export class CreateOrganizationComponent implements OnInit, OnDestroy {
       this.organizationService.updateOrganization(this.organizationId, organizationData as OrganizationUpdate).subscribe({
         next: (response) => {
           this.showSuccess('Organization updated successfully!');
-          setTimeout(() => {
-            this.router.navigate(['/admin']);
-          }, 2000);
+          this.isSubmitting = false;
+          // Functional roles section already visible in edit mode
         },
         error: (err: HttpErrorResponse) => {
           this.isSubmitting = false;
@@ -331,10 +339,12 @@ export class CreateOrganizationComponent implements OnInit, OnDestroy {
       // Create mode - create new organization
       this.organizationService.createOrganization(organizationData as OrganizationCreate).subscribe({
         next: (response) => {
-          this.showSuccess('Organization created successfully!');
-          setTimeout(() => {
-            this.router.navigate(['/admin']);
-          }, 2000);
+          this.organizationId = response.id; // Set the organization ID for functional roles
+          this.organizationToEdit = response;
+          this.isEditMode = true; // Switch to edit mode
+          this.showSuccess('Organization created successfully! Functional roles are now available for configuration.');
+          // Functional roles section is already visible from checkMode()
+          this.isSubmitting = false;
         },
         error: (err: HttpErrorResponse) => {
           this.isSubmitting = false;
@@ -475,5 +485,21 @@ export class CreateOrganizationComponent implements OnInit, OnDestroy {
       country: 'Country'
     };
     return labels[fieldName] || fieldName;
+  }
+
+  // Tab and functional roles event handlers
+  onTabChanged(tabId: string): void {
+    console.log('Tab changed to:', tabId);
+  }
+
+  onFunctionalRolesChanged(event: any): void {
+    console.log('Functional roles changed:', event);
+    if (event.context === 'organization') {
+      this.showSuccess(`Organization functional roles updated: ${event.roles.join(', ')}`);
+    }
+  }
+
+  finishAndNavigateToAdmin(): void {
+    this.router.navigate(['/admin']);
   }
 }

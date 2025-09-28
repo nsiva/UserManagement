@@ -13,7 +13,7 @@
       (dismissed)="onAlertDismissed()">
     </app-alert>
 
-    <div class="bg-white rounded-lg shadow-md p-6 max-w-2xl mx-auto">
+    <div class="bg-white rounded-lg shadow-md p-6 max-w-4xl mx-auto">
       <h3 class="text-xl font-semibold text-gray-800 mb-6">{{ isEditMode ? 'Edit User' : 'Create New User' }}</h3>
       
       <!-- Loading indicator -->
@@ -22,7 +22,18 @@
         <span class="ml-3 text-gray-600">Loading user data...</span>
       </div>
       
-      <form *ngIf="!isLoading" [formGroup]="userForm" (ngSubmit)="onUserSubmit()" class="space-y-4" autocomplete="off">
+      <!-- Tabbed Interface -->
+      <app-entity-tabs
+        *ngIf="!isLoading"
+        entityType="user"
+        [entityId]="userId"
+        [showFunctionalRoles]="showFunctionalRoles"
+        (tabChanged)="onTabChanged($event)"
+        (functionalRolesChanged)="onFunctionalRolesChanged($event)">
+        
+        <!-- Basic Information Content -->
+        <div slot="basic-content">
+          <form [formGroup]="userForm" (ngSubmit)="onUserSubmit()" class="space-y-4" autocomplete="off">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label for="firstName" class="block text-sm font-medium text-gray-700">First Name *</label>
@@ -261,7 +272,9 @@
             {{ isEditMode ? 'Update User' : 'Create User' }}
           </button>
         </div>
-      </form>
+          </form>
+        </div>
+      </app-entity-tabs>
     </div>
   </main>
 

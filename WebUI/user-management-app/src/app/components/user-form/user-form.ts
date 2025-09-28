@@ -24,11 +24,12 @@ import { PasswordValidationService, PasswordRequirements } from '../../shared/se
 import { PasswordRequirementsComponent } from '../../shared/components/password-requirements/password-requirements.component';
 import { ConfirmationDialogComponent } from '../../shared/components/confirmation-dialog/confirmation-dialog.component';
 import { RoleSelectorComponent } from '../role-selector/role-selector.component';
+import { EntityTabsComponent } from '../entity-tabs/entity-tabs.component';
 
 @Component({
   selector: 'app-user-form',
   standalone: true,
-  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent, PasswordRequirementsComponent, AutocompleteComponent, ConfirmationDialogComponent, RoleSelectorComponent],
+  imports: [FormsModule, CommonModule, ReactiveFormsModule, HeaderComponent, AlertComponent, PasswordRequirementsComponent, AutocompleteComponent, ConfirmationDialogComponent, RoleSelectorComponent, EntityTabsComponent],
   templateUrl: './user-form.html',
   styleUrl: './user-form.scss'
 })
@@ -110,6 +111,9 @@ export class UserFormComponent implements OnInit, OnDestroy {
 
   // Confirmation dialog state
   showCancelConfirmDialog = false;
+
+  // Functional roles management
+  showFunctionalRoles = false;
 
   constructor(
     private fb: FormBuilder,
@@ -206,6 +210,8 @@ export class UserFormComponent implements OnInit, OnDestroy {
       
       // Then load user data
       this.loadUserForEdit(this.userId);
+      // Show functional roles section immediately for edit mode
+      this.showFunctionalRoles = true;
     } else {
       // Create mode - set up default password option behavior
       
@@ -700,12 +706,13 @@ export class UserFormComponent implements OnInit, OnDestroy {
       };
 
       this.userService.createUser(userData).subscribe({
-        next: () => {
-          this.showSuccess('User created successfully!');
-          // Navigate back to admin page after 2 seconds
-          setTimeout(() => {
-            this.navigateToAdmin();
-          }, 2000);
+        next: (response) => {
+          this.userId = response.id; // Set the user ID for functional roles
+          this.userToEdit = response;
+          this.isEditMode = true; // Switch to edit mode
+          this.showSuccess('User created successfully! Functional roles are now available for configuration.');
+          // Show functional roles section
+          this.showFunctionalRoles = true;
         },
         error: (err: HttpErrorResponse) => {
           this.showError(err.error.detail || 'Failed to create user.');
@@ -902,5 +909,17 @@ export class UserFormComponent implements OnInit, OnDestroy {
 
   onCancelDismissed(): void {
     this.showCancelConfirmDialog = false;
+  }
+
+  // Tab and functional roles event handlers
+  onTabChanged(tabId: string): void {
+    console.log('Tab changed to:', tabId);
+  }
+
+  onFunctionalRolesChanged(event: any): void {
+    console.log('User functional roles changed:', event);
+    if (event.context === 'user') {
+      this.showSuccess(`User functional roles updated: ${event.roles.join(', ')}`);
+    }
   }
 }
