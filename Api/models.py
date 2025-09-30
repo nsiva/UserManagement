@@ -252,6 +252,25 @@ class UserRolesSummary(BaseModel):
     all_permissions: List[str] = Field(default_factory=list)
     is_complete: bool = Field(..., description="Whether user has both admin and functional roles")
 
+# --- User Profile Roles Response Models ---
+
+class UserFunctionalRoleDetail(BaseModel):
+    functional_role_id: str
+    functional_role_name: str
+    functional_role_label: str
+    functional_role_category: str
+    source: str = Field(..., description="Source of role assignment: 'direct', 'business_unit', or 'organization'")
+    source_name: Optional[str] = Field(None, description="Name of the source entity (business unit or organization name)")
+    assigned_at: datetime
+
+class UserRolesResponse(BaseModel):
+    user_id: str
+    email: str
+    organizational_roles: List[str] = Field(default_factory=list, description="Administrative roles like admin, viewer, etc.")
+    functional_roles: List[UserFunctionalRoleDetail] = Field(default_factory=list, description="Functional roles with source information")
+    organization_name: Optional[str] = None
+    business_unit_name: Optional[str] = None
+
 # --- Hierarchical Functional Role Models ---
 
 class OrganizationFunctionalRoleBase(BaseModel):

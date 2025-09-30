@@ -38,7 +38,8 @@
       "Bash(chmod:*)",
       "Bash(./test_hierarchy_implementation.sh:*)",
       "Bash(true)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(env)"
     ],
     "deny": [],
     "ask": []

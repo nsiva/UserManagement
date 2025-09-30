@@ -1,7 +1,7 @@
 import { Component, OnInit, HostListener } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth';
-import { UserService } from '../../services/user';
+import { UserService, UserRolesResponse } from '../../services/user';
 import { UserProfileService, UserProfile } from '../../services/user-profile.service';
 import { RoleService } from '../../services/role.service';
 import { FormsModule } from '@angular/forms';
@@ -24,11 +24,18 @@ export class ProfileComponent implements OnInit {
     showUserMenu: true
   };
   user: UserProfile | null = null;
+  userRoles: UserRolesResponse | null = null;
   mfaPromptDismissed = false;
+  
+  // Tab management
+  currentTab: string = 'profile';
+  isLoadingRoles = false;
+  rolesError: string | null = null;
 
   constructor(
     private authService: AuthService,
     private userProfileService: UserProfileService,
+    private userService: UserService,
     private router: Router,
     private roleService: RoleService
   ) {}
@@ -54,6 +61,11 @@ export class ProfileComponent implements OnInit {
         try {
           const user = await import('rxjs').then(rxjs => rxjs.firstValueFrom(this.userProfileService.getCurrentUserProfile()));
           this.user = user;
+          
+          // Load user roles when switching to roles tab or on init if needed
+          if (this.currentTab === 'roles') {
+            this.loadUserRoles();
+          }
           // Debug logging removed for production
         } catch (error) {
           console.error('Error fetching user profile:', error);
@@ -99,5 +111,81 @@ export class ProfileComponent implements OnInit {
 
   logout(): void {
     this.authService.logout();
+  }
+
+  // Tab management methods
+  selectTab(tabId: string): void {
+    this.currentTab = tabId;
+    
+    // Load roles data when switching to roles tab
+    if (tabId === 'roles' && !this.userRoles && this.user) {
+      this.loadUserRoles();
+    }
+  }
+
+  // Load user roles data
+  loadUserRoles(): void {
+    if (this.isLoadingRoles) {
+      return;
+    }
+    
+    this.isLoadingRoles = true;
+    this.rolesError = null;
+    
+    this.userService.getMyRoles().subscribe({
+      next: (roles) => {
+        this.userRoles = roles;
+        this.isLoadingRoles = false;
+      },
+      error: (error) => {
+        console.error('Error loading user roles:', error);
+        this.rolesError = 'Failed to load role information. Please try again later.';
+        this.isLoadingRoles = false;
+      }
+    });
+  }
+
+  // Utility method to group functional roles by category
+  getFunctionalRolesByCategory(): {[key: string]: any[]} {
+    if (!this.userRoles || !this.userRoles.functional_roles) {
+      return {};
+    }
+    
+    return this.userRoles.functional_roles.reduce((groups: {[key: string]: any[]}, role) => {
+      const category = role.functional_role_category || 'Other';
+      if (!groups[category]) {
+        groups[category] = [];
+      }
+      groups[category].push(role);
+      return groups;
+    }, {});
+  }
+
+  // Get source display text
+  getSourceDisplayText(source: string): string {
+    switch (source) {
+      case 'direct':
+        return 'Directly Assigned';
+      case 'business_unit':
+        return 'From Business Unit';
+      case 'organization':
+        return 'From Organization';
+      default:
+        return source;
+    }
+  }
+
+  // Get source CSS class for styling
+  getSourceCssClass(source: string): string {
+    switch (source) {
+      case 'direct':
+        return 'text-blue-600 bg-blue-50';
+      case 'business_unit':
+        return 'text-green-600 bg-green-50';
+      case 'organization':
+        return 'text-purple-600 bg-purple-50';
+      default:
+        return 'text-gray-600 bg-gray-50';
+    }
   }
 }

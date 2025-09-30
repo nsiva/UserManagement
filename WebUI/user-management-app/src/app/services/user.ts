@@ -3,6 +3,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { AuthService } from './auth';
 import { environment } from '../../environments/environment';
+import { API_PATHS } from '../api-paths';
 
 // Re-declare interfaces from models.py for Angular
 export interface User {
@@ -29,6 +30,25 @@ export interface User {
   // Additional Information
   business_unit_manager_name?: string;
   parent_business_unit_name?: string;
+}
+
+export interface UserFunctionalRole {
+  functional_role_id: string;
+  functional_role_name: string;
+  functional_role_label: string;
+  functional_role_category: string;
+  source: 'direct' | 'business_unit' | 'organization';
+  source_name?: string;
+  assigned_at: string;
+}
+
+export interface UserRolesResponse {
+  user_id: string;
+  email: string;
+  organizational_roles: string[];
+  functional_roles: UserFunctionalRole[];
+  organization_name?: string;
+  business_unit_name?: string;
 }
 
 export interface UserCreate {
@@ -160,5 +180,11 @@ export class UserService {
 
   updateMyProfile(profileData: { first_name?: string, last_name?: string }): Observable<User> {
     return this.http.put<User>(environment.apiUrl + '/profiles/me', profileData, { headers: this.getAuthHeaders() });
+  }
+
+  // --- Current User Roles ---
+  getMyRoles(): Observable<UserRolesResponse> {
+    console.log('UserService: getMyRoles called - using endpoint:', API_PATHS.userRoles);
+    return this.http.get<UserRolesResponse>(environment.apiUrl + API_PATHS.userRoles, { headers: this.getAuthHeaders() });
   }
 }

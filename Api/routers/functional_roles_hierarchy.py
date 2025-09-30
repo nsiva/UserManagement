@@ -482,15 +482,10 @@ async def get_available_functional_roles_for_business_unit(
                         fr.permissions,
                         TRUE as organization_enabled,
                         COALESCE(bufr.is_enabled, FALSE) as business_unit_enabled,
-                        -- If no BU-specific setting exists, default to org setting (TRUE)
-                        CASE 
-                            WHEN bufr.id IS NULL THEN TRUE  -- Default to enabled if no BU setting
-                            ELSE bufr.is_enabled 
-                        END as is_currently_enabled,
-                        CASE 
-                            WHEN bufr.id IS NULL THEN TRUE  -- Default to assigned if no BU setting
-                            ELSE bufr.is_enabled 
-                        END as is_currently_assigned,
+                        -- Only show as enabled if explicitly assigned and enabled at BU level
+                        COALESCE(bufr.is_enabled, FALSE) as is_currently_enabled,
+                        -- Only show as assigned if there's an explicit BU record AND it's enabled
+                        COALESCE(bufr.is_enabled, FALSE) as is_currently_assigned,
                         bufr.assigned_at,
                         NULL as expires_at
                     FROM aaa_business_units bu

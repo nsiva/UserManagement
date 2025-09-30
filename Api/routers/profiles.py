@@ -12,7 +12,7 @@ from typing import Optional
 
 from database import get_repository # Updated to use repository pattern
 from routers.auth import get_current_user, TokenData, get_user_roles # Import your authentication dependencies
-from models import ProfileResponse, UserWithRoles # Import the new ProfileResponse model
+from models import ProfileResponse, UserWithRoles, UserRolesResponse, UserFunctionalRoleDetail # Import the new ProfileResponse model
 
 # Profile update model for self-editing
 class ProfileUpdate(BaseModel):
@@ -187,3 +187,120 @@ async def update_my_profile(
     except Exception as e:
         logger.error(f"Error updating profile for user {current_user.user_id}: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update profile.")
+
+
+@profiles_router.get("/me/roles", summary="Get the authenticated user's roles and permissions", response_model=UserRolesResponse)
+async def get_my_roles(
+    current_user: TokenData = Depends(get_current_user)
+):
+    """
+    Retrieves the complete role information for the currently authenticated user,
+    including organizational roles and functional roles with their sources.
+    """
+    logger.info(f"Attempting to retrieve roles for user_id: {current_user.user_id}")
+
+    try:
+        repo = get_repository()
+        
+        # Get user profile information
+        user_profile = await repo.get_user_by_id(current_user.user_id)
+        if not user_profile:
+            logger.warning(f"User profile not found for user_id: {current_user.user_id}")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+        
+        # Get organizational roles (administrative roles)
+        organizational_roles = await get_user_roles(str(current_user.user_id))
+        logger.info(f"Found organizational roles for user {current_user.user_id}: {organizational_roles}")
+        
+        # Get functional roles with source information
+        functional_roles = []
+        
+        # Get directly assigned functional roles
+        direct_functional_roles = await repo.get_user_functional_roles(current_user.user_id, is_active=True)
+        for role in direct_functional_roles:
+            functional_roles.append(UserFunctionalRoleDetail(
+                functional_role_id=str(role.id),
+                functional_role_name=role.name,
+                functional_role_label=role.label,
+                functional_role_category=role.category,
+                source="direct",
+                source_name=None,
+                assigned_at=role.created_at
+            ))
+        
+        # Get functional roles inherited from business unit and organization using SQL query
+        # This will use the existing views to get hierarchical functional roles
+        try:
+            if hasattr(repo, 'get_connection_pool'):
+                pool = await repo.get_connection_pool()
+                async with pool.acquire() as conn:
+                    # Query to get all functional roles available to this user through hierarchy
+                    hierarchy_query = """
+                    SELECT DISTINCT
+                        fr.id as functional_role_id,
+                        fr.name as functional_role_name,
+                        fr.label as functional_role_label,
+                        fr.category as functional_role_category,
+                        CASE 
+                            WHEN bufr.functional_role_id IS NOT NULL THEN 'business_unit'
+                            WHEN ofr.functional_role_id IS NOT NULL THEN 'organization'
+                        END as source,
+                        CASE 
+                            WHEN bufr.functional_role_id IS NOT NULL THEN bu.name
+                            WHEN ofr.functional_role_id IS NOT NULL THEN org.company_name
+                        END as source_name,
+                        CASE 
+                            WHEN bufr.functional_role_id IS NOT NULL THEN bufr.assigned_at
+                            WHEN ofr.functional_role_id IS NOT NULL THEN ofr.assigned_at
+                        END as assigned_at
+                    FROM aaa_profiles p
+                    LEFT JOIN aaa_business_units bu ON p.business_unit_id = bu.id
+                    LEFT JOIN aaa_organizations org ON bu.organization_id = org.id OR p.organization_id = org.id
+                    LEFT JOIN aaa_business_unit_functional_roles bufr ON bu.id = bufr.business_unit_id AND bufr.is_enabled = true
+                    LEFT JOIN aaa_organization_functional_roles ofr ON org.id = ofr.organization_id AND ofr.is_enabled = true
+                    LEFT JOIN aaa_functional_roles fr ON (bufr.functional_role_id = fr.id OR ofr.functional_role_id = fr.id)
+                    WHERE p.id = $1 AND fr.id IS NOT NULL
+                    ORDER BY source, functional_role_category, functional_role_name
+                    """
+                    
+                    result = await conn.fetch(hierarchy_query, current_user.user_id)
+                    
+                    for row in result:
+                        # Check if this role is not already included from direct assignment
+                        existing_role_ids = [fr.functional_role_id for fr in functional_roles]
+                        if str(row['functional_role_id']) not in existing_role_ids:
+                            functional_roles.append(UserFunctionalRoleDetail(
+                                functional_role_id=str(row['functional_role_id']),
+                                functional_role_name=row['functional_role_name'],
+                                functional_role_label=row['functional_role_label'],
+                                functional_role_category=row['functional_role_category'],
+                                source=row['source'],
+                                source_name=row['source_name'],
+                                assigned_at=row['assigned_at']
+                            ))
+                            
+        except Exception as e:
+            logger.warning(f"Could not fetch hierarchical functional roles for user {current_user.user_id}: {e}")
+            # Fallback to empty list if hierarchy query fails
+            pass
+        
+        logger.info(f"Found {len(functional_roles)} functional roles for user {current_user.user_id}")
+        
+        # Prepare response
+        response = UserRolesResponse(
+            user_id=str(current_user.user_id),
+            email=user_profile['email'],
+            organizational_roles=organizational_roles,
+            functional_roles=functional_roles,
+            organization_name=user_profile.get('organization_name'),
+            business_unit_name=user_profile.get('business_unit_name')
+        )
+        
+        logger.info(f"Successfully retrieved roles for user_id: {current_user.user_id}")
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching roles for user {current_user.user_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve user roles")
