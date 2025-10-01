@@ -24,6 +24,7 @@ from constants import (
     validate_role_categories_legacy, get_administrative_role, get_functional_roles,
     ADMINISTRATIVE_ROLES
 )
+from routers.functional_roles_hierarchy import get_business_unit_enabled_functional_roles
 
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 logger = logging.getLogger("admin")
@@ -322,6 +323,54 @@ async def create_user(
         # Role validation was already done earlier in the function for admin users
         # For clients, we allow full permissions for now but this could be enhanced
         await assign_roles_to_user_by_names(user_id, user_data.roles)
+
+    # Auto-assign business unit functional roles to the new user
+    logger.info(f"Starting auto-assignment of functional roles for user {user_id} in business unit {user_data.business_unit_id}")
+    logger.info(f"Business unit assignment success: {assignment_success}")
+    
+    if user_data.business_unit_id and assignment_success:
+        try:
+            logger.info(f"Getting functional roles enabled for business unit {user_data.business_unit_id}")
+            # Get functional roles enabled for this business unit
+            business_unit_enabled_roles = await get_business_unit_enabled_functional_roles(repo, user_data.business_unit_id)
+            logger.info(f"Found {len(business_unit_enabled_roles)} enabled functional roles")
+            
+            if business_unit_enabled_roles:
+                # Extract role names from the enabled roles
+                functional_role_names = [role['name'] for role in business_unit_enabled_roles]
+                logger.info(f"Functional role names to assign: {functional_role_names}")
+                
+                # Assign functional roles to the user
+                logger.info(f"Calling assign_functional_roles_to_user for user {user_id}")
+                functional_assignment_success = await repo.assign_functional_roles_to_user(
+                    UUID(user_id), 
+                    functional_role_names, 
+                    assigned_by or "system",
+                    replace_existing=False  # Don't replace, just add these roles
+                )
+                logger.info(f"Functional assignment result: {functional_assignment_success}")
+                
+                if functional_assignment_success:
+                    logger.info(f"✅ SUCCESS: Auto-assigned {len(functional_role_names)} business unit functional roles to user {user_id}: {functional_role_names}")
+                    # Verify the assignment worked by checking the database
+                    assigned_roles = await repo.get_user_functional_roles(UUID(user_id))
+                    logger.info(f"Verification: User {user_id} now has {len(assigned_roles)} functional roles assigned")
+                    for role in assigned_roles:
+                        logger.info(f"  - {role.name}: {role.label}")
+                else:
+                    logger.error(f"❌ FAILED: assign_functional_roles_to_user returned False for user {user_id}")
+            else:
+                logger.info(f"No functional roles enabled for business unit {user_data.business_unit_id}")
+        except Exception as e:
+            logger.error(f"❌ EXCEPTION: Error auto-assigning business unit functional roles to user {user_id}: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            # Don't fail user creation if functional role assignment fails
+    else:
+        if not user_data.business_unit_id:
+            logger.warning(f"No business unit ID provided for user {user_id}")
+        if not assignment_success:
+            logger.warning(f"Business unit assignment failed for user {user_id}")
 
     roles = await get_user_roles(str(user_id))
     

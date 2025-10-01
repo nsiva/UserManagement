@@ -39,17 +39,27 @@ export class EntityTabsComponent implements OnInit, OnChanges {
   }
 
   private initializeTabs() {
+    // Always include the basic information tab
     this.tabs = [
-      { id: 'basic', label: 'Basic Information', active: true },
-      { id: 'functional-roles', label: 'Functional Roles', active: false }
+      { id: 'basic', label: 'Basic Information', active: true }
     ];
 
-    // Set the first tab as active by default
+    // Only include the functional roles tab if showFunctionalRoles is true
+    if (this.showFunctionalRoles) {
+      this.tabs.push({ id: 'functional-roles', label: 'Functional Roles', active: false });
+    }
+
+    // Set the first tab as active by default, and ensure it exists
     this.currentTab = 'basic';
     this.updateActiveTab();
   }
 
   selectTab(tabId: string) {
+    // Don't allow selecting functional-roles tab if showFunctionalRoles is false
+    if (tabId === 'functional-roles' && !this.showFunctionalRoles) {
+      return;
+    }
+    
     this.currentTab = tabId;
     this.updateActiveTab();
     this.tabChanged.emit(tabId);
