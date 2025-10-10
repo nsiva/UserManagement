@@ -1,10 +1,10 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
 import { catchError } from 'rxjs/operators';
 import { throwError } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { API_PATHS } from '../../api-paths';
 import { AuthService } from '../../services/auth';
@@ -20,7 +20,7 @@ import { APP_NAME, PAGES } from '../../shared/constants/app-constants';
   templateUrl: './login.html',
   styleUrls: ['./login.scss']
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit {
   // Header configuration for login page
   headerConfig: HeaderConfig = {
     title: APP_NAME,
@@ -32,14 +32,29 @@ export class LoginComponent {
   message: string | null = null;
   isError = false;
   private apiUrl = environment.apiUrl;
+  private redirectUri: string | null = null;
 
   constructor(
     private http: HttpClient, 
-    private router: Router, 
+    private router: Router,
+    private route: ActivatedRoute,
     private authService: AuthService,
     private userProfileService: UserProfileService,
     private roleService: RoleService
   ) { }
+
+  ngOnInit(): void {
+    // Capture redirect_uri from query parameters
+    this.route.queryParams.subscribe(params => {
+      this.redirectUri = params['redirect_uri'] || null;
+      console.log('=== LOGIN COMPONENT DEBUG ===');
+      console.log('Raw query params:', params);
+      console.log('redirect_uri from params:', params['redirect_uri']);
+      console.log('Decoded redirect_uri:', this.redirectUri);
+      console.log('Current URL:', window.location.href);
+      console.log('==============================');
+    });
+  }
 
   onLogin(): void {
     this.message = null;
@@ -55,10 +70,22 @@ export class LoginComponent {
       next: (response: any) => {
         // Check if MFA is required based on response
         if (response.mfa_required === true || response.requires_mfa === true) {
-          // MFA is required - store user info and redirect to MFA page
+          // MFA is required - store user info and redirect URI, then redirect to MFA page
           sessionStorage.setItem('mfa_user_email', this.email);
           sessionStorage.setItem('mfa_user_name', response.user_name || '');
           sessionStorage.setItem('mfa_user_id', response.user_id || '');
+          
+          // Store redirect URI for use after MFA verification
+          console.log('=== MFA REDIRECT STORAGE DEBUG ===');
+          console.log('Storing redirect_uri for MFA:', this.redirectUri);
+          if (this.redirectUri) {
+            sessionStorage.setItem('login_redirect_uri', this.redirectUri);
+            console.log('Stored in sessionStorage as login_redirect_uri:', this.redirectUri);
+          } else {
+            console.log('No redirect_uri to store - will use default redirect after MFA');
+          }
+          console.log('==================================');
+          
           this.router.navigate(['/mfa']);
         } else {
           // No MFA required for this login - complete login and check MFA setup
@@ -74,7 +101,7 @@ export class LoginComponent {
       error: (error: HttpErrorResponse) => {
         // Handle MFA required (402 status)
         if (error.status === 402) {
-          // MFA is required - store user info and redirect to MFA page
+          // MFA is required - store user info and redirect URI, then redirect to MFA page
           sessionStorage.setItem('mfa_user_email', this.email);
           if (error.error && error.error.user_name) {
             sessionStorage.setItem('mfa_user_name', error.error.user_name);
@@ -82,6 +109,18 @@ export class LoginComponent {
           if (error.error && error.error.user_id) {
             sessionStorage.setItem('mfa_user_id', error.error.user_id);
           }
+          
+          // Store redirect URI for use after MFA verification
+          console.log('=== MFA REDIRECT STORAGE DEBUG (402 Error) ===');
+          console.log('Storing redirect_uri for MFA:', this.redirectUri);
+          if (this.redirectUri) {
+            sessionStorage.setItem('login_redirect_uri', this.redirectUri);
+            console.log('Stored in sessionStorage as login_redirect_uri:', this.redirectUri);
+          } else {
+            console.log('No redirect_uri to store - will use default redirect after MFA');
+          }
+          console.log('============================================');
+          
           this.router.navigate(['/mfa']);
         } else {
           this.handleError(error);
@@ -105,6 +144,18 @@ export class LoginComponent {
       if (!userProfile.mfa_enabled) {
         // User doesn't have MFA enabled - redirect to setup every time
         console.log('User does not have MFA enabled, redirecting to setup');
+        console.log('=== MFA SETUP REDIRECT DEBUG ===');
+        console.log('Storing redirect_uri for MFA setup:', this.redirectUri);
+        
+        // Store redirect URI for use after MFA setup completion
+        if (this.redirectUri) {
+          sessionStorage.setItem('login_redirect_uri', this.redirectUri);
+          console.log('Stored redirect_uri in sessionStorage for MFA setup:', this.redirectUri);
+        } else {
+          console.log('No redirect_uri to store for MFA setup');
+        }
+        console.log('===============================');
+        
         this.router.navigate(['/set-mfa']);
         return;
       }
@@ -120,7 +171,14 @@ export class LoginComponent {
   }
 
   private redirectToLandingPage(): void {
-    // Redirect based on user type
+    // Check if there's a redirect URI to use
+    if (this.redirectUri) {
+      console.log('Redirecting to external URI:', this.redirectUri);
+      window.location.href = this.redirectUri;
+      return;
+    }
+
+    // Default redirect based on user type
     if (this.roleService.hasAdminPrivileges()) {
       this.router.navigate(['/admin']);
     } else {

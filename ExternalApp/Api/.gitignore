@@ -1,0 +1,52 @@
+# Python virtual environments
+env/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment files
+.env
+.env*
+.env.local
+.env.development
+.env.staging
+.env.production
+.env.test
+
+# Build and distribution files
+dist/
+build/
+node_modules/
+
+# Temporary files
+tmp/
+*.tar
+*.tar.gz
+*.zip
+
+# Database exports
+exports/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# System files
+.DS_Store
+Thumbs.db
+
+# FastAPI specific
+*.log
+logs/
+.pytest_cache/
+htmlcov/
+.coverage
+.mypy_cache/
+
+# UV package manager
+uv.lock

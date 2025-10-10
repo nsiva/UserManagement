@@ -83,7 +83,22 @@ export class SetMfaComponent implements OnInit {
   }
 
   private redirectToLandingPage(): void {
-    // Redirect based on user type
+    // Check if there's a redirect URI from the login flow
+    const storedRedirectUri = sessionStorage.getItem('login_redirect_uri');
+    
+    console.log('=== SET-MFA REDIRECT DEBUG ===');
+    console.log('Stored redirect URI:', storedRedirectUri);
+    console.log('SessionStorage keys:', Object.keys(sessionStorage));
+    console.log('============================');
+    
+    if (storedRedirectUri) {
+      console.log('MFA setup complete - redirecting to external URI:', storedRedirectUri);
+      sessionStorage.removeItem('login_redirect_uri'); // Clean up
+      window.location.href = storedRedirectUri;
+      return;
+    }
+    
+    // Default redirect based on user type
     if (this.roleService.hasAdminPrivileges()) {
       this.router.navigate(['/admin']);
     } else {

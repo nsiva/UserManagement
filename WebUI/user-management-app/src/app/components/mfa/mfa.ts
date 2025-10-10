@@ -28,6 +28,7 @@ export class MfaComponent {
   userId: string | null = null;
   message: string | null = null;
   isError = false;
+  private redirectUri: string | null = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -35,14 +36,20 @@ export class MfaComponent {
     private authService: AuthService,
     private roleService: RoleService
   ) {
-    // Get user info from session storage instead of query params
+    // Get user info and redirect URI from session storage
     this.userEmail = sessionStorage.getItem('mfa_user_email');
     this.userName = sessionStorage.getItem('mfa_user_name');
     this.userId = sessionStorage.getItem('mfa_user_id');
+    this.redirectUri = sessionStorage.getItem('login_redirect_uri');
     
-    console.log('MFA Component - Retrieved email:', this.userEmail);
-    console.log('MFA Component - Retrieved name:', this.userName);
-    console.log('MFA Component - Retrieved userId:', this.userId);
+    console.log('=== MFA COMPONENT DEBUG ===');
+    console.log('Retrieved email:', this.userEmail);
+    console.log('Retrieved name:', this.userName);
+    console.log('Retrieved userId:', this.userId);
+    console.log('Retrieved redirect URI:', this.redirectUri);
+    console.log('All sessionStorage keys:', Object.keys(sessionStorage));
+    console.log('SessionStorage login_redirect_uri:', sessionStorage.getItem('login_redirect_uri'));
+    console.log('==========================');
     
     // If no user email found, redirect back to login
     if (!this.userEmail) {
@@ -77,8 +84,25 @@ export class MfaComponent {
         // Clear session storage
         sessionStorage.removeItem('mfa_user_email');
         sessionStorage.removeItem('mfa_user_name');
+        sessionStorage.removeItem('mfa_user_id');
         
-        // Redirect based on user type
+        // Check if there's a redirect URI to use
+        console.log('=== MFA SUCCESS REDIRECT DEBUG ===');
+        console.log('Current redirectUri value:', this.redirectUri);
+        console.log('SessionStorage login_redirect_uri:', sessionStorage.getItem('login_redirect_uri'));
+        
+        if (this.redirectUri) {
+          console.log('MFA verification successful - redirecting to external URI:', this.redirectUri);
+          sessionStorage.removeItem('login_redirect_uri'); // Clean up
+          console.log('About to redirect to:', this.redirectUri);
+          window.location.href = this.redirectUri;
+          return;
+        } else {
+          console.log('No redirect URI found - using default redirect');
+        }
+        console.log('=================================');
+        
+        // Default redirect based on user type
         if (this.roleService.hasAdminPrivileges()) {
           this.router.navigate(['/admin']);
         } else {
