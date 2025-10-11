@@ -24,155 +24,188 @@ interface DashboardData {
   standalone: true,
   imports: [CommonModule, RouterModule],
   template: `
-    <div class="container">
-      <!-- Authentication Check -->
-      <ng-container *ngIf="authStatus$ | async as status">
-        <div *ngIf="!status.authenticated" class="card">
-          <div class="alert alert-error">
-            <strong>🔐 Authentication Required</strong><br>
-            You need to be logged in to access this dashboard.
-          </div>
-          <div style="text-align: center; margin-top: 20px;">
-            <button (click)="login()" class="btn btn-primary">
-              Login via User Management
-            </button>
-          </div>
-        </div>
-        
-        <div *ngIf="status.authenticated">
-          <!-- Navigation Links -->
-          <div class="card">
-            <div class="card-header">
-              <h1 class="card-title">📊 ExternalApp Dashboard</h1>
+    <div class="min-h-screen transition-colors duration-300 bg-green-light-50 dark:bg-green-dark-50">
+      <div class="container mx-auto px-4 py-6">
+        <!-- Authentication Check -->
+        <ng-container *ngIf="authStatus$ | async as status">
+          <div *ngIf="!status.authenticated" class="bg-white dark:bg-green-dark-100 rounded-lg shadow-lg p-6 transition-colors duration-300">
+            <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-4 mb-6">
+              <strong class="text-red-700 dark:text-red-300">🔐 Authentication Required</strong><br>
+              <span class="text-red-600 dark:text-red-400">You need to be logged in to access this dashboard.</span>
             </div>
-            <div *ngIf="status.user">
-              <div class="alert alert-success">
-                <strong>✅ Successfully Authenticated via OAuth PKCE</strong><br>
-                Welcome, {{ status.user.full_name || status.user.email }}! You completed the OAuth authentication flow including any required MFA steps.
+            <div class="text-center">
+              <button (click)="login()" 
+                      class="bg-green-light-600 hover:bg-green-light-700 dark:bg-green-dark-600 dark:hover:bg-green-dark-700
+                             text-white font-semibold px-6 py-3 rounded-lg transition-all duration-300
+                             transform hover:scale-105 hover:shadow-lg">
+                Login via User Management
+              </button>
+            </div>
+          </div>
+          
+          <div *ngIf="status.authenticated" class="space-y-6">
+            <!-- Welcome Section -->
+            <div class="bg-white dark:bg-green-dark-100 rounded-lg shadow-lg p-6 transition-colors duration-300">
+              <div class="border-b border-green-light-200 dark:border-green-dark-300 pb-4 mb-6">
+                <h1 class="text-3xl font-bold text-green-light-900 dark:text-green-dark-900">📊 ExternalApp Dashboard</h1>
+              </div>
+              <div *ngIf="status.user">
+                <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4 mb-6">
+                  <strong class="text-green-700 dark:text-green-300">✅ Successfully Authenticated via OAuth PKCE</strong><br>
+                  <span class="text-green-600 dark:text-green-400">
+                    Welcome, {{ status.user.full_name || status.user.email }}! You completed the OAuth authentication flow including any required MFA steps.
+                  </span>
+                </div>
+                
+                <!-- Profile and Logout Links -->
+                <div class="flex gap-4 p-4 bg-green-light-50 dark:bg-green-dark-200 rounded-lg">
+                  <button (click)="showProfile()" 
+                          class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800
+                                 text-white font-semibold px-4 py-2 rounded-lg transition-all duration-300
+                                 transform hover:scale-105">
+                    👤 Profile
+                  </button>
+                  <button (click)="logout()" 
+                          class="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800
+                                 text-white font-semibold px-4 py-2 rounded-lg transition-all duration-300
+                                 transform hover:scale-105">
+                    🚪 Logout
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Profile Details (shown when Profile is clicked) -->
+            <div *ngIf="showProfileDetails && status.user" 
+                 class="bg-white dark:bg-green-dark-100 rounded-lg shadow-lg p-6 transition-colors duration-300">
+              <div class="border-b border-green-light-200 dark:border-green-dark-300 pb-4 mb-6">
+                <h2 class="text-2xl font-semibold text-green-light-900 dark:text-green-dark-900">👤 User Profile</h2>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="bg-green-light-50 dark:bg-green-dark-200 p-3 rounded border border-green-light-200 dark:border-green-dark-300">
+                  <strong class="text-green-light-700 dark:text-green-dark-700">User ID:</strong>
+                  <span class="text-green-light-600 dark:text-green-dark-600"> {{ status.user.id }}</span>
+                </div>
+                <div class="bg-green-light-50 dark:bg-green-dark-200 p-3 rounded border border-green-light-200 dark:border-green-dark-300">
+                  <strong class="text-green-light-700 dark:text-green-dark-700">Email:</strong>
+                  <span class="text-green-light-600 dark:text-green-dark-600"> {{ status.user.email }}</span>
+                </div>
+                <div *ngIf="status.user.full_name" class="bg-green-light-50 dark:bg-green-dark-200 p-3 rounded border border-green-light-200 dark:border-green-dark-300">
+                  <strong class="text-green-light-700 dark:text-green-dark-700">Name:</strong>
+                  <span class="text-green-light-600 dark:text-green-dark-600"> {{ status.user.full_name }}</span>
+                </div>
+                <div class="bg-green-light-50 dark:bg-green-dark-200 p-3 rounded border border-green-light-200 dark:border-green-dark-300">
+                  <strong class="text-green-light-700 dark:text-green-dark-700">Admin:</strong>
+                  <span class="text-green-light-600 dark:text-green-dark-600"> {{ status.user.is_admin ? 'Yes' : 'No' }}</span>
+                </div>
+                <div class="bg-green-light-50 dark:bg-green-dark-200 p-3 rounded border border-green-light-200 dark:border-green-dark-300">
+                  <strong class="text-green-light-700 dark:text-green-dark-700">Roles:</strong>
+                  <span class="text-green-light-600 dark:text-green-dark-600"> {{ status.user.roles.join(', ') || 'None' }}</span>
+                </div>
+                <div *ngIf="status.user.authenticated_at" class="bg-green-light-50 dark:bg-green-dark-200 p-3 rounded border border-green-light-200 dark:border-green-dark-300">
+                  <strong class="text-green-light-700 dark:text-green-dark-700">Authenticated:</strong>
+                  <span class="text-green-light-600 dark:text-green-dark-600"> {{ status.user.authenticated_at | date:'short' }}</span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Dashboard Content -->
+            <div *ngIf="dashboardData" class="bg-white dark:bg-green-dark-100 rounded-lg shadow-lg p-6 transition-colors duration-300">
+              <div class="border-b border-green-light-200 dark:border-green-dark-300 pb-4 mb-6">
+                <h2 class="text-2xl font-semibold text-green-light-900 dark:text-green-dark-900">{{ dashboardData.dashboard.title }}</h2>
               </div>
               
-              <!-- Profile and Logout Links -->
-              <div style="display: flex; gap: 16px; margin-top: 20px; padding: 16px; background-color: #f8fafc; border-radius: 8px;">
-                <button (click)="showProfile()" class="btn btn-primary">
-                  👤 Profile
+              <p class="text-lg text-green-light-700 dark:text-green-dark-700 mb-6 leading-relaxed">
+                {{ dashboardData.dashboard.message }}
+              </p>
+              
+              <!-- Features -->
+              <h3 class="text-xl font-semibold text-green-light-800 dark:text-green-dark-800 mb-4">🎯 Available Features</h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                <div *ngFor="let feature of dashboardData.dashboard.features" 
+                     class="bg-green-light-100 dark:bg-green-dark-200 p-4 rounded-lg border border-green-light-200 dark:border-green-dark-300">
+                  <div class="flex items-center text-green-light-700 dark:text-green-dark-700">
+                    <span class="mr-2">✅</span>
+                    {{ feature }}
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Stats -->
+              <h3 class="text-xl font-semibold text-green-light-800 dark:text-green-dark-800 mb-4">📈 Application Stats</h3>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-lg text-center border border-blue-200 dark:border-blue-700">
+                  <div class="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                    {{ dashboardData.dashboard.stats.total_users }}
+                  </div>
+                  <div class="text-blue-500 dark:text-blue-300">Total Users</div>
+                </div>
+                
+                <div class="bg-emerald-50 dark:bg-emerald-900/20 p-6 rounded-lg text-center border border-emerald-200 dark:border-emerald-700">
+                  <div class="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
+                    {{ dashboardData.dashboard.stats.active_sessions }}
+                  </div>
+                  <div class="text-emerald-500 dark:text-emerald-300">Active Sessions</div>
+                </div>
+                
+                <div class="bg-purple-50 dark:bg-purple-900/20 p-6 rounded-lg text-center border border-purple-200 dark:border-purple-700">
+                  <div class="text-lg font-bold text-purple-600 dark:text-purple-400">
+                    {{ dashboardData.dashboard.stats.last_login | date:'short' }}
+                  </div>
+                  <div class="text-purple-500 dark:text-purple-300">Last Login</div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Loading State -->
+            <div *ngIf="!dashboardData && !error" class="bg-white dark:bg-green-dark-100 rounded-lg shadow-lg p-6 transition-colors duration-300">
+              <div class="text-center py-10">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-green-light-600 dark:border-green-dark-600 mx-auto mb-4"></div>
+                <p class="text-green-light-700 dark:text-green-dark-700">Loading dashboard data...</p>
+              </div>
+            </div>
+            
+            <!-- Error State -->
+            <div *ngIf="error" class="bg-white dark:bg-green-dark-100 rounded-lg shadow-lg p-6 transition-colors duration-300">
+              <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-4 mb-4">
+                <strong class="text-red-700 dark:text-red-300">❌ Error Loading Dashboard</strong><br>
+                <span class="text-red-600 dark:text-red-400">{{ error }}</span>
+              </div>
+              <button (click)="loadDashboardData()" 
+                      class="bg-green-light-600 hover:bg-green-light-700 dark:bg-green-dark-600 dark:hover:bg-green-dark-700
+                             text-white font-semibold px-4 py-2 rounded-lg transition-all duration-300
+                             transform hover:scale-105">
+                Retry
+              </button>
+            </div>
+            
+            <!-- Actions -->
+            <div class="bg-white dark:bg-green-dark-100 rounded-lg shadow-lg p-6 transition-colors duration-300">
+              <h3 class="text-xl font-semibold text-green-light-800 dark:text-green-dark-800 mb-4">🔧 Available Actions</h3>
+              <div class="flex gap-4 flex-wrap">
+                <button (click)="refreshData()" 
+                        class="bg-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-800
+                               text-white font-semibold px-4 py-2 rounded-lg transition-all duration-300
+                               transform hover:scale-105">
+                  🔄 Refresh Data
                 </button>
-                <button (click)="logout()" class="btn btn-danger">
+                <a routerLink="/" 
+                   class="bg-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-800
+                          text-white font-semibold px-4 py-2 rounded-lg transition-all duration-300
+                          transform hover:scale-105 no-underline">
+                  🏠 Back to Home
+                </a>
+                <button (click)="logout()" 
+                        class="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800
+                               text-white font-semibold px-4 py-2 rounded-lg transition-all duration-300
+                               transform hover:scale-105">
                   🚪 Logout
                 </button>
               </div>
             </div>
           </div>
-          
-          <!-- Profile Details (shown when Profile is clicked) -->
-          <div *ngIf="showProfileDetails && status.user" class="card">
-            <div class="card-header">
-              <h2 class="card-title">👤 User Profile</h2>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
-              <div>
-                <strong>User ID:</strong> {{ status.user.id }}
-              </div>
-              <div>
-                <strong>Email:</strong> {{ status.user.email }}
-              </div>
-              <div *ngIf="status.user.full_name">
-                <strong>Name:</strong> {{ status.user.full_name }}
-              </div>
-              <div>
-                <strong>Admin:</strong> {{ status.user.is_admin ? 'Yes' : 'No' }}
-              </div>
-              <div>
-                <strong>Roles:</strong> {{ status.user.roles.join(', ') || 'None' }}
-              </div>
-              <div *ngIf="status.user.authenticated_at">
-                <strong>Authenticated:</strong> {{ status.user.authenticated_at | date:'short' }}
-              </div>
-            </div>
-          </div>
-          
-          <!-- Dashboard Content -->
-          <div *ngIf="dashboardData" class="card">
-            <div class="card-header">
-              <h2 class="card-title">{{ dashboardData.dashboard.title }}</h2>
-            </div>
-            
-            <p style="font-size: 18px; color: #6b7280; margin-bottom: 24px;">
-              {{ dashboardData.dashboard.message }}
-            </p>
-            
-            <!-- Features -->
-            <h3 style="margin-bottom: 16px; color: #374151;">🎯 Available Features</h3>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 32px;">
-              <div *ngFor="let feature of dashboardData.dashboard.features" class="card" style="margin: 0; padding: 16px;">
-                <div style="display: flex; align-items: center;">
-                  <span style="margin-right: 8px;">✅</span>
-                  {{ feature }}
-                </div>
-              </div>
-            </div>
-            
-            <!-- Stats -->
-            <h3 style="margin-bottom: 16px; color: #374151;">📈 Application Stats</h3>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
-              <div class="card" style="margin: 0; text-align: center;">
-                <div style="font-size: 32px; font-weight: bold; color: #3b82f6;">
-                  {{ dashboardData.dashboard.stats.total_users }}
-                </div>
-                <div style="color: #6b7280;">Total Users</div>
-              </div>
-              
-              <div class="card" style="margin: 0; text-align: center;">
-                <div style="font-size: 32px; font-weight: bold; color: #10b981;">
-                  {{ dashboardData.dashboard.stats.active_sessions }}
-                </div>
-                <div style="color: #6b7280;">Active Sessions</div>
-              </div>
-              
-              <div class="card" style="margin: 0; text-align: center;">
-                <div style="font-size: 16px; font-weight: bold; color: #8b5cf6;">
-                  {{ dashboardData.dashboard.stats.last_login | date:'short' }}
-                </div>
-                <div style="color: #6b7280;">Last Login</div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Loading State -->
-          <div *ngIf="!dashboardData && !error" class="card">
-            <div style="text-align: center; padding: 40px;">
-              <div class="loading-spinner" style="margin-bottom: 16px;"></div>
-              <p>Loading dashboard data...</p>
-            </div>
-          </div>
-          
-          <!-- Error State -->
-          <div *ngIf="error" class="card">
-            <div class="alert alert-error">
-              <strong>❌ Error Loading Dashboard</strong><br>
-              {{ error }}
-            </div>
-            <button (click)="loadDashboardData()" class="btn btn-primary">
-              Retry
-            </button>
-          </div>
-          
-          <!-- Actions -->
-          <div class="card">
-            <h3 style="margin-bottom: 16px; color: #374151;">🔧 Available Actions</h3>
-            <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-              <button (click)="refreshData()" class="btn btn-secondary">
-                🔄 Refresh Data
-              </button>
-              <a routerLink="/" class="btn btn-secondary" style="text-decoration: none;">
-                🏠 Back to Home
-              </a>
-              <button (click)="logout()" class="btn btn-danger">
-                🚪 Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </ng-container>
+        </ng-container>
+      </div>
     </div>
   `,
   styles: []

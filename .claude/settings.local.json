@@ -39,7 +39,10 @@
       "Bash(./test_hierarchy_implementation.sh:*)",
       "Bash(true)",
       "Bash(cat:*)",
-      "Bash(env)"
+      "Bash(env)",
+      "Bash(npm install:*)",
+      "Bash(npx tailwindcss:*)",
+      "Bash(npm uninstall:*)"
     ],
     "deny": [],
     "ask": []

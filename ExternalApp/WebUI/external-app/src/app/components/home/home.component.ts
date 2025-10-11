@@ -9,77 +9,86 @@ import { Observable } from 'rxjs';
   standalone: true,
   imports: [CommonModule, RouterModule],
   template: `
-    <div class="container">
-      <div class="card">
-        <div class="card-header">
-          <h1 class="card-title">🚀 Welcome to ExternalApp</h1>
+    <div class="min-h-screen transition-colors duration-300 bg-green-light-50 dark:bg-green-dark-50">
+      <div class="container mx-auto px-4 py-8">
+        <div class="bg-white dark:bg-green-dark-100 rounded-lg shadow-lg p-6 mb-6 transition-colors duration-300">
+          <div class="border-b border-green-light-200 dark:border-green-dark-300 pb-4 mb-6">
+            <h1 class="text-3xl font-bold text-green-light-900 dark:text-green-dark-900">🚀 Welcome to ExternalApp</h1>
+          </div>
+          
+          <div>
+            <p class="text-lg text-green-light-700 dark:text-green-dark-700 mb-6 leading-relaxed">
+              This is a demonstration application showing how external applications can integrate 
+              with the User Management system for seamless authentication.
+            </p>
+            
+            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-8">
+              <strong class="text-blue-700 dark:text-blue-300">🔐 Authentication Required</strong><br>
+              <span class="text-blue-600 dark:text-blue-400">
+                Welcome to ExternalApp! To access the application features, please log in through the User Management system.
+                This will securely authenticate you and redirect you to the dashboard.
+              </span>
+            </div>
+            
+            <h2 class="text-2xl font-semibold text-green-light-800 dark:text-green-dark-800 mt-8 mb-4">🎯 Integration Features</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              <div class="bg-green-light-100 dark:bg-green-dark-200 rounded-lg p-4 border border-green-light-200 dark:border-green-dark-300">
+                <h3 class="text-green-light-600 dark:text-green-dark-600 font-semibold mb-3">🔄 Seamless Redirect</h3>
+                <p class="text-green-light-700 dark:text-green-dark-700 text-sm">
+                  Users are redirected to User Management for authentication and brought back 
+                  to the external application automatically.
+                </p>
+              </div>
+              
+              <div class="bg-green-light-100 dark:bg-green-dark-200 rounded-lg p-4 border border-green-light-200 dark:border-green-dark-300">
+                <h3 class="text-green-light-600 dark:text-green-dark-600 font-semibold mb-3">🛡️ MFA Support</h3>
+                <p class="text-green-light-700 dark:text-green-dark-700 text-sm">
+                  Full support for Multi-Factor Authentication through the User Management system, 
+                  including TOTP codes and backup options.
+                </p>
+              </div>
+              
+              <div class="bg-green-light-100 dark:bg-green-dark-200 rounded-lg p-4 border border-green-light-200 dark:border-green-dark-300">
+                <h3 class="text-green-light-600 dark:text-green-dark-600 font-semibold mb-3">🎨 Custom UI</h3>
+                <p class="text-green-light-700 dark:text-green-dark-700 text-sm">
+                  External applications maintain their own UI and branding while leveraging 
+                  centralized authentication infrastructure.
+                </p>
+              </div>
+            </div>
+            
+            <div class="text-center mt-8">
+              <button 
+                (click)="login()" 
+                class="bg-green-light-600 hover:bg-green-light-700 dark:bg-green-dark-600 dark:hover:bg-green-dark-700
+                       text-white font-semibold px-8 py-4 rounded-lg transition-all duration-300
+                       transform hover:scale-105 hover:shadow-lg text-lg">
+                🔐 Login via User Management
+              </button>
+            </div>
+          </div>
         </div>
         
-        <div>
-          <p style="font-size: 18px; color: #6b7280; margin-bottom: 24px;">
-            This is a demonstration application showing how external applications can integrate 
-            with the User Management system for seamless authentication.
-          </p>
-          
-          <div class="alert alert-info">
-            <strong>🔐 Authentication Required</strong><br>
-            Welcome to ExternalApp! To access the application features, please log in through the User Management system.
-            This will securely authenticate you and redirect you to the dashboard.
-          </div>
-          
-          <h2 style="margin-top: 32px; margin-bottom: 16px; color: #374151;">🎯 Integration Features</h2>
-          
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 32px;">
-            <div class="card" style="margin: 0;">
-              <h3 style="color: #3b82f6; margin-bottom: 12px;">🔄 Seamless Redirect</h3>
-              <p style="color: #6b7280;">
-                Users are redirected to User Management for authentication and brought back 
-                to the external application automatically.
-              </p>
+        <div class="bg-white dark:bg-green-dark-100 rounded-lg shadow-lg p-6 transition-colors duration-300">
+          <h2 class="text-xl font-semibold text-green-light-800 dark:text-green-dark-800 mb-4">🔧 Technical Details</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-green-light-50 dark:bg-green-dark-200 p-3 rounded border border-green-light-200 dark:border-green-dark-300">
+              <strong class="text-green-light-700 dark:text-green-dark-700">Frontend:</strong>
+              <span class="text-green-light-600 dark:text-green-dark-600"> Angular 20 (Port 4202)</span>
             </div>
-            
-            <div class="card" style="margin: 0;">
-              <h3 style="color: #3b82f6; margin-bottom: 12px;">🛡️ MFA Support</h3>
-              <p style="color: #6b7280;">
-                Full support for Multi-Factor Authentication through the User Management system, 
-                including TOTP codes and backup options.
-              </p>
+            <div class="bg-green-light-50 dark:bg-green-dark-200 p-3 rounded border border-green-light-200 dark:border-green-dark-300">
+              <strong class="text-green-light-700 dark:text-green-dark-700">Backend:</strong>
+              <span class="text-green-light-600 dark:text-green-dark-600"> FastAPI (Port 8002)</span>
             </div>
-            
-            <div class="card" style="margin: 0;">
-              <h3 style="color: #3b82f6; margin-bottom: 12px;">🎨 Custom UI</h3>
-              <p style="color: #6b7280;">
-                External applications maintain their own UI and branding while leveraging 
-                centralized authentication infrastructure.
-              </p>
+            <div class="bg-green-light-50 dark:bg-green-dark-200 p-3 rounded border border-green-light-200 dark:border-green-dark-300">
+              <strong class="text-green-light-700 dark:text-green-dark-700">User Management:</strong>
+              <span class="text-green-light-600 dark:text-green-dark-600"> localhost:4201</span>
             </div>
-          </div>
-          
-          <div style="text-align: center; margin-top: 32px;">
-            <button 
-              (click)="login()" 
-              class="btn btn-primary"
-              style="font-size: 18px; padding: 16px 32px;">
-              🔐 Login via User Management
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      <div class="card">
-        <h2 style="margin-bottom: 16px; color: #374151;">🔧 Technical Details</h2>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px;">
-          <div>
-            <strong>Frontend:</strong> Angular 20 (Port 4202)
-          </div>
-          <div>
-            <strong>Backend:</strong> FastAPI (Port 8002)
-          </div>
-          <div>
-            <strong>User Management:</strong> localhost:4201
-          </div>
-          <div>
-            <strong>Authentication:</strong> OAuth 2.0 PKCE
+            <div class="bg-green-light-50 dark:bg-green-dark-200 p-3 rounded border border-green-light-200 dark:border-green-dark-300">
+              <strong class="text-green-light-700 dark:text-green-dark-700">Authentication:</strong>
+              <span class="text-green-light-600 dark:text-green-dark-600"> OAuth 2.0 PKCE</span>
+            </div>
           </div>
         </div>
       </div>

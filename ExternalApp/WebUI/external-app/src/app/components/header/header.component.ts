@@ -2,12 +2,13 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { AuthService, AuthStatus } from '../../services/auth.service';
+import { TailwindThemeToggleComponent } from '../tailwind-theme-toggle/tailwind-theme-toggle.component';
 import { Observable } from 'rxjs';
 
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, TailwindThemeToggleComponent],
   template: `
     <nav class="navbar">
       <div class="container">
@@ -17,6 +18,8 @@ import { Observable } from 'rxjs';
           </a>
           
           <div class="navbar-nav">
+            <app-tailwind-theme-toggle></app-tailwind-theme-toggle>
+            
             <ng-container *ngIf="authStatus$ | async as status">
               <ng-container *ngIf="status.authenticated && status.user">
                 <span class="nav-link">Welcome, {{ status.user.email }}</span>
