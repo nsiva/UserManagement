@@ -1,0 +1,389 @@
+anual Testing with cURL
+
+  Client Credentials Flow (Enhanced)
+
+  # 1. Get client token (now returns refresh_token)
+  curl -X POST "http://localhost:8001/auth/token" \
+    -H "Content-Type: application/json" \
+    -d '{"client_id": "my_test_client_id", "client_secret": "my_test_client_secret"}'
+
+  # Expected: access_token + refresh_token
+
+  # 2. Use access token for API calls
+  curl -X GET "http://localhost:8001/admin/users" \
+    -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjbGllbnRfaWQiOiJteV90ZXN0X2NsaWVudF9pZCIsInNjb3BlcyI6WyJyZWFkOnVzZXJzIiwibWFuYWdlOnVzZXJzIl0sInRva2VuX3R5cGUiOiJjbGllbnQiLCJleHAiOjE3NTk5NjYwMzV9.3htINFj6-0LxTNFuDe_xlvtRH-WkWkaXMXZUC1O2qmU"
+
+  # 3. Refresh access token (NEW)
+  curl -X POST "http://localhost:8001/auth/token/refresh" \
+    -H "Content-Type: application/json" \
+    -d '{"refresh_token": "YOUR_REFRESH_TOKEN"}'
+
+  # 4. Revoke refresh token (NEW)
+  curl -X POST "http://localhost:8001/auth/token/revoke" \
+    -H "Content-Type: application/json" \
+    -d '{"refresh_token": "YOUR_REFRESH_TOKEN"}'
+
+  User Authentication Flow (Enhanced)
+
+  # 1. User login (now returns refresh_token)
+  curl -X POST "http://localhost:8001/auth/login" \
+    -H "Content-Type: application/json" \
+    -d '{"email": "admin@example.com", "password": "admin123"}'
+
+  # Expected: access_token + refresh_token
+
+  # 2. Use access token
+  curl -X GET "http://localhost:8001/profiles/me" \
+    -H "Authorization: Bearer USER_ACCESS_TOKEN"
+
+  # 3. Refresh user token
+  curl -X POST "http://localhost:8001/auth/token/refresh" \
+    -H "Content-Type: application/json" \
+    -d '{"refresh_token": "USER_REFRESH_TOKEN"}'
+
+  🔍 Database Verification
+
+  -- Check refresh tokens
+  SELECT
+      token_type,
+      expires_at,
+      created_at,
+      is_revoked,
+      CASE WHEN user_id IS NOT NULL THEN 'USER' ELSE 'CLIENT' END as owner_type
+  FROM aaa_refresh_tokens
+  ORDER BY created_at DESC;
+
+  -- Count active tokens
+  SELECT token_type, COUNT(*)
+  FROM aaa_refresh_tokens
+  WHERE is_revoked = FALSE AND expires_at > NOW()
+  GROUP BY token_type;
+
+  🎯 Testing Checklist
+
+  Before Testing:
+  - Server running on port 8001
+  - Database migration applied (aaa_refresh_tokens table exists)
+  - Environment variable REFRESH_TOKEN_EXPIRE_DAYS=30 set
+  - Test client exists in aaa_clients table
+
+  API Tests:
+  - Client token endpoint returns refresh token
+  - User login endpoint returns refresh token
+  - MFA verification endpoint returns refresh token
+  - Refresh endpoint works with both user and client tokens
+  - Revoke endpoint invalidates refresh tokens
+  - Validation endpoint works with new access tokens
+
+  Security Tests:
+  - Revoked refresh tokens are rejected
+  - Expired refresh tokens are rejected
+  - Different requests generate different tokens
+  - IP and User-Agent are tracked
+
+  📊 Expected Response Formats
+
+  Enhanced Token Response:
+  {
+    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+    "token_type": "bearer",
+    "client_id": "my_client",  // or user_id for users
+    "scopes": ["read:users", "manage:users"],  // or roles for users
+    "refresh_token": "abc123def456ghi789..."  // NEW
+  }
+
+  Refresh Response:
+  {
+    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+    "token_type": "bearer",
+    "expires_in": 1800  // seconds until expiration
+  }
+
+  🐛 Troubleshooting Guide
+
+  | Issue                        | Check                | Solution                                 |
+  |------------------------------|----------------------|------------------------------------------|
+  | No refresh token in response | Environment variable | Add REFRESH_TOKEN_EXPIRE_DAYS=30 to .env |
+  | Table doesn't exist          | Database migration   | Run migration SQL file                   |
+  | Client not found             | Test data            | Insert test client in aaa_clients        |
+  | Server not responding        | Server status        | Run ./scripts/start.sh                   |
+  | Token validation fails       | Token format         | Check JWT structure and signing          |
+
+  📈 Performance Monitoring
+
+  -- Monitor token usage
+  SELECT
+      DATE_TRUNC('hour', created_at) as hour,
+      token_type,
+      COUNT(*) as tokens_created
+  FROM aaa_refresh_tokens
+  WHERE created_at > NOW() - INTERVAL '24 hours'
+  GROUP BY hour, token_type
+  ORDER BY hour DESC;
+
+  -- Check token refresh patterns
+  SELECT
+      COUNT(*) as total_refreshes,
+      AVG(EXTRACT(EPOCH FROM (last_used_at - created_at))) as avg_lifetime_seconds
+  FROM aaa_refresh_tokens
+  WHERE last_used_at IS NOT NULL;
+
+  This comprehensive testing approach covers all aspects of the refresh token implementation. The
+  scripts provide both automated and manual testing options to verify that your refresh token system
+   is working correctly! 🚀
+
+  Key Files Created:
+  - 📋 API_TESTING_GUIDE.md - Complete testing manual
+  - 🔧 setup_refresh_tokens.sh - Environment setup
+  - ⚡ test_refresh_api.sh - Quick API tests
+  - 🧪 test_refresh_tokens.py - Comprehensive test suite
+
+
+
+  *****************
+what's the use of access_token from /auth/token? I get an error when i use that with /admin/users, /admin/users working good with 
+  access_token obtained from /auth/login.
+
+  1. Use their own login UI + call your APIs
+  2. Redirect to your system for authentication
+  3. Link to your admin pages for user management
+
+  Let me break down the complete integration flow:
+
+  🔄 Integration Flow Options
+
+  Option 1: External App with Own Login Page
+
+  Login Sequence:
+
+  # 1. User enters credentials in external app's login form
+  # 2. External app calls your API with user credentials
+  POST https://your-user-mgmt.com/auth/login
+  {
+    "email": "user@example.com",
+    "password": "userpassword"
+  }
+
+  # 3. Response includes tokens
+  {
+    "access_token": "eyJ...",
+    "refresh_token": "abc123...",
+    "token_type": "bearer",
+    "user_id": "uuid",
+    "email": "user@example.com",
+    "is_admin": false,
+    "roles": ["viewer", "editor"]
+  }
+
+  # 4. External app stores tokens and creates local session
+
+  MFA Handling (if enabled):
+
+  # If MFA required, first call returns 402
+  {
+    "detail": "MFA required. Please provide MFA code.",
+    "status_code": 402
+  }
+
+  # External app shows MFA input form
+  # User enters MFA code, app calls:
+  POST https://your-user-mgmt.com/auth/mfa/verify
+  {
+    "email": "user@example.com",
+    "mfa_code": "123456"
+  }
+
+  # Returns full token response
+
+  Token Usage:
+
+  # External app uses access token for API calls
+  GET https://your-user-mgmt.com/profiles/me
+  Authorization: Bearer eyJ...
+
+  # Or validates user info
+  POST https://your-user-mgmt.com/auth/validate-token
+  Authorization: Bearer eyJ...
+
+  Option 2: Redirect to Your System
+
+  OAuth-style Flow:
+
+  # 1. External app redirects user to your login page
+  https://your-user-mgmt.com/login?
+    redirect_uri=https://external-app.com/callback&
+    client_id=external_app_id
+
+  # 2. User logs in on your system
+  # 3. Your system redirects back with token
+  https://external-app.com/callback?
+    access_token=eyJ...&
+    refresh_token=abc123...&
+    user_id=uuid
+
+  # 4. External app extracts tokens from URL/callback
+
+  ⏰ Token Lifetime & Refresh
+
+  Current Configuration:
+
+  # From your .env and code:
+  ACCESS_TOKEN_EXPIRE_MINUTES=30      # 30 minutes
+  REFRESH_TOKEN_EXPIRE_DAYS=30        # 30 days
+
+  Token Refresh Flow:
+
+  # When access token expires (every 30 minutes)
+  POST https://your-user-mgmt.com/auth/token/refresh
+  {
+    "refresh_token": "abc123..."
+  }
+
+  # Response: New access token
+  {
+    "access_token": "eyJ...",           # New 30-min token
+    "token_type": "bearer",
+    "expires_in": 1800                  # 30 minutes in seconds
+  }
+
+  External App Token Management:
+
+  class AuthManager {
+    constructor() {
+      this.accessToken = localStorage.getItem('access_token');
+      this.refreshToken = localStorage.getItem('refresh_token');
+      this.tokenExpiry = localStorage.getItem('token_expiry');
+    }
+
+    async makeAuthenticatedRequest(url, options = {}) {
+      // Check if token needs refresh
+      if (this.isTokenExpired()) {
+        await this.refreshAccessToken();
+      }
+
+      return fetch(url, {
+        ...options,
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          ...options.headers
+        }
+      });
+    }
+
+    isTokenExpired() {
+      return new Date() >= new Date(this.tokenExpiry);
+    }
+
+    async refreshAccessToken() {
+      const response = await fetch('/auth/token/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: this.refreshToken })
+      });
+
+      const data = await response.json();
+      this.accessToken = data.access_token;
+      this.tokenExpiry = new Date(Date.now() + data.expires_in * 1000);
+
+      localStorage.setItem('access_token', this.accessToken);
+      localStorage.setItem('token_expiry', this.tokenExpiry);
+    }
+  }
+
+  🔗 Admin Page Integration
+
+  Redirect to User Management Pages:
+
+  # External app redirects admin users to your pages
+  https://your-user-mgmt.com/admin/users?
+    return_url=https://external-app.com/dashboard&
+    auth_token=eyJ...
+
+  # Or use iframe/popup for embedded experience
+  <iframe src="https://your-user-mgmt.com/admin/users?embedded=true&auth_token=eyJ...">
+
+  Deep Links for User Management:
+
+  # Create user
+  https://your-user-mgmt.com/admin/users/create?return_url=https://external-app.com
+
+  # Edit specific user  
+  https://your-user-mgmt.com/admin/users/edit/12345?return_url=https://external-app.com
+
+  # Assign roles
+  https://your-user-mgmt.com/admin/users/12345/roles?return_url=https://external-app.com
+
+  🏗️ Complete Integration Architecture
+
+  External Web App                    User Management System
+  ├── Login Page (Option 1)    ────→  POST /auth/login
+  ├── Redirect (Option 2)      ────→  GET /login?redirect_uri=...
+  ├── User Profile             ────→  GET /profiles/me
+  ├── Token Refresh            ────→  POST /auth/token/refresh
+  ├── Admin Link               ────→  Redirect to /admin/users
+  └── Session Management       ────→  POST /auth/validate-token
+
+  📝 Implementation Checklist
+
+  For External App:
+
+  - Login form that calls /auth/login
+  - MFA handling for /auth/mfa/verify
+  - Token storage (localStorage/sessionStorage)
+  - Automatic token refresh logic
+  - Admin page redirect buttons
+  - Session timeout handling
+
+  For User Management System:
+
+  - CORS configuration for external app domain
+  - Return URL handling in admin pages
+  - Optional: SSO-style redirect endpoints
+  - Optional: Embedded iframe support
+
+  🔧 Quick Start Code
+
+  External App Login Component:
+
+  async function loginUser(email, password) {
+    try {
+      const response = await fetch('https://your-user-mgmt.com/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      if (response.status === 402) {
+        // MFA required
+        const mfaCode = prompt('Enter MFA code:');
+        return await verifyMFA(email, mfaCode);
+      }
+
+      const data = await response.json();
+
+      // Store tokens
+      localStorage.setItem('access_token', data.access_token);
+      localStorage.setItem('refresh_token', data.refresh_token);
+      localStorage.setItem('user_info', JSON.stringify(data));
+
+      return data;
+    } catch (error) {
+      console.error('Login failed:', error);
+      throw error;
+    }
+
+  }
+
+  async function verifyMFA(email, mfaCode) {
+    const response = await fetch('https://your-user-mgmt.com/auth/mfa/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, mfa_code: mfaCode })
+    });
+
+    const data = await response.json();
+    // Store tokens same as above
+    return data;
+  }
+  This gives you a complete federated authentication system where external apps can seamlessly integrate with your
+  User Management system! 🚀

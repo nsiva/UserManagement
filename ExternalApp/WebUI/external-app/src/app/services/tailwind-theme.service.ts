@@ -18,9 +18,10 @@ export class TailwindThemeService {
   private readonly THEME_KEY = 'external-app-tailwind-theme';
   private readonly DEFAULT_THEME: TailwindTheme = 'light';
   
-  private themeSubject = new BehaviorSubject<TailwindTheme>(this.getStoredTheme());
+  // Declare themeSubject property first
+  private themeSubject!: BehaviorSubject<TailwindTheme>;
   
-  // Available theme configurations
+  // Available theme configurations - define first
   public readonly themes: TailwindThemeConfig[] = [
     {
       name: 'light',
@@ -39,8 +40,33 @@ export class TailwindThemeService {
   ];
 
   constructor() {
-    // Apply the stored theme on service initialization
-    this.applyTheme(this.themeSubject.value);
+    // Initialize themeSubject after themes array is defined
+    this.themeSubject = new BehaviorSubject<TailwindTheme>(this.getStoredTheme());
+    console.log('🚀 TailwindThemeService constructor starting...');
+    
+    // Check if theme is already applied by pre-Angular script
+    const currentlyApplied = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+    const storedTheme = this.themeSubject.value;
+    const preAngularTheme = (window as any)._preAngularTheme;
+    
+    console.log('🚀 Theme service constructor:', {
+      storedTheme,
+      currentlyApplied,
+      preAngularTheme,
+      documentClasses: Array.from(document.documentElement.classList),
+      bodyClasses: Array.from(document.body.classList)
+    });
+    
+    // Only apply theme if there's a mismatch between stored and applied
+    if (currentlyApplied !== storedTheme) {
+      console.log('🚀 Theme mismatch detected, applying stored theme:', storedTheme);
+      this.applyTheme(storedTheme);
+    } else {
+      console.log('🚀 Theme already correctly applied, updating meta tags only');
+      // Just update meta tags and dispatch event, don't touch DOM classes
+      this.updateMetaThemeColor(storedTheme);
+      this.dispatchThemeChangeEvent(storedTheme);
+    }
     
     // Listen to system theme changes
     this.listenToSystemThemeChanges();
@@ -71,11 +97,16 @@ export class TailwindThemeService {
    * Set the current theme
    */
   setTheme(theme: TailwindTheme): void {
+    console.log('🎯 setTheme called with:', theme, 'current:', this.themeSubject.value);
     if (this.themeSubject.value !== theme) {
+      console.log('🎯 Theme changing from', this.themeSubject.value, 'to', theme);
       this.themeSubject.next(theme);
       this.applyTheme(theme);
       this.storeTheme(theme);
-      console.log(`Tailwind theme changed to: ${theme}`);
+      console.log(`🎯 Tailwind theme changed to: ${theme}`);
+      console.log('🎯 localStorage now contains:', localStorage.getItem(this.THEME_KEY));
+    } else {
+      console.log('🎯 Theme unchanged, already:', theme);
     }
   }
 
@@ -220,6 +251,11 @@ export class TailwindThemeService {
    * Check if a theme name is valid
    */
   private isValidTheme(theme: string): boolean {
+    // Defensive check to ensure themes array exists
+    if (!this.themes || !Array.isArray(this.themes)) {
+      console.warn('Themes array not initialized, falling back to basic validation');
+      return theme === 'light' || theme === 'dark';
+    }
     return this.themes.some(t => t.name === theme);
   }
 

@@ -29,6 +29,88 @@
       100% { transform: rotate(360deg); }
     }
   </style>
+  
+  <!-- Theme initialization script - runs before Angular to prevent flash -->
+  <script>
+    (function() {
+      console.log('🎨 Pre-Angular theme script starting...');
+      
+      function applyTheme() {
+        try {
+          const themeKey = 'external-app-tailwind-theme';
+          const storedTheme = localStorage.getItem(themeKey);
+          let theme = storedTheme;
+          
+          console.log('🎨 Stored theme from localStorage:', storedTheme);
+          
+          // If no stored theme, check system preference
+          if (!theme) {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+              theme = 'dark';
+              console.log('🎨 No stored theme, using system preference: dark');
+            } else {
+              theme = 'light';
+              console.log('🎨 No stored theme, using system preference: light');
+            }
+          }
+          
+          console.log('🎨 Final theme to apply:', theme);
+          
+          // Check if DOM elements are available
+          if (!document.documentElement) {
+            console.warn('🎨 document.documentElement not available yet');
+            return false;
+          }
+          
+          if (!document.body) {
+            console.warn('🎨 document.body not available yet');
+            return false;
+          }
+          
+          console.log('🎨 Document elements available, applying theme');
+          
+          // Apply theme immediately
+          if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+            document.body.classList.add('dark');
+            console.log('🎨 Applied dark theme classes');
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.body.classList.remove('dark');
+            console.log('🎨 Applied light theme (removed dark classes)');
+          }
+          
+          console.log('🎨 Document element after:', {
+            documentClasses: Array.from(document.documentElement.classList),
+            bodyClasses: Array.from(document.body.classList)
+          });
+          
+          // Store the applied theme for debugging
+          window._preAngularTheme = theme;
+          return true;
+          
+        } catch (error) {
+          console.error('🎨 Error in pre-Angular theme initialization:', error);
+          return false;
+        }
+      }
+      
+      // Try to apply theme immediately
+      if (!applyTheme()) {
+        console.log('🎨 DOM not ready, waiting for DOMContentLoaded...');
+        // If DOM isn't ready, wait for it
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', function() {
+            console.log('🎨 DOMContentLoaded fired, trying again...');
+            applyTheme();
+          });
+        } else {
+          // Document is already loaded, try again shortly
+          setTimeout(applyTheme, 10);
+        }
+      }
+    })();
+  </script>
 </head>
 <body>
   <app-root>
