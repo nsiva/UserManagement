@@ -33,6 +33,7 @@ export class LoginComponent implements OnInit {
   isError = false;
   private apiUrl = environment.apiUrl;
   private redirectUri: string | null = null;
+  private returnUrl: string | null = null;
 
   constructor(
     private http: HttpClient, 
@@ -44,15 +45,26 @@ export class LoginComponent implements OnInit {
   ) { }
 
   ngOnInit(): void {
-    // Capture redirect_uri from query parameters
+    // Capture OAuth and redirect parameters
     this.route.queryParams.subscribe(params => {
       this.redirectUri = params['redirect_uri'] || null;
+      // Properly decode the return_url which may be URL-encoded
+      this.returnUrl = params['return_url'] ? decodeURIComponent(params['return_url']) : null;
+      
       console.log('=== LOGIN COMPONENT DEBUG ===');
       console.log('Raw query params:', params);
       console.log('redirect_uri from params:', params['redirect_uri']);
+      console.log('return_url from params:', params['return_url']);
       console.log('Decoded redirect_uri:', this.redirectUri);
+      console.log('Decoded return_url:', this.returnUrl);
       console.log('Current URL:', window.location.href);
       console.log('==============================');
+
+      // Show success message if OAuth was completed
+      if (params['oauth_success'] === 'true' && params['message']) {
+        this.message = params['message'];
+        this.isError = false;
+      }
     });
   }
 
@@ -75,14 +87,19 @@ export class LoginComponent implements OnInit {
           sessionStorage.setItem('mfa_user_name', response.user_name || '');
           sessionStorage.setItem('mfa_user_id', response.user_id || '');
           
-          // Store redirect URI for use after MFA verification
+          // Store redirect information for use after MFA verification
           console.log('=== MFA REDIRECT STORAGE DEBUG ===');
+          console.log('Storing return_url for MFA:', this.returnUrl);
           console.log('Storing redirect_uri for MFA:', this.redirectUri);
-          if (this.redirectUri) {
+          
+          if (this.returnUrl) {
+            sessionStorage.setItem('login_return_url', this.returnUrl);
+            console.log('Stored return_url in sessionStorage for MFA:', this.returnUrl);
+          } else if (this.redirectUri) {
             sessionStorage.setItem('login_redirect_uri', this.redirectUri);
-            console.log('Stored in sessionStorage as login_redirect_uri:', this.redirectUri);
+            console.log('Stored redirect_uri in sessionStorage for MFA:', this.redirectUri);
           } else {
-            console.log('No redirect_uri to store - will use default redirect after MFA');
+            console.log('No return_url or redirect_uri to store - will use default redirect after MFA');
           }
           console.log('==================================');
           
@@ -110,14 +127,19 @@ export class LoginComponent implements OnInit {
             sessionStorage.setItem('mfa_user_id', error.error.user_id);
           }
           
-          // Store redirect URI for use after MFA verification
+          // Store redirect information for use after MFA verification
           console.log('=== MFA REDIRECT STORAGE DEBUG (402 Error) ===');
+          console.log('Storing return_url for MFA:', this.returnUrl);
           console.log('Storing redirect_uri for MFA:', this.redirectUri);
-          if (this.redirectUri) {
+          
+          if (this.returnUrl) {
+            sessionStorage.setItem('login_return_url', this.returnUrl);
+            console.log('Stored return_url in sessionStorage for MFA:', this.returnUrl);
+          } else if (this.redirectUri) {
             sessionStorage.setItem('login_redirect_uri', this.redirectUri);
-            console.log('Stored in sessionStorage as login_redirect_uri:', this.redirectUri);
+            console.log('Stored redirect_uri in sessionStorage for MFA:', this.redirectUri);
           } else {
-            console.log('No redirect_uri to store - will use default redirect after MFA');
+            console.log('No return_url or redirect_uri to store - will use default redirect after MFA');
           }
           console.log('============================================');
           
@@ -142,17 +164,24 @@ export class LoginComponent implements OnInit {
       );
       
       if (!userProfile.mfa_enabled) {
-        // User doesn't have MFA enabled - redirect to setup every time
-        console.log('User does not have MFA enabled, redirecting to setup');
+        // User doesn't have MFA enabled
+        console.log('User does not have MFA enabled');
+        
+        // For both OAuth and normal flows, redirect to MFA setup
+        // The MFA setup component will handle OAuth redirects properly
+        console.log('Redirecting to MFA setup');
         console.log('=== MFA SETUP REDIRECT DEBUG ===');
         console.log('Storing redirect_uri for MFA setup:', this.redirectUri);
         
-        // Store redirect URI for use after MFA setup completion
-        if (this.redirectUri) {
+        // Store redirect information for use after MFA setup completion
+        if (this.returnUrl) {
+          sessionStorage.setItem('login_return_url', this.returnUrl);
+          console.log('Stored return_url in sessionStorage for MFA setup:', this.returnUrl);
+        } else if (this.redirectUri) {
           sessionStorage.setItem('login_redirect_uri', this.redirectUri);
           console.log('Stored redirect_uri in sessionStorage for MFA setup:', this.redirectUri);
         } else {
-          console.log('No redirect_uri to store for MFA setup');
+          console.log('No return_url or redirect_uri to store for MFA setup');
         }
         console.log('===============================');
         
@@ -171,7 +200,25 @@ export class LoginComponent implements OnInit {
   }
 
   private redirectToLandingPage(): void {
-    // Check if there's a redirect URI to use
+    // First priority: Handle OAuth authorization flow if return_url is present
+    if (this.returnUrl) {
+      console.log('Redirecting to OAuth authorization URL with token:', this.returnUrl);
+      
+      // Get the JWT token and append it to the OAuth URL
+      const token = this.authService.getToken();
+      if (token) {
+        const separator = this.returnUrl.includes('?') ? '&' : '?';
+        const urlWithToken = `${this.returnUrl}${separator}access_token=${encodeURIComponent(token)}`;
+        console.log('Redirecting to OAuth URL with token:', urlWithToken);
+        window.location.href = urlWithToken;
+      } else {
+        console.error('No JWT token found, redirecting without token');
+        window.location.href = this.returnUrl;
+      }
+      return;
+    }
+
+    // Second priority: Check if there's a redirect URI to use (legacy support)
     if (this.redirectUri) {
       console.log('Redirecting to external URI:', this.redirectUri);
       window.location.href = this.redirectUri;

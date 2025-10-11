@@ -1318,3 +1318,174 @@ class PostgresRepository(BaseRepository):
                 """
                 results = await conn.fetch(query_fallback, str(business_unit_id))
                 return [dict(row) for row in results]
+    
+    # OAuth Client Management (using unified aaa_clients table)
+    async def create_oauth_client(self, client_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Create a new OAuth PKCE client in unified aaa_clients table."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = """
+                    INSERT INTO aaa_clients (client_id, name, client_type, redirect_uris, scopes, description, is_active)
+                    VALUES ($1, $2, 'oauth_pkce', $3, $4, $5, $6)
+                    RETURNING *
+                """
+                result = await conn.fetchrow(
+                    query,
+                    client_data['client_id'],
+                    client_data['name'],
+                    client_data['redirect_uris'],
+                    client_data.get('scopes', ['read:profile', 'read:roles']),
+                    client_data.get('description'),
+                    client_data.get('is_active', True)
+                )
+                return dict(result) if result else None
+            except Exception as e:
+                logger.error(f"Failed to create OAuth client: {e}")
+                return None
+    
+    async def get_oauth_client_by_id(self, client_id: str) -> Optional[Dict[str, Any]]:
+        """Get OAuth PKCE client by client_id from unified aaa_clients table."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = "SELECT * FROM aaa_clients WHERE client_id = $1 AND client_type = 'oauth_pkce'"
+                result = await conn.fetchrow(query, client_id)
+                return dict(result) if result else None
+            except Exception as e:
+                logger.error(f"Failed to get OAuth client {client_id}: {e}")
+                return None
+    
+    async def list_oauth_clients(self) -> List[Dict[str, Any]]:
+        """Get all OAuth PKCE clients from unified aaa_clients table."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = "SELECT * FROM aaa_clients WHERE client_type = 'oauth_pkce' ORDER BY created_at DESC"
+                results = await conn.fetch(query)
+                return [dict(row) for row in results]
+            except Exception as e:
+                logger.error(f"Failed to list OAuth clients: {e}")
+                return []
+    
+    async def update_oauth_client(self, client_id: str, update_data: Dict[str, Any]) -> bool:
+        """Update OAuth PKCE client in unified aaa_clients table."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                # Build dynamic update query
+                set_clauses = []
+                values = []
+                param_count = 1
+                
+                for key, value in update_data.items():
+                    if key != 'client_id':  # Don't update the primary identifier
+                        set_clauses.append(f"{key} = ${param_count}")
+                        values.append(value)
+                        param_count += 1
+                
+                if not set_clauses:
+                    return False
+                
+                # Add updated_at timestamp
+                set_clauses.append(f"updated_at = ${param_count}")
+                values.append(datetime.now(timezone.utc))
+                param_count += 1
+                
+                # Add client_id for WHERE clause
+                values.append(client_id)
+                param_count += 1
+                
+                query = f"""
+                    UPDATE aaa_clients 
+                    SET {', '.join(set_clauses)}
+                    WHERE client_id = ${param_count - 1} AND client_type = 'oauth_pkce'
+                """
+                
+                result = await conn.execute(query, *values)
+                return result == "UPDATE 1"
+            except Exception as e:
+                logger.error(f"Failed to update OAuth client {client_id}: {e}")
+                return False
+    
+    async def delete_oauth_client(self, client_id: str) -> bool:
+        """Delete OAuth PKCE client from unified aaa_clients table."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = "DELETE FROM aaa_clients WHERE client_id = $1 AND client_type = 'oauth_pkce'"
+                result = await conn.execute(query, client_id)
+                return result == "DELETE 1"
+            except Exception as e:
+                logger.error(f"Failed to delete OAuth client {client_id}: {e}")
+                return False
+    
+    # Authorization Code Management
+    async def create_authorization_code(self, code_data: Dict[str, Any]) -> bool:
+        """Create authorization code for PKCE flow."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = """
+                    INSERT INTO aaa_authorization_codes 
+                    (code, client_id, user_id, redirect_uri, code_challenge, 
+                     code_challenge_method, expires_at, used)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                """
+                await conn.execute(
+                    query,
+                    code_data['code'],
+                    code_data['client_id'],
+                    code_data['user_id'],
+                    code_data['redirect_uri'],
+                    code_data['code_challenge'],
+                    code_data['code_challenge_method'],
+                    code_data['expires_at'],
+                    code_data.get('used', False)
+                )
+                return True
+            except Exception as e:
+                logger.error(f"Failed to create authorization code: {e}")
+                return False
+    
+    async def get_authorization_code(self, code: str) -> Optional[Dict[str, Any]]:
+        """Get authorization code by code value."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = "SELECT * FROM aaa_authorization_codes WHERE code = $1"
+                result = await conn.fetchrow(query, code)
+                return dict(result) if result else None
+            except Exception as e:
+                logger.error(f"Failed to get authorization code: {e}")
+                return None
+    
+    async def mark_authorization_code_used(self, code: str) -> bool:
+        """Mark authorization code as used."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = "UPDATE aaa_authorization_codes SET used = TRUE WHERE code = $1"
+                result = await conn.execute(query, code)
+                return result == "UPDATE 1"
+            except Exception as e:
+                logger.error(f"Failed to mark authorization code as used: {e}")
+                return False
+    
+    async def cleanup_expired_authorization_codes(self) -> int:
+        """Remove expired authorization codes. Returns number of deleted records."""
+        pool = await self.get_connection_pool()
+        async with pool.acquire() as conn:
+            try:
+                query = """
+                    DELETE FROM aaa_authorization_codes 
+                    WHERE expires_at < $1
+                """
+                result = await conn.execute(query, datetime.now(timezone.utc))
+                # Extract number from result string like "DELETE 5"
+                if result.startswith("DELETE "):
+                    return int(result.split(" ")[1])
+                return 0
+            except Exception as e:
+                logger.error(f"Failed to cleanup expired authorization codes: {e}")
+                return 0

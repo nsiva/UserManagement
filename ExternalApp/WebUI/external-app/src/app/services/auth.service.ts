@@ -1,12 +1,18 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
+import { tap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
 export interface User {
   id: string;
   email: string;
+  first_name?: string;
+  middle_name?: string;
+  last_name?: string;
+  full_name?: string;
   roles: string[];
+  is_admin: boolean;
   authenticated_at?: string;
 }
 
@@ -20,6 +26,7 @@ export interface LoginResponse {
   success: boolean;
   login_url: string;
   message: string;
+  state?: string;
 }
 
 @Injectable({
@@ -46,7 +53,12 @@ export class AuthService {
    * Check current authentication status
    */
   checkAuthStatus(): void {
-    this.http.get<AuthStatus>(`${this.apiUrl}/auth/status`, {
+    const sessionId = this.getSessionId();
+    const url = sessionId 
+      ? `${this.apiUrl}/auth/status?session_id=${sessionId}`
+      : `${this.apiUrl}/auth/status`;
+      
+    this.http.get<AuthStatus>(url, {
       headers: this.getAuthHeaders()
     }).subscribe({
       next: (status) => {
@@ -82,31 +94,69 @@ export class AuthService {
   }
 
   /**
-   * Logout user
+   * Logout user from both ExternalApp and User Management
    */
   logout(): Observable<any> {
-    return this.http.post(`${this.apiUrl}/auth/logout`, {}, {
+    const sessionId = this.getSessionId();
+    
+    // Call ExternalApp logout first
+    const externalAppLogout = this.http.post(`${this.apiUrl}/auth/logout`, {}, {
       headers: this.getAuthHeaders()
     });
+
+    // Also call User Management logout API if we have a session
+    if (sessionId) {
+      const userManagementLogout = this.http.post('http://localhost:8001/auth/logout', {}, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token') || ''}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      // Return combined observable - we don't care if User Management logout fails
+      return externalAppLogout.pipe(
+        tap(() => {
+          // Try to logout from User Management but don't fail if it doesn't work
+          userManagementLogout.subscribe({
+            next: () => console.log('Successfully logged out from User Management'),
+            error: (error) => console.warn('User Management logout failed (this is OK):', error)
+          });
+        })
+      );
+    }
+
+    return externalAppLogout;
+  }
+
+  /**
+   * Get session ID from localStorage
+   */
+  private getSessionId(): string | null {
+    return localStorage.getItem('session_id');
   }
 
   /**
    * Get authorization headers (simplified for demo)
    */
   private getAuthHeaders(): { [key: string]: string } {
-    const sessionId = localStorage.getItem('session_id');
+    const sessionId = this.getSessionId();
     return sessionId ? { 'X-Session-ID': sessionId } : {};
   }
 
   /**
-   * Set session (called when returning from User Management)
+   * Set session (called when returning from OAuth flow)
    */
-  setSession(sessionId: string, user: User): void {
+  setSession(sessionId: string, user?: User): void {
     localStorage.setItem('session_id', sessionId);
-    this.authStatusSubject.next({
-      authenticated: true,
-      user: user
-    });
+    if (user) {
+      this.authStatusSubject.next({
+        authenticated: true,
+        user: user
+      });
+    } else {
+      // Re-check auth status to get user info
+      this.checkAuthStatus();
+    }
   }
 
   /**
@@ -118,26 +168,52 @@ export class AuthService {
   }
 
   /**
-   * Handle return from User Management authentication
-   * In a real app, this would validate tokens/signatures
+   * Handle return from OAuth authentication flow
+   */
+  handleOAuthReturn(queryParams: URLSearchParams): void {
+    const sessionId = queryParams.get('session_id');
+    const authSuccess = queryParams.get('auth_success');
+    const error = queryParams.get('error');
+    
+    if (error) {
+      console.error('OAuth error:', error);
+      this.authStatusSubject.next({ 
+        authenticated: false 
+      });
+      return;
+    }
+    
+    if (sessionId && authSuccess === 'true') {
+      console.log('OAuth authentication successful, session ID:', sessionId);
+      this.setSession(sessionId);
+    } else {
+      console.warn('Invalid OAuth return parameters');
+      this.authStatusSubject.next({ 
+        authenticated: false 
+      });
+    }
+  }
+
+  /**
+   * Handle return from User Management authentication (legacy)
    */
   handleAuthReturn(queryParams: any): void {
-    // In a real implementation, you would:
-    // 1. Validate the return parameters
-    // 2. Exchange for tokens if needed
-    // 3. Set up the session
+    // Legacy method for backward compatibility
+    console.log('Legacy auth return detected');
     
-    // For this demo, we'll simulate success
-    const mockUser: User = {
-      id: 'user_123',
-      email: 'user@example.com',
-      roles: ['user'],
-      authenticated_at: new Date().toISOString()
-    };
-    
-    const sessionId = `session_${Date.now()}`;
-    this.setSession(sessionId, mockUser);
-    
-    console.log('Authentication return handled successfully');
+    // Try to extract session info from query params
+    if (queryParams.get) {
+      // It's URLSearchParams
+      this.handleOAuthReturn(queryParams);
+    } else {
+      // It's an object, convert to URLSearchParams
+      const params = new URLSearchParams();
+      Object.keys(queryParams).forEach(key => {
+        if (queryParams[key]) {
+          params.set(key, queryParams[key]);
+        }
+      });
+      this.handleOAuthReturn(params);
+    }
   }
 }

@@ -21,18 +21,11 @@ import { Observable } from 'rxjs';
             with the User Management system for seamless authentication.
           </p>
           
-          <ng-container *ngIf="authStatus$ | async as status">
-            <div *ngIf="!status.authenticated" class="alert alert-info">
-              <strong>🔐 Authentication Required</strong><br>
-              To access protected features, please log in through the User Management system.
-              This will redirect you to the User Management login page and bring you back here after successful authentication.
-            </div>
-            
-            <div *ngIf="status.authenticated && status.user" class="alert alert-success">
-              <strong>✅ Welcome back, {{ status.user.email }}!</strong><br>
-              You are successfully authenticated. You can now access the protected dashboard.
-            </div>
-          </ng-container>
+          <div class="alert alert-info">
+            <strong>🔐 Authentication Required</strong><br>
+            Welcome to ExternalApp! To access the application features, please log in through the User Management system.
+            This will securely authenticate you and redirect you to the dashboard.
+          </div>
           
           <h2 style="margin-top: 32px; margin-bottom: 16px; color: #374151;">🎯 Integration Features</h2>
           
@@ -63,23 +56,12 @@ import { Observable } from 'rxjs';
           </div>
           
           <div style="text-align: center; margin-top: 32px;">
-            <ng-container *ngIf="authStatus$ | async as status">
-              <button 
-                *ngIf="!status.authenticated" 
-                (click)="login()" 
-                class="btn btn-primary"
-                style="font-size: 18px; padding: 16px 32px;">
-                🔐 Login via User Management
-              </button>
-              
-              <a 
-                *ngIf="status.authenticated" 
-                routerLink="/dashboard" 
-                class="btn btn-primary"
-                style="font-size: 18px; padding: 16px 32px; text-decoration: none;">
-                📊 Go to Dashboard
-              </a>
-            </ng-container>
+            <button 
+              (click)="login()" 
+              class="btn btn-primary"
+              style="font-size: 18px; padding: 16px 32px;">
+              🔐 Login via User Management
+            </button>
           </div>
         </div>
       </div>
@@ -97,7 +79,7 @@ import { Observable } from 'rxjs';
             <strong>User Management:</strong> localhost:4201
           </div>
           <div>
-            <strong>Authentication:</strong> redirect_uri parameter
+            <strong>Authentication:</strong> OAuth 2.0 PKCE
           </div>
         </div>
       </div>
@@ -113,17 +95,7 @@ export class HomeComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // Check if we're returning from authentication
-    const urlParams = new URLSearchParams(window.location.search);
-    const authReturn = urlParams.get('auth_return');
-    
-    if (authReturn === 'true') {
-      console.log('Detected return from User Management authentication');
-      this.authService.handleAuthReturn(urlParams);
-      
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
+    // Home page doesn't need OAuth handling - that's handled in dashboard
   }
 
   login(): void {

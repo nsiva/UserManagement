@@ -367,4 +367,77 @@ class FunctionalRoleHierarchyResponse(BaseModel):
     total_business_units: int
     total_roles: int
 
+# --- OAuth 2.0 / PKCE Models ---
+
+class OAuthClientCreate(BaseModel):
+    client_id: str = Field(..., min_length=1, max_length=100)
+    name: str = Field(..., min_length=1, max_length=200, description="Client name")
+    redirect_uris: List[str] = Field(..., min_items=1, description="List of allowed redirect URIs")
+    scopes: Optional[List[str]] = Field(default=["read:profile", "read:roles"], description="OAuth scopes")
+    description: Optional[str] = Field(None, description="Client description")
+
+class OAuthClientUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=200)
+    redirect_uris: Optional[List[str]] = Field(None, min_items=1)
+    scopes: Optional[List[str]] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class OAuthClientInDB(BaseModel):
+    id: Optional[UUID] = None  # May not have UUID id in unified table
+    client_id: str
+    name: str
+    client_type: str = "oauth_pkce"
+    redirect_uris: Optional[List[str]] = None
+    scopes: Optional[List[str]] = None
+    description: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class AuthorizationRequest(BaseModel):
+    response_type: str = Field(..., pattern="^code$", description="Must be 'code' for authorization code flow")
+    client_id: str = Field(..., min_length=1)
+    redirect_uri: str = Field(..., min_length=1)
+    code_challenge: str = Field(..., min_length=43, max_length=128, description="PKCE code challenge")
+    code_challenge_method: str = Field(default="S256", pattern="^S256$", description="PKCE method (only S256 supported)")
+    state: Optional[str] = Field(None, description="Optional state parameter for CSRF protection")
+
+class AuthorizationCodeInDB(BaseModel):
+    id: UUID
+    code: str
+    client_id: str
+    user_id: UUID
+    redirect_uri: str
+    code_challenge: str
+    code_challenge_method: str
+    expires_at: datetime
+    used: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class TokenExchangeRequest(BaseModel):
+    grant_type: str = Field(..., pattern="^authorization_code$", description="Must be 'authorization_code'")
+    client_id: str = Field(..., min_length=1)
+    code: str = Field(..., min_length=1)
+    redirect_uri: str = Field(..., min_length=1)
+    code_verifier: str = Field(..., min_length=43, max_length=128, description="PKCE code verifier")
+
+class OAuthTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "Bearer"
+    expires_in: int = Field(..., description="Token expiration time in seconds")
+    user_id: str
+    email: str
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
+    is_admin: bool
+    roles: List[str]
+
 

@@ -29,6 +29,7 @@ export class MfaComponent {
   message: string | null = null;
   isError = false;
   private redirectUri: string | null = null;
+  private returnUrl: string | null = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -36,16 +37,18 @@ export class MfaComponent {
     private authService: AuthService,
     private roleService: RoleService
   ) {
-    // Get user info and redirect URI from session storage
+    // Get user info and redirect information from session storage
     this.userEmail = sessionStorage.getItem('mfa_user_email');
     this.userName = sessionStorage.getItem('mfa_user_name');
     this.userId = sessionStorage.getItem('mfa_user_id');
+    this.returnUrl = sessionStorage.getItem('login_return_url');
     this.redirectUri = sessionStorage.getItem('login_redirect_uri');
     
     console.log('=== MFA COMPONENT DEBUG ===');
     console.log('Retrieved email:', this.userEmail);
     console.log('Retrieved name:', this.userName);
     console.log('Retrieved userId:', this.userId);
+    console.log('Retrieved return URL:', this.returnUrl);
     console.log('Retrieved redirect URI:', this.redirectUri);
     console.log('All sessionStorage keys:', Object.keys(sessionStorage));
     console.log('SessionStorage login_redirect_uri:', sessionStorage.getItem('login_redirect_uri'));
@@ -86,19 +89,40 @@ export class MfaComponent {
         sessionStorage.removeItem('mfa_user_name');
         sessionStorage.removeItem('mfa_user_id');
         
-        // Check if there's a redirect URI to use
+        // Check for OAuth authorization flow or redirect URI
         console.log('=== MFA SUCCESS REDIRECT DEBUG ===');
+        console.log('Current returnUrl value:', this.returnUrl);
         console.log('Current redirectUri value:', this.redirectUri);
+        console.log('SessionStorage login_return_url:', sessionStorage.getItem('login_return_url'));
         console.log('SessionStorage login_redirect_uri:', sessionStorage.getItem('login_redirect_uri'));
         
-        if (this.redirectUri) {
+        // First priority: OAuth authorization flow
+        if (this.returnUrl) {
+          console.log('MFA verification successful - redirecting to OAuth authorization URL:', this.returnUrl);
+          sessionStorage.removeItem('login_return_url'); // Clean up
+          
+          // Get the JWT token and append it to the OAuth URL
+          const token = this.authService.getToken();
+          if (token) {
+            const separator = this.returnUrl.includes('?') ? '&' : '?';
+            const urlWithToken = `${this.returnUrl}${separator}access_token=${encodeURIComponent(token)}`;
+            console.log('About to redirect to OAuth URL with token:', urlWithToken);
+            window.location.href = urlWithToken;
+          } else {
+            console.error('No JWT token found after MFA verification, redirecting without token');
+            window.location.href = this.returnUrl;
+          }
+          return;
+        } 
+        // Second priority: Legacy redirect URI
+        else if (this.redirectUri) {
           console.log('MFA verification successful - redirecting to external URI:', this.redirectUri);
           sessionStorage.removeItem('login_redirect_uri'); // Clean up
           console.log('About to redirect to:', this.redirectUri);
           window.location.href = this.redirectUri;
           return;
         } else {
-          console.log('No redirect URI found - using default redirect');
+          console.log('No return URL or redirect URI found - using default redirect');
         }
         console.log('=================================');
         

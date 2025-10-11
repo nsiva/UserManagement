@@ -21,8 +21,9 @@ import { Observable } from 'rxjs';
               <ng-container *ngIf="status.authenticated && status.user">
                 <span class="nav-link">Welcome, {{ status.user.email }}</span>
                 <a routerLink="/dashboard" class="nav-link">Dashboard</a>
-                <button (click)="logout()" class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;">
-                  Logout
+                <a routerLink="/profile" class="nav-link profile-link">👤 Profile</a>
+                <button (click)="logout()" class="btn btn-danger logout-btn" style="padding: 8px 16px; font-size: 14px;">
+                  🚪 Logout
                 </button>
               </ng-container>
               

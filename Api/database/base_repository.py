@@ -295,3 +295,50 @@ class BaseRepository(ABC):
     async def get_users_by_business_unit(self, business_unit_id: UUID) -> List[Dict[str, Any]]:
         """Get all users within a specific business unit."""
         pass
+    
+    # OAuth Client Management (using unified aaa_clients table)
+    @abstractmethod
+    async def create_oauth_client(self, client_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Create a new OAuth PKCE client in unified aaa_clients table."""
+        pass
+    
+    @abstractmethod
+    async def get_oauth_client_by_id(self, client_id: str) -> Optional[Dict[str, Any]]:
+        """Get OAuth PKCE client by client_id from unified aaa_clients table."""
+        pass
+    
+    @abstractmethod
+    async def list_oauth_clients(self) -> List[Dict[str, Any]]:
+        """Get all OAuth PKCE clients from unified aaa_clients table."""
+        pass
+    
+    @abstractmethod
+    async def update_oauth_client(self, client_id: str, update_data: Dict[str, Any]) -> bool:
+        """Update OAuth PKCE client in unified aaa_clients table."""
+        pass
+    
+    @abstractmethod
+    async def delete_oauth_client(self, client_id: str) -> bool:
+        """Delete OAuth PKCE client from unified aaa_clients table."""
+        pass
+    
+    # Authorization Code Management
+    @abstractmethod
+    async def create_authorization_code(self, code_data: Dict[str, Any]) -> bool:
+        """Create authorization code for PKCE flow."""
+        pass
+    
+    @abstractmethod
+    async def get_authorization_code(self, code: str) -> Optional[Dict[str, Any]]:
+        """Get authorization code by code value."""
+        pass
+    
+    @abstractmethod
+    async def mark_authorization_code_used(self, code: str) -> bool:
+        """Mark authorization code as used."""
+        pass
+    
+    @abstractmethod
+    async def cleanup_expired_authorization_codes(self) -> int:
+        """Remove expired authorization codes. Returns number of deleted records."""
+        pass

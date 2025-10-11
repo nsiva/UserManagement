@@ -13,6 +13,7 @@ import { ForgotPasswordComponent } from './components/forgot-password/forgot-pas
 import { SetNewPasswordComponent } from './components/set-new-password/set-new-password';
 import { SetMfaComponent } from './components/set-mfa/set-mfa';
 import { FunctionalRolesHierarchyViewComponent } from './components/functional-roles-hierarchy-view/functional-roles-hierarchy-view';
+import { OAuthCallbackComponent } from './components/oauth-callback/oauth-callback.component';
 
 
 export const routes: Routes = [
@@ -32,6 +33,7 @@ export const routes: Routes = [
   { path: 'forgot-password', component: ForgotPasswordComponent },
   { path: 'set-new-password', component: SetNewPasswordComponent },
   { path: 'mfa', component: MfaComponent },
+  { path: 'oauth/callback', component: OAuthCallbackComponent },
   { path: '**', redirectTo: '/login' } // Redirect any unknown paths to login
 ];
 

@@ -43,6 +43,7 @@ print("Using SECRET_KEY from environment variables:", CLIENT_JWT_SECRET)
 print("Using ALGORITHM from environment variables:", ALGORITHM)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
@@ -286,75 +287,48 @@ async def get_current_admin_user(current_user: TokenData = Depends(get_current_u
         logger.error(f"Error in get_current_admin_user: {e}")
         raise
 
-# In routers/auth.py or common_dependencies.py
-
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import Optional
-import jwt # Assuming you use PyJWT for token validation
-from pydantic import ValidationError # For catching Pydantic validation errors
-import logging
-
-# Define your secret key for client tokens (different from Supabase's JWT secret if applicable)
-# It's crucial this matches how you *issue* client tokens.
-#CLIENT_JWT_SECRET = "your_client_jwt_secret" # MAKE SURE THIS IS A STRONG SECRET FROM ENV VARS
-
-CLIENT_JWT_SECRET = os.environ.get("JWT_SECRET_KEY")
-CLIENT_ALGORITHM = os.environ.get("ALGORITHM") # Or whatever algorithm you use for client tokens
-
-# Initialize HTTPBearer to extract token from "Authorization: Bearer <token>"
-bearer_scheme = HTTPBearer()
-logger = logging.getLogger("auth") # Use your auth logger
-
-async def get_current_client(
-    token_credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme)
-) -> Optional[ClientTokenData]: # Returns ClientTokenData or None
+async def get_current_user_optional(token: Optional[str] = Depends(oauth2_scheme_optional)) -> Optional[TokenData]:
     """
-    Dependency to get the current authenticated API client.
-    Returns ClientTokenData if client is valid, otherwise None (as it's Optional).
+    Optional authentication dependency for OAuth authorization endpoint.
+    Returns TokenData if valid token is provided, None otherwise.
     """
-    if not token_credentials:
-        # No Authorization header or no Bearer token provided for client.
-        # This is fine for an Optional dependency.
+    if not token:
         return None
-
-    token = token_credentials.credentials # Extract the JWT string
-
+    
     try:
-        # Decode the token
-        payload = jwt.decode(token, CLIENT_JWT_SECRET, algorithms=[CLIENT_ALGORITHM])
+        payload = jwt.decode(token, CLIENT_JWT_SECRET, algorithms=[ALGORITHM])
+        user_id: str = payload.get("user_id")
+        email: str = payload.get("email")
+        is_admin: bool = payload.get("is_admin", False)
+        roles: List[str] = payload.get("roles", [])
 
-        # Validate essential claims for a client token
-        if 'client_id' not in payload or not payload['client_id']:
-            logger.warning("Client token provided but missing 'client_id' claim.")
-            return None # Not a valid client token structure
+        logger.info(f"Optional auth - Decoded JWT payload: user_id={user_id}, email={email}")
 
-        # Re-construct ClientTokenData from the payload
-        # Ensure ClientTokenData Pydantic model can handle these fields
-        client_data = ClientTokenData(
-            client_id=payload['client_id'],
-            scopes=payload.get('scopes', []), # Default to empty list if no scopes
-            exp=payload.get('exp')
-            # Add other client-specific claims if you have them
-        )
-
-        # You might add more checks here, e.g., if client_id exists in your database
-
-        return client_data
-
-    except jwt.ExpiredSignatureError:
-        logger.warning("Client token has expired.")
-        return None
-    except jwt.InvalidTokenError as e:
-        logger.warning(f"Invalid client token: {e}")
-        return None
-    except ValidationError as e: # Catch Pydantic validation errors if ClientTokenData construction fails
-        logger.warning(f"Client token payload validation error: {e}")
+        if user_id is None or email is None:
+            logger.warning("Optional auth - Token missing user_id or email.")
+            return None
+            
+        return TokenData(user_id=user_id, email=email, is_admin=is_admin, roles=roles)
+    except JWTError as e:
+        logger.warning(f"Optional auth - JWT Error during decoding: {e}")
         return None
     except Exception as e:
-        # Catch any other unexpected errors during token processing
-        logger.error(f"Unexpected error during client token validation: {e}", exc_info=True)
+        logger.warning(f"Optional auth - Unexpected error: {e}")
         return None
+
+# Placeholder functions for admin.py compatibility
+async def get_current_client():
+    """Placeholder function for admin.py compatibility"""
+    return None
+
+def send_password_setup_email(email: str, token: str) -> bool:
+    """Placeholder function for admin.py compatibility"""
+    return False
+
+def generate_reset_token() -> str:
+    """Placeholder function for admin.py compatibility"""
+    import secrets
+    return secrets.token_urlsafe(32)
 
 @auth_router.post("/token", response_model=ClientTokenResponse, summary="Obtain a token using client_id and client_secret")
 async def get_client_token(request: ClientTokenRequest):

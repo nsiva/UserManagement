@@ -83,15 +83,36 @@ export class SetMfaComponent implements OnInit {
   }
 
   private redirectToLandingPage(): void {
-    // Check if there's a redirect URI from the login flow
+    // Check for OAuth authorization flow or redirect URI from the login flow
+    const storedReturnUrl = sessionStorage.getItem('login_return_url');
     const storedRedirectUri = sessionStorage.getItem('login_redirect_uri');
     
     console.log('=== SET-MFA REDIRECT DEBUG ===');
+    console.log('Stored return URL:', storedReturnUrl);
     console.log('Stored redirect URI:', storedRedirectUri);
     console.log('SessionStorage keys:', Object.keys(sessionStorage));
     console.log('============================');
     
-    if (storedRedirectUri) {
+    // First priority: OAuth authorization flow
+    if (storedReturnUrl) {
+      console.log('MFA setup complete - redirecting to OAuth authorization URL:', storedReturnUrl);
+      sessionStorage.removeItem('login_return_url'); // Clean up
+      
+      // Get the JWT token and append it to the OAuth URL (same as in login component)
+      const token = this.authService.getToken();
+      if (token) {
+        const separator = storedReturnUrl.includes('?') ? '&' : '?';
+        const urlWithToken = `${storedReturnUrl}${separator}access_token=${encodeURIComponent(token)}`;
+        console.log('Redirecting to OAuth URL with token after MFA setup:', urlWithToken);
+        window.location.href = urlWithToken;
+      } else {
+        console.error('No JWT token found after MFA setup, redirecting without token');
+        window.location.href = storedReturnUrl;
+      }
+      return;
+    }
+    // Second priority: Legacy redirect URI
+    else if (storedRedirectUri) {
       console.log('MFA setup complete - redirecting to external URI:', storedRedirectUri);
       sessionStorage.removeItem('login_redirect_uri'); // Clean up
       window.location.href = storedRedirectUri;

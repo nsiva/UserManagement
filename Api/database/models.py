@@ -79,3 +79,31 @@ class DBOrganization(BaseModel):
     phone_number: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
+
+
+class DBOAuthClient(BaseModel):
+    """Database OAuth client entity model (unified with DBClient)."""
+    client_id: str  # Primary key in unified table
+    name: str
+    client_type: str = "oauth_pkce"
+    client_secret: Optional[str] = None  # Not used for PKCE clients
+    redirect_uris: Optional[List[str]] = None
+    scopes: Optional[List[str]] = None
+    description: Optional[str] = None
+    is_active: bool = True
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
+class DBAuthorizationCode(BaseModel):
+    """Database authorization code entity model."""
+    id: UUID
+    code: str
+    client_id: str
+    user_id: UUID
+    redirect_uri: str
+    code_challenge: str
+    code_challenge_method: str
+    expires_at: datetime
+    used: bool = False
+    created_at: datetime

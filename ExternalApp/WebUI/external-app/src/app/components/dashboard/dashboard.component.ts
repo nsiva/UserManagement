@@ -40,30 +40,52 @@ interface DashboardData {
         </div>
         
         <div *ngIf="status.authenticated">
-          <!-- User Info -->
+          <!-- Navigation Links -->
           <div class="card">
             <div class="card-header">
               <h1 class="card-title">📊 ExternalApp Dashboard</h1>
             </div>
             <div *ngIf="status.user">
               <div class="alert alert-success">
-                <strong>✅ Successfully Authenticated</strong><br>
-                Welcome, {{ status.user.email }}! You completed the authentication flow including any required MFA steps.
+                <strong>✅ Successfully Authenticated via OAuth PKCE</strong><br>
+                Welcome, {{ status.user.full_name || status.user.email }}! You completed the OAuth authentication flow including any required MFA steps.
               </div>
               
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 20px;">
-                <div>
-                  <strong>User ID:</strong> {{ status.user.id }}
-                </div>
-                <div>
-                  <strong>Email:</strong> {{ status.user.email }}
-                </div>
-                <div>
-                  <strong>Roles:</strong> {{ status.user.roles.join(', ') }}
-                </div>
-                <div *ngIf="status.user.authenticated_at">
-                  <strong>Authenticated:</strong> {{ status.user.authenticated_at | date:'short' }}
-                </div>
+              <!-- Profile and Logout Links -->
+              <div style="display: flex; gap: 16px; margin-top: 20px; padding: 16px; background-color: #f8fafc; border-radius: 8px;">
+                <button (click)="showProfile()" class="btn btn-primary">
+                  👤 Profile
+                </button>
+                <button (click)="logout()" class="btn btn-danger">
+                  🚪 Logout
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Profile Details (shown when Profile is clicked) -->
+          <div *ngIf="showProfileDetails && status.user" class="card">
+            <div class="card-header">
+              <h2 class="card-title">👤 User Profile</h2>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+              <div>
+                <strong>User ID:</strong> {{ status.user.id }}
+              </div>
+              <div>
+                <strong>Email:</strong> {{ status.user.email }}
+              </div>
+              <div *ngIf="status.user.full_name">
+                <strong>Name:</strong> {{ status.user.full_name }}
+              </div>
+              <div>
+                <strong>Admin:</strong> {{ status.user.is_admin ? 'Yes' : 'No' }}
+              </div>
+              <div>
+                <strong>Roles:</strong> {{ status.user.roles.join(', ') || 'None' }}
+              </div>
+              <div *ngIf="status.user.authenticated_at">
+                <strong>Authenticated:</strong> {{ status.user.authenticated_at | date:'short' }}
               </div>
             </div>
           </div>
@@ -159,6 +181,7 @@ export class DashboardComponent implements OnInit {
   authStatus$: Observable<AuthStatus>;
   dashboardData: DashboardData | null = null;
   error: string | null = null;
+  showProfileDetails: boolean = false;
 
   constructor(
     private authService: AuthService,
@@ -170,11 +193,21 @@ export class DashboardComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // Check if we're returning from authentication
+    // Check if we're returning from OAuth authentication
     this.route.queryParams.subscribe(params => {
+      const sessionId = params['session_id'];
+      const authSuccess = params['auth_success'];
       const authReturn = params['auth_return'];
-      if (authReturn === 'true') {
-        console.log('Detected return from User Management authentication to dashboard');
+      
+      if (sessionId || authSuccess) {
+        console.log('Detected return from OAuth authentication to dashboard');
+        const urlParams = new URLSearchParams(window.location.search);
+        this.authService.handleOAuthReturn(urlParams);
+        
+        // Clean up URL
+        this.router.navigate(['/dashboard'], { replaceUrl: true });
+      } else if (authReturn === 'true') {
+        console.log('Detected legacy return from User Management authentication to dashboard');
         this.authService.handleAuthReturn(params);
         
         // Clean up URL
@@ -227,18 +260,38 @@ export class DashboardComponent implements OnInit {
     });
   }
 
+  showProfile(): void {
+    this.showProfileDetails = !this.showProfileDetails;
+  }
+
   logout(): void {
-    this.authService.logout().subscribe({
+    // Call logout on both UserManagement API and local session
+    this.http.post('http://localhost:8001/auth/logout', {}, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('access_token') || ''}`
+      }
+    }).subscribe({
       next: () => {
-        this.authService.clearSession();
-        console.log('Logged out successfully');
-        this.router.navigate(['/']);
+        console.log('Logged out from User Management API');
       },
       error: (error) => {
-        console.error('Error during logout:', error);
-        // Clear session anyway
-        this.authService.clearSession();
-        this.router.navigate(['/']);
+        console.warn('Warning: Failed to logout from User Management API:', error);
+      },
+      complete: () => {
+        // Always clear local session regardless of API call result
+        this.authService.logout().subscribe({
+          next: () => {
+            this.authService.clearSession();
+            console.log('Logged out successfully from ExternalApp');
+            this.router.navigate(['/home']);
+          },
+          error: (error) => {
+            console.error('Error during ExternalApp logout:', error);
+            // Clear session anyway
+            this.authService.clearSession();
+            this.router.navigate(['/home']);
+          }
+        });
       }
     });
   }

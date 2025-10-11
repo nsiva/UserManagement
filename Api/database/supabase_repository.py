@@ -565,3 +565,123 @@ class SupabaseRepository(BaseRepository):
         except Exception as e:
             logger.error(f"Failed to count users for business unit {business_unit_id}: {e}")
             return 0
+    
+    # OAuth Client Management (using unified aaa_clients table)
+    async def create_oauth_client(self, client_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Create a new OAuth PKCE client in unified aaa_clients table."""
+        try:
+            # Set client_type to oauth_pkce and ensure no client_secret is set
+            oauth_data = {
+                **client_data,
+                'client_type': 'oauth_pkce',
+                'client_secret': None  # PKCE clients don't use secrets
+            }
+            response = self.client.from_('aaa_clients').insert(oauth_data).execute()
+            if not response.data:
+                raise Exception("Failed to create OAuth client")
+            return response.data[0]
+        except Exception as e:
+            logger.error(f"Failed to create OAuth client: {e}")
+            return None
+    
+    async def get_oauth_client_by_id(self, client_id: str) -> Optional[Dict[str, Any]]:
+        """Get OAuth PKCE client by client_id from unified aaa_clients table."""
+        try:
+            response = self.client.from_('aaa_clients')\
+                .select('*')\
+                .eq('client_id', client_id)\
+                .eq('client_type', 'oauth_pkce')\
+                .limit(1)\
+                .execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            logger.error(f"Failed to get OAuth client {client_id}: {e}")
+            return None
+    
+    async def list_oauth_clients(self) -> List[Dict[str, Any]]:
+        """Get all OAuth PKCE clients from unified aaa_clients table."""
+        try:
+            response = self.client.from_('aaa_clients')\
+                .select('*')\
+                .eq('client_type', 'oauth_pkce')\
+                .order('created_at', desc=True)\
+                .execute()
+            return response.data or []
+        except Exception as e:
+            logger.error(f"Failed to list OAuth clients: {e}")
+            return []
+    
+    async def update_oauth_client(self, client_id: str, update_data: Dict[str, Any]) -> bool:
+        """Update OAuth PKCE client in unified aaa_clients table."""
+        try:
+            update_data['updated_at'] = datetime.now(timezone.utc).isoformat()
+            response = self.client.from_('aaa_clients')\
+                .update(update_data)\
+                .eq('client_id', client_id)\
+                .eq('client_type', 'oauth_pkce')\
+                .execute()
+            return bool(response.data)
+        except Exception as e:
+            logger.error(f"Failed to update OAuth client {client_id}: {e}")
+            return False
+    
+    async def delete_oauth_client(self, client_id: str) -> bool:
+        """Delete OAuth PKCE client from unified aaa_clients table."""
+        try:
+            response = self.client.from_('aaa_clients')\
+                .delete()\
+                .eq('client_id', client_id)\
+                .eq('client_type', 'oauth_pkce')\
+                .execute()
+            return bool(response.data)
+        except Exception as e:
+            logger.error(f"Failed to delete OAuth client {client_id}: {e}")
+            return False
+    
+    # Authorization Code Management
+    async def create_authorization_code(self, code_data: Dict[str, Any]) -> bool:
+        """Create authorization code for PKCE flow."""
+        try:
+            response = self.client.from_('aaa_authorization_codes').insert(code_data).execute()
+            return bool(response.data)
+        except Exception as e:
+            logger.error(f"Failed to create authorization code: {e}")
+            return False
+    
+    async def get_authorization_code(self, code: str) -> Optional[Dict[str, Any]]:
+        """Get authorization code by code value."""
+        try:
+            response = self.client.from_('aaa_authorization_codes')\
+                .select('*')\
+                .eq('code', code)\
+                .limit(1)\
+                .execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            logger.error(f"Failed to get authorization code: {e}")
+            return None
+    
+    async def mark_authorization_code_used(self, code: str) -> bool:
+        """Mark authorization code as used."""
+        try:
+            response = self.client.from_('aaa_authorization_codes')\
+                .update({'used': True})\
+                .eq('code', code)\
+                .execute()
+            return bool(response.data)
+        except Exception as e:
+            logger.error(f"Failed to mark authorization code as used: {e}")
+            return False
+    
+    async def cleanup_expired_authorization_codes(self) -> int:
+        """Remove expired authorization codes. Returns number of deleted records."""
+        try:
+            current_time = datetime.now(timezone.utc).isoformat()
+            response = self.client.from_('aaa_authorization_codes')\
+                .delete()\
+                .lt('expires_at', current_time)\
+                .execute()
+            return len(response.data) if response.data else 0
+        except Exception as e:
+            logger.error(f"Failed to cleanup expired authorization codes: {e}")
+            return 0
