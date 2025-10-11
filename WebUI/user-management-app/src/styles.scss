@@ -3,89 +3,83 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Theme CSS Custom Properties */
+/* Global styles */
 body {
   font-family: 'Inter', sans-serif;
   margin: 0;
   padding: 0;
   transition: background-color 0.3s ease, color 0.3s ease;
+  background-color: var(--color-background);
+  color: var(--color-text);
 }
 
-/* Light Theme (Default) */
-body,
-body.theme-light {
-  --color-primary: #2563eb;
-  --color-primary-hover: #1d4ed8;
-  --color-primary-text: #ffffff;
-  --color-secondary: #6b7280;
-  --color-secondary-hover: #4b5563;
-  --color-header-bg: #2563eb;
-  --color-background: #f4f7f6;
-  --color-surface: #ffffff;
-  --color-surface-hover: #f9fafb;
-  --color-text: #333333;
-  --color-text-secondary: #6b7280;
-  --color-text-muted: #9ca3af;
-  --color-border: #d1d5db;
-  --color-border-focus: #2563eb;
-  --color-success: #059669;
-  --color-warning: #d97706;
-  --color-error: #dc2626;
-  --color-input-bg: #ffffff;
+/* CSS Custom Properties for Theme System */
+/* Light Theme (Default) - applied to :root for global access */
+:root,
+:root:not(.dark):not(.high-contrast) {
+  --color-primary: rgb(37 99 235);
+  --color-primary-hover: rgb(29 78 216);
+  --color-primary-text: rgb(255 255 255);
+  --color-secondary: rgb(107 114 128);
+  --color-secondary-hover: rgb(75 85 99);
+  --color-header-bg: rgb(37 99 235);
+  --color-background: rgb(244 247 246);
+  --color-surface: rgb(255 255 255);
+  --color-surface-hover: rgb(249 250 251);
+  --color-text: rgb(51 51 51);
+  --color-text-secondary: rgb(107 114 128);
+  --color-text-muted: rgb(156 163 175);
+  --color-border: rgb(209 213 219);
+  --color-border-focus: rgb(37 99 235);
+  --color-success: rgb(5 150 105);
+  --color-warning: rgb(217 119 6);
+  --color-error: rgb(220 38 38);
+  --color-input-bg: rgb(255 255 255);
   --color-modal-overlay: rgba(107, 114, 128, 0.5);
-  
-  background-color: var(--color-background);
-  color: var(--color-text);
 }
 
-/* Dark Theme */
-body.theme-dark {
-  --color-primary: #0ea5e9;
-  --color-primary-hover: #0284c7;
-  --color-primary-text: #ffffff;
-  --color-secondary: #374151;
-  --color-secondary-hover: #4b5563;
-  --color-header-bg: #374151;
-  --color-background: #0f172a;
-  --color-surface: #1e293b;
-  --color-surface-hover: #334155;
-  --color-text: #f1f5f9;
-  --color-text-secondary: #cbd5e1;
-  --color-text-muted: #94a3b8;
-  --color-border: #475569;
-  --color-border-focus: #0ea5e9;
-  --color-success: #059669;
-  --color-warning: #d97706;
-  --color-error: #dc2626;
-  --color-input-bg: #334155;
+/* Dark Theme - applied when .dark class is on html element */
+:root.dark {
+  --color-primary: rgb(14 165 233);
+  --color-primary-hover: rgb(2 132 199);
+  --color-primary-text: rgb(255 255 255);
+  --color-secondary: rgb(55 65 81);
+  --color-secondary-hover: rgb(75 85 99);
+  --color-header-bg: rgb(55 65 81);
+  --color-background: rgb(15 23 42);
+  --color-surface: rgb(30 41 59);
+  --color-surface-hover: rgb(51 65 85);
+  --color-text: rgb(241 245 249);
+  --color-text-secondary: rgb(203 213 225);
+  --color-text-muted: rgb(148 163 184);
+  --color-border: rgb(71 85 105);
+  --color-border-focus: rgb(14 165 233);
+  --color-success: rgb(5 150 105);
+  --color-warning: rgb(217 119 6);
+  --color-error: rgb(220 38 38);
+  --color-input-bg: rgb(51 65 85);
   --color-modal-overlay: rgba(0, 0, 0, 0.8);
-  
-  background-color: var(--color-background);
-  color: var(--color-text);
 }
 
-/* High Contrast Theme */
-body.theme-high-contrast {
-  --color-primary: #000000;
-  --color-primary-hover: #333333;
-  --color-primary-text: #ffffff;
-  --color-secondary: #666666;
-  --color-secondary-hover: #333333;
-  --color-header-bg: #000000;
-  --color-background: #ffffff;
-  --color-surface: #ffffff;
-  --color-surface-hover: #f0f0f0;
-  --color-text: #000000;
-  --color-text-secondary: #333333;
-  --color-text-muted: #666666;
-  --color-border: #000000;
-  --color-border-focus: #000000;
-  --color-success: #006600;
-  --color-warning: #cc6600;
-  --color-error: #cc0000;
-  --color-input-bg: #ffffff;
+/* High Contrast Theme - applied when .high-contrast class is on html element */
+:root.high-contrast {
+  --color-primary: rgb(0 0 0);
+  --color-primary-hover: rgb(51 51 51);
+  --color-primary-text: rgb(255 255 255);
+  --color-secondary: rgb(102 102 102);
+  --color-secondary-hover: rgb(51 51 51);
+  --color-header-bg: rgb(0 0 0);
+  --color-background: rgb(255 255 255);
+  --color-surface: rgb(255 255 255);
+  --color-surface-hover: rgb(240 240 240);
+  --color-text: rgb(0 0 0);
+  --color-text-secondary: rgb(51 51 51);
+  --color-text-muted: rgb(102 102 102);
+  --color-border: rgb(0 0 0);
+  --color-border-focus: rgb(0 0 0);
+  --color-success: rgb(0 102 0);
+  --color-warning: rgb(204 102 0);
+  --color-error: rgb(204 0 0);
+  --color-input-bg: rgb(255 255 255);
   --color-modal-overlay: rgba(0, 0, 0, 0.8);
-  
-  background-color: var(--color-background);
-  color: var(--color-text);
 }

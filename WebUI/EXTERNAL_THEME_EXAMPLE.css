@@ -1,0 +1,174 @@
+/**
+ * EXTERNAL THEME CSS EXAMPLE
+ * 
+ * This is an example external stylesheet that can be loaded via URL parameter.
+ * External applications can host this CSS file and pass its URL to apply custom themes.
+ * 
+ * Usage:
+ * http://your-app.com/?styleUrl=https://your-cdn.com/custom-theme.css
+ * http://your-app.com/?themeUrl=https://your-cdn.com/corporate-theme.css
+ * http://your-app.com/?cssUrl=https://your-cdn.com/brand-colors.css
+ * 
+ * This CSS will override the default theme colors by redefining CSS custom properties.
+ */
+
+/* ============================================
+   CUSTOM THEME: Corporate Blue & Gold
+   ============================================ */
+
+:root {
+  /* Primary Colors - Your Brand Colors */
+  --color-primary: rgb(0 51 160);           /* Deep Blue */
+  --color-primary-hover: rgb(0 41 128);     /* Darker Blue */
+  --color-primary-text: rgb(255 255 255);   /* White text on primary */
+  
+  /* Secondary Colors */
+  --color-secondary: rgb(184 134 11);       /* Gold */
+  --color-secondary-hover: rgb(146 106 8);  /* Darker Gold */
+  
+  /* Background Colors */
+  --color-header-bg: rgb(0 51 160);         /* Deep Blue header */
+  --color-background: rgb(248 250 252);     /* Light gray background */
+  --color-surface: rgb(255 255 255);        /* White surfaces */
+  --color-surface-hover: rgb(241 245 249);  /* Hover state */
+  
+  /* Text Colors */
+  --color-text: rgb(30 41 59);              /* Dark slate text */
+  --color-text-secondary: rgb(100 116 139); /* Muted text */
+  --color-text-muted: rgb(148 163 184);     /* Very muted text */
+  
+  /* Border Colors */
+  --color-border: rgb(203 213 225);         /* Light borders */
+  --color-border-focus: rgb(0 51 160);      /* Focus state - brand blue */
+  
+  /* Status Colors */
+  --color-success: rgb(22 163 74);          /* Green for success */
+  --color-warning: rgb(234 179 8);          /* Yellow for warnings */
+  --color-error: rgb(220 38 38);            /* Red for errors */
+  
+  /* Input Colors */
+  --color-input-bg: rgb(255 255 255);       /* White input backgrounds */
+  
+  /* Overlay Colors */
+  --color-modal-overlay: rgba(0, 51, 160, 0.4); /* Blue tinted overlay */
+}
+
+/* ============================================
+   DARK MODE VARIANT (Optional)
+   If you want your external theme to support dark mode
+   ============================================ */
+
+:root.dark {
+  --color-primary: rgb(59 130 246);         /* Lighter Blue for dark mode */
+  --color-primary-hover: rgb(37 99 235);    /* Medium Blue */
+  --color-primary-text: rgb(255 255 255);
+  
+  --color-secondary: rgb(251 191 36);       /* Bright Gold */
+  --color-secondary-hover: rgb(245 158 11);
+  
+  --color-header-bg: rgb(15 23 42);         /* Dark slate */
+  --color-background: rgb(15 23 42);        /* Dark slate background */
+  --color-surface: rgb(30 41 59);           /* Lighter slate surfaces */
+  --color-surface-hover: rgb(51 65 85);
+  
+  --color-text: rgb(241 245 249);           /* Light text */
+  --color-text-secondary: rgb(203 213 225);
+  --color-text-muted: rgb(148 163 184);
+  
+  --color-border: rgb(71 85 105);
+  --color-border-focus: rgb(59 130 246);
+  
+  --color-success: rgb(34 197 94);
+  --color-warning: rgb(250 204 21);
+  --color-error: rgb(248 113 113);
+  
+  --color-input-bg: rgb(51 65 85);
+  --color-modal-overlay: rgba(0, 0, 0, 0.8);
+}
+
+/* ============================================
+   ADDITIONAL CUSTOM STYLES (Optional)
+   You can also override specific component styles
+   ============================================ */
+
+/* Custom button styling */
+button {
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+/* Custom header styling */
+app-header {
+  box-shadow: 0 2px 8px rgba(0, 51, 160, 0.1);
+}
+
+/* Custom card styling */
+.card,
+[class*="bg-theme-surface"] {
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Custom form input styling */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+select,
+textarea {
+  border-radius: 0.375rem;
+  border-width: 2px;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  box-shadow: 0 0 0 3px rgba(0, 51, 160, 0.1);
+}
+
+/* ============================================
+   BRANDING CUSTOMIZATION
+   ============================================ */
+
+/* You can even inject custom fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Custom logo area styling */
+.logo-container {
+  /* Add your custom logo styling here */
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS (Optional)
+   ============================================ */
+
+@media (max-width: 768px) {
+  :root {
+    /* Adjust colors for mobile if needed */
+  }
+}
+
+/* ============================================
+   ACCESSIBILITY ENHANCEMENTS (Optional)
+   ============================================ */
+
+/* High contrast mode override */
+:root.high-contrast {
+  --color-primary: rgb(0 0 0);
+  --color-primary-hover: rgb(51 51 51);
+  --color-background: rgb(255 255 255);
+  --color-text: rgb(0 0 0);
+  --color-border: rgb(0 0 0);
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

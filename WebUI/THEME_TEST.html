@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>External Theme Test Page</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: white;
+            color: #333;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            margin-top: 0;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f7fafc;
+            border-radius: 5px;
+            border-left: 4px solid #667eea;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #5a67d8;
+        }
+        .url-box {
+            background: #2d3748;
+            color: #68d391;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+            margin: 10px 0;
+        }
+        .info {
+            background: #e6fffa;
+            border-left: 4px solid #38b2ac;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        .warning {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            color: #92400e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 External Theme Integration Test</h1>
+        
+        <div class="info">
+            <strong>✅ Setup Complete!</strong><br>
+            Your UserManagement app now supports loading external CSS themes via URL parameters.
+        </div>
+
+        <div class="test-section">
+            <h2>📋 Test Instructions</h2>
+            <ol>
+                <li>Start a local file server in the WebUI directory:
+                    <div class="url-box">cd /Users/siva/projects/UserManagement/WebUI<br>python3 -m http.server 8000</div>
+                </li>
+                <li>Click one of the test buttons below</li>
+                <li>The UserManagement app will open with the external theme applied</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h2>🧪 Quick Tests</h2>
+            
+            <h3>Test 1: Purple Theme (Local)</h3>
+            <p>Load a purple-themed version of the app from your local machine:</p>
+            <button onclick="testLocalTheme()">🟣 Test Purple Theme</button>
+            <div class="url-box" id="purpleUrl" style="display:none; margin-top:10px;"></div>
+
+            <h3>Test 2: Corporate Theme (Example)</h3>
+            <p>Load the corporate blue & gold theme example:</p>
+            <button onclick="testCorporateTheme()">🔵 Test Corporate Theme</button>
+            <div class="url-box" id="corpUrl" style="display:none; margin-top:10px;"></div>
+
+            <h3>Test 3: Built-in Dark Theme</h3>
+            <p>Test the built-in dark theme via URL parameter:</p>
+            <button onclick="testDarkTheme()">🌙 Test Dark Theme</button>
+            <div class="url-box" id="darkUrl" style="display:none; margin-top:10px;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔗 URL Parameter Options</h2>
+            <p>The following URL parameters are supported:</p>
+            <ul>
+                <li><code>styleUrl</code> - Load external CSS file</li>
+                <li><code>themeUrl</code> - Alternate parameter name</li>
+                <li><code>cssUrl</code> - Another alternate parameter name</li>
+                <li><code>theme</code> - Built-in theme name (light, dark, high-contrast)</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <strong>⚠️ Local Testing Note:</strong><br>
+            For local testing with <code>http://localhost:8000</code>, make sure to:
+            <ol>
+                <li>Run the Python HTTP server in the WebUI directory</li>
+                <li>Use <code>http://</code> (not <code>https://</code>) for both the app and CSS URL</li>
+                <li>Check browser console for any CORS or loading errors</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h2>📚 Documentation</h2>
+            <p>For complete documentation, see:</p>
+            <ul>
+                <li><strong>EXTERNAL_THEME_INTEGRATION.md</strong> - Complete integration guide</li>
+                <li><strong>EXTERNAL_THEME_EXAMPLE.css</strong> - Full featured example theme</li>
+                <li><strong>TEST_THEME.css</strong> - Simple purple test theme</li>
+                <li><strong>THEME_INTEGRATION_GUIDE.md</strong> - Cross-application theming patterns</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h2>🎯 Production Checklist</h2>
+            <ul>
+                <li>✅ Host CSS on CDN with HTTPS</li>
+                <li>✅ Test CSS in all supported browsers</li>
+                <li>✅ Verify all color variables are defined</li>
+                <li>✅ Test with dark mode toggle</li>
+                <li>✅ Check accessibility (contrast ratios)</li>
+                <li>✅ Enable CORS on CSS file host</li>
+                <li>✅ Add cache headers for performance</li>
+                <li>✅ Version your CSS URLs</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const APP_URL = 'http://localhost:4201';
+        const LOCAL_SERVER_URL = 'http://localhost:8000';
+
+        function testLocalTheme() {
+            const cssUrl = `${LOCAL_SERVER_URL}/TEST_THEME.css`;
+            const fullUrl = `${APP_URL}/?styleUrl=${encodeURIComponent(cssUrl)}`;
+            document.getElementById('purpleUrl').textContent = fullUrl;
+            document.getElementById('purpleUrl').style.display = 'block';
+            window.open(fullUrl, '_blank');
+        }
+
+        function testCorporateTheme() {
+            const cssUrl = `${LOCAL_SERVER_URL}/EXTERNAL_THEME_EXAMPLE.css`;
+            const fullUrl = `${APP_URL}/?styleUrl=${encodeURIComponent(cssUrl)}`;
+            document.getElementById('corpUrl').textContent = fullUrl;
+            document.getElementById('corpUrl').style.display = 'block';
+            window.open(fullUrl, '_blank');
+        }
+
+        function testDarkTheme() {
+            const fullUrl = `${APP_URL}/?theme=dark`;
+            document.getElementById('darkUrl').textContent = fullUrl;
+            document.getElementById('darkUrl').style.display = 'block';
+            window.open(fullUrl, '_blank');
+        }
+
+        // Display current status
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('🎨 External Theme Test Page Ready!');
+            console.log('App URL:', APP_URL);
+            console.log('Local Server URL:', LOCAL_SERVER_URL);
+        });
+    </script>
+</body>
+</html>

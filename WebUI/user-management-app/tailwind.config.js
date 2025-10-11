@@ -3,9 +3,12 @@ module.exports = {
   content: [
     "./src/**/*.{html,ts}",
   ],
+  darkMode: 'class', // Enable class-based dark mode
   theme: {
     extend: {
       colors: {
+        // Theme colors using CSS custom properties
+        // These will automatically respond to theme changes
         'theme': {
           'primary': 'var(--color-primary)',
           'primary-hover': 'var(--color-primary-hover)',

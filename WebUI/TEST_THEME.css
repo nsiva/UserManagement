@@ -1,0 +1,59 @@
+/**
+ * QUICK TEST THEME - Purple Edition
+ * 
+ * This is a simple test theme to verify external CSS loading works.
+ * 
+ * To test:
+ * 1. Host this file on a web server or use Python's simple HTTP server:
+ *    python3 -m http.server 8000
+ * 
+ * 2. Then visit:
+ *    http://localhost:4201/?styleUrl=http://localhost:8000/TEST_THEME.css
+ * 
+ * You should see the app in purple colors!
+ */
+
+:root {
+  /* Purple Brand Theme */
+  --color-primary: rgb(147 51 234);           /* Purple-600 */
+  --color-primary-hover: rgb(126 34 206);     /* Purple-700 */
+  --color-primary-text: rgb(255 255 255);
+  
+  --color-secondary: rgb(168 85 247);         /* Purple-400 */
+  --color-secondary-hover: rgb(147 51 234);
+  
+  --color-header-bg: rgb(147 51 234);         /* Purple header */
+  
+  --color-background: rgb(250 245 255);       /* Purple-50 */
+  --color-surface: rgb(255 255 255);
+  --color-surface-hover: rgb(245 243 255);    /* Purple-50 */
+  
+  --color-text: rgb(59 7 100);                /* Purple-950 */
+  --color-text-secondary: rgb(107 33 168);    /* Purple-800 */
+  --color-text-muted: rgb(147 51 234);        /* Purple-600 */
+  
+  --color-border: rgb(233 213 255);           /* Purple-200 */
+  --color-border-focus: rgb(147 51 234);      /* Purple-600 */
+  
+  --color-success: rgb(22 163 74);
+  --color-warning: rgb(234 179 8);
+  --color-error: rgb(220 38 38);
+  
+  --color-input-bg: rgb(255 255 255);
+  --color-modal-overlay: rgba(147, 51, 234, 0.4);
+}
+
+/* Add a fun animation to verify it's loaded */
+@keyframes pulse-purple {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Pulse animation on header to confirm theme is active */
+app-header {
+  animation: pulse-purple 2s ease-in-out infinite;
+}
