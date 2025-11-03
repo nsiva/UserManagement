@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExternalApp → UserManagement Theme Demo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 18px;
+        }
+        
+        .demo-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #667eea;
+        }
+        
+        h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 22px;
+        }
+        
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        button {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .btn-purple {
+            background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%);
+            color: white;
+        }
+        
+        .btn-purple:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4);
+        }
+        
+        .btn-blue {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+        }
+        
+        .btn-blue:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        
+        .btn-green {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+        
+        .btn-green:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+        
+        .url-display {
+            background: #1e293b;
+            color: #10b981;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            word-break: break-all;
+            margin: 10px 0;
+            display: none;
+        }
+        
+        .url-display.show {
+            display: block;
+        }
+        
+        .info-box {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        
+        .warning-box {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        
+        .success-box {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        
+        code {
+            background: #e5e7eb;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Monaco', monospace;
+            font-size: 14px;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .status.running {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status.stopped {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 ExternalApp → UserManagement Theme Integration</h1>
+        <p class="subtitle">Test passing ExternalApp's theme to UserManagement via URL parameters</p>
+        
+        <div class="info-box">
+            <strong>ℹ️ How it works:</strong><br>
+            When you click a button below, it will redirect from ExternalApp to UserManagement with a 
+            <code>?styleUrl=...</code> parameter. UserManagement will load the specified CSS file and apply it instantly!
+        </div>
+
+        <div class="demo-section">
+            <h2>📊 Application Status</h2>
+            <p>
+                <strong>UserManagement WebUI:</strong> 
+                <span class="status running" id="userMgmtStatus">● Running</span> 
+                <code>http://localhost:4201</code>
+            </p>
+            <p style="margin-top: 10px;">
+                <strong>ExternalApp WebUI:</strong> 
+                <span class="status running" id="externalStatus">● Running</span> 
+                <code>http://localhost:4203</code>
+            </p>
+            <p style="margin-top: 10px;">
+                <strong>Theme Server:</strong> 
+                <span class="status stopped" id="themeStatus">● Not Started</span> 
+                <code>http://localhost:8000</code>
+            </p>
+        </div>
+
+        <div class="warning-box">
+            <strong>⚠️ Before Testing:</strong><br>
+            Make sure to start a file server for the theme CSS:<br>
+            <code>cd /Users/siva/projects/UserManagement/WebUI && python3 -m http.server 8000</code>
+        </div>
+
+        <div class="demo-section">
+            <h2>🟣 Test with Purple Theme (TEST_THEME.css)</h2>
+            <p>Redirect to UserManagement login page with purple ExternalApp theme</p>
+            
+            <div class="button-grid">
+                <button class="btn-purple" onclick="testPurpleLogin()">
+                    🔐 Login with Purple Theme
+                </button>
+                <button class="btn-purple" onclick="testPurpleProfile()">
+                    👤 Profile with Purple Theme
+                </button>
+                <button class="btn-purple" onclick="testPurpleDashboard()">
+                    📊 Dashboard with Purple Theme
+                </button>
+            </div>
+            <div id="purple-url" class="url-display"></div>
+        </div>
+
+        <div class="demo-section">
+            <h2>🔵 Test with Corporate Theme (EXTERNAL_THEME_EXAMPLE.css)</h2>
+            <p>Redirect to UserManagement with corporate blue & gold theme</p>
+            
+            <div class="button-grid">
+                <button class="btn-blue" onclick="testCorporateLogin()">
+                    🔐 Login with Corporate Theme
+                </button>
+                <button class="btn-blue" onclick="testCorporateProfile()">
+                    👤 Profile with Corporate Theme
+                </button>
+                <button class="btn-blue" onclick="testCorporateSettings()">
+                    ⚙️ Settings with Corporate Theme
+                </button>
+            </div>
+            <div id="corporate-url" class="url-display"></div>
+        </div>
+
+        <div class="demo-section">
+            <h2>🌙 Test with Built-in Themes</h2>
+            <p>Test UserManagement's built-in themes (no external CSS)</p>
+            
+            <div class="button-grid">
+                <button class="btn-green" onclick="testDarkTheme()">
+                    🌙 Dark Theme
+                </button>
+                <button class="btn-green" onclick="testHighContrastTheme()">
+                    ◼️ High Contrast Theme
+                </button>
+                <button class="btn-green" onclick="testLightTheme()">
+                    ☀️ Light Theme
+                </button>
+            </div>
+            <div id="builtin-url" class="url-display"></div>
+        </div>
+
+        <div class="demo-section">
+            <h2>🔗 Real-World Integration Patterns</h2>
+            
+            <h3 style="margin-top: 20px; font-size: 16px;">Pattern 1: OAuth Flow with Theme</h3>
+            <button class="btn-purple" onclick="testOAuthFlow()">
+                🔐 Test OAuth with Theme
+            </button>
+            <div id="oauth-url" class="url-display"></div>
+            
+            <h3 style="margin-top: 20px; font-size: 16px;">Pattern 2: Return URL + Theme</h3>
+            <button class="btn-blue" onclick="testWithReturnUrl()">
+                🔙 Login with Return URL + Theme
+            </button>
+            <div id="return-url" class="url-display"></div>
+            
+            <h3 style="margin-top: 20px; font-size: 16px;">Pattern 3: Multiple Parameters</h3>
+            <button class="btn-green" onclick="testMultipleParams()">
+                📋 Login with Multiple Params
+            </button>
+            <div id="multi-url" class="url-display"></div>
+        </div>
+
+        <div class="success-box">
+            <strong>✅ What to expect:</strong><br>
+            When you click any button above, you'll be redirected to UserManagement with the theme applied.
+            The page background, colors, buttons, and all UI elements should match the specified theme!
+        </div>
+
+        <div class="demo-section">
+            <h2>📚 How to Implement in Your App</h2>
+            <p>Copy this code to your ExternalApp:</p>
+            <pre style="background: #1e293b; color: #e2e8f0; padding: 15px; border-radius: 6px; overflow-x: auto;"><code>// ExternalApp - TypeScript service
+export class UserManagementService {
+  private userMgmtUrl = 'http://localhost:4201';
+  private themeUrl = 'http://localhost:8000/TEST_THEME.css';
+  
+  redirectToLogin(): void {
+    const params = new URLSearchParams({
+      styleUrl: this.themeUrl,
+      redirect: window.location.href
+    });
+    window.location.href = `${this.userMgmtUrl}/login?${params}`;
+  }
+}</code></pre>
+        </div>
+    </div>
+
+    <script>
+        const USER_MGMT_URL = 'http://localhost:4201';
+        const THEME_SERVER_URL = 'http://localhost:8000';
+        const EXTERNAL_APP_URL = 'http://localhost:4203';
+
+        // Purple theme tests
+        function testPurpleLogin() {
+            const themeUrl = `${THEME_SERVER_URL}/TEST_THEME.css`;
+            const url = `${USER_MGMT_URL}/login?styleUrl=${encodeURIComponent(themeUrl)}`;
+            showUrl('purple-url', url);
+            window.open(url, '_blank');
+        }
+
+        function testPurpleProfile() {
+            const themeUrl = `${THEME_SERVER_URL}/TEST_THEME.css`;
+            const url = `${USER_MGMT_URL}/profile?styleUrl=${encodeURIComponent(themeUrl)}`;
+            showUrl('purple-url', url);
+            window.open(url, '_blank');
+        }
+
+        function testPurpleDashboard() {
+            const themeUrl = `${THEME_SERVER_URL}/TEST_THEME.css`;
+            const url = `${USER_MGMT_URL}/dashboard?styleUrl=${encodeURIComponent(themeUrl)}`;
+            showUrl('purple-url', url);
+            window.open(url, '_blank');
+        }
+
+        // Corporate theme tests
+        function testCorporateLogin() {
+            const themeUrl = `${THEME_SERVER_URL}/EXTERNAL_THEME_EXAMPLE.css`;
+            const url = `${USER_MGMT_URL}/login?styleUrl=${encodeURIComponent(themeUrl)}`;
+            showUrl('corporate-url', url);
+            window.open(url, '_blank');
+        }
+
+        function testCorporateProfile() {
+            const themeUrl = `${THEME_SERVER_URL}/EXTERNAL_THEME_EXAMPLE.css`;
+            const url = `${USER_MGMT_URL}/profile?styleUrl=${encodeURIComponent(themeUrl)}`;
+            showUrl('corporate-url', url);
+            window.open(url, '_blank');
+        }
+
+        function testCorporateSettings() {
+            const themeUrl = `${THEME_SERVER_URL}/EXTERNAL_THEME_EXAMPLE.css`;
+            const url = `${USER_MGMT_URL}/settings?styleUrl=${encodeURIComponent(themeUrl)}`;
+            showUrl('corporate-url', url);
+            window.open(url, '_blank');
+        }
+
+        // Built-in themes
+        function testDarkTheme() {
+            const url = `${USER_MGMT_URL}/login?theme=dark`;
+            showUrl('builtin-url', url);
+            window.open(url, '_blank');
+        }
+
+        function testHighContrastTheme() {
+            const url = `${USER_MGMT_URL}/login?theme=high-contrast`;
+            showUrl('builtin-url', url);
+            window.open(url, '_blank');
+        }
+
+        function testLightTheme() {
+            const url = `${USER_MGMT_URL}/login?theme=light`;
+            showUrl('builtin-url', url);
+            window.open(url, '_blank');
+        }
+
+        // Real-world patterns
+        function testOAuthFlow() {
+            const themeUrl = `${THEME_SERVER_URL}/TEST_THEME.css`;
+            const params = new URLSearchParams({
+                client_id: 'external-app-123',
+                redirect_uri: `${EXTERNAL_APP_URL}/callback`,
+                response_type: 'code',
+                scope: 'openid profile email',
+                state: 'random-state-' + Math.random(),
+                styleUrl: themeUrl
+            });
+            const url = `${USER_MGMT_URL}/authorize?${params}`;
+            showUrl('oauth-url', url);
+            window.open(url, '_blank');
+        }
+
+        function testWithReturnUrl() {
+            const themeUrl = `${THEME_SERVER_URL}/TEST_THEME.css`;
+            const params = new URLSearchParams({
+                styleUrl: themeUrl,
+                redirect: `${EXTERNAL_APP_URL}/dashboard`
+            });
+            const url = `${USER_MGMT_URL}/login?${params}`;
+            showUrl('return-url', url);
+            window.open(url, '_blank');
+        }
+
+        function testMultipleParams() {
+            const themeUrl = `${THEME_SERVER_URL}/EXTERNAL_THEME_EXAMPLE.css`;
+            const params = new URLSearchParams({
+                styleUrl: themeUrl,
+                redirect: `${EXTERNAL_APP_URL}/welcome`,
+                lang: 'en',
+                source: 'external-app'
+            });
+            const url = `${USER_MGMT_URL}/login?${params}`;
+            showUrl('multi-url', url);
+            window.open(url, '_blank');
+        }
+
+        function showUrl(elementId, url) {
+            const element = document.getElementById(elementId);
+            element.textContent = url;
+            element.classList.add('show');
+        }
+
+        // Check if servers are running
+        async function checkServerStatus() {
+            try {
+                await fetch(USER_MGMT_URL);
+                document.getElementById('userMgmtStatus').textContent = '● Running';
+                document.getElementById('userMgmtStatus').className = 'status running';
+            } catch {
+                document.getElementById('userMgmtStatus').textContent = '● Stopped';
+                document.getElementById('userMgmtStatus').className = 'status stopped';
+            }
+
+            try {
+                await fetch(EXTERNAL_APP_URL);
+                document.getElementById('externalStatus').textContent = '● Running';
+                document.getElementById('externalStatus').className = 'status running';
+            } catch {
+                document.getElementById('externalStatus').textContent = '● Stopped';
+                document.getElementById('externalStatus').className = 'status stopped';
+            }
+
+            try {
+                await fetch(`${THEME_SERVER_URL}/TEST_THEME.css`);
+                document.getElementById('themeStatus').textContent = '● Running';
+                document.getElementById('themeStatus').className = 'status running';
+            } catch {
+                document.getElementById('themeStatus').textContent = '● Not Started';
+                document.getElementById('themeStatus').className = 'status stopped';
+            }
+        }
+
+        // Check on load
+        checkServerStatus();
+        
+        console.log('🎨 Theme Integration Demo Ready!');
+        console.log('UserManagement URL:', USER_MGMT_URL);
+        console.log('Theme Server URL:', THEME_SERVER_URL);
+    </script>
+</body>
+</html>
