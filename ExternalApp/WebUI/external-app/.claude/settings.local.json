@@ -2,6 +2,9 @@
   "permissions": {
     "additionalDirectories": [
       "/Users/siva/projects/UserManagement/WebUI"
+    ],
+    "allow": [
+      "Bash(echo:*)"
     ]
   }
 }

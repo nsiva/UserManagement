@@ -1,0 +1,121 @@
+/**
+ * PRODUCTION PURPLE THEME
+ * 
+ * A clean purple theme for external applications with both header and button support.
+ * This theme overrides UserManagement WebUI default colors with purple variants.
+ */
+
+/* CSS Custom Properties - Purple Brand Theme */
+:root {
+  /* Primary colors */
+  --color-primary: rgb(147 51 234) !important;           /* Purple-600 */
+  --color-primary-hover: rgb(126 34 206) !important;     /* Purple-700 */
+  --color-primary-text: rgb(255 255 255) !important;
+  
+  /* Secondary colors */
+  --color-secondary: rgb(168 85 247) !important;         /* Purple-400 */
+  --color-secondary-hover: rgb(147 51 234) !important;
+  
+  /* Header */
+  --color-header-bg: rgb(147 51 234) !important;
+  
+  /* Backgrounds */
+  --color-background: rgb(250 245 255) !important;       /* Purple-50 */
+  --color-surface: rgb(255 255 255) !important;
+  --color-surface-hover: rgb(245 243 255) !important;
+  
+  /* Text colors */
+  --color-text: rgb(59 7 100) !important;                /* Purple-950 */
+  --color-text-secondary: rgb(107 33 168) !important;    /* Purple-800 */
+  --color-text-muted: rgb(147 51 234) !important;
+  
+  /* Borders and focus */
+  --color-border: rgb(233 213 255) !important;           /* Purple-200 */
+  --color-border-focus: rgb(147 51 234) !important;
+  
+  /* Status colors */
+  --color-success: rgb(22 163 74) !important;
+  --color-warning: rgb(234 179 8) !important;
+  --color-error: rgb(220 38 38) !important;
+  
+  /* Form inputs */
+  --color-input-bg: rgb(255 255 255) !important;
+  --color-modal-overlay: rgba(147, 51, 234, 0.4) !important;
+}
+
+/* Theme class overrides - handle all possible Angular theme states */
+:root:root:root,
+html:root,
+html:root:not(.dark):not(.high-contrast),
+html:root.dark,
+html:root.high-contrast,
+html.dark:root,
+html.high-contrast:root {
+  --color-header-bg: rgb(147 51 234) !important;
+  --color-primary: rgb(147 51 234) !important;
+  --color-background: rgb(250 245 255) !important;
+  --color-surface: rgb(255 255 255) !important;
+  --color-border: rgb(233 213 255) !important;
+}
+
+/* Page layouts */
+.min-h-screen {
+  background-color: rgb(250 245 255) !important;
+}
+
+.bg-theme-background {
+  background-color: rgb(250 245 255) !important;
+}
+
+/* Surfaces and containers */
+.bg-theme-surface {
+  background-color: rgb(255 255 255) !important;
+  border-color: rgb(233 213 255) !important;
+}
+
+/* Primary buttons */
+.bg-theme-primary {
+  background-color: rgb(147 51 234) !important;
+}
+
+.bg-theme-primary:hover {
+  background-color: rgb(126 34 206) !important;
+}
+
+/* Header styling - multiple selector approaches for maximum compatibility */
+app-header > div.bg-theme-header-bg.text-theme-primary-text.p-4.shadow-md.flex.justify-between.items-center.transition-colors {
+  background-color: rgb(147 51 234) !important;
+  background: rgb(147 51 234) !important;
+  background-image: none !important;
+}
+
+.bg-theme-header-bg {
+  background-color: rgb(147 51 234) !important;
+}
+
+[class*="bg-theme-header-bg"] {
+  background-color: rgb(147 51 234) !important;
+}
+
+/* Text colors */
+.text-theme-text {
+  color: rgb(59 7 100) !important;
+}
+
+.text-theme-text-secondary {
+  color: rgb(107 33 168) !important;
+}
+
+/* Border styling */
+.border-theme-border {
+  border-color: rgb(233 213 255) !important;
+}
+
+.focus\:ring-theme-border-focus:focus {
+  --tw-ring-color: rgb(147 51 234) !important;
+}
+
+/* Input styling */
+.bg-theme-input-bg {
+  background-color: rgb(255 255 255) !important;
+}
