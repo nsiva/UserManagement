@@ -1,52 +1,50 @@
 /**
- * CLEAN PURPLE THEME - Production Ready
+ * PRODUCTION PURPLE THEME
  * 
- * A clean purple theme for external applications to demonstrate
- * theme passing functionality without any test artifacts.
+ * A clean purple theme for external applications with both header and button support.
+ * This theme overrides UserManagement WebUI default colors with purple variants.
  */
 
+/* CSS Custom Properties - Purple Brand Theme */
 :root {
-  /* Purple Brand Theme */
+  /* Primary colors */
   --color-primary: rgb(147 51 234) !important;           /* Purple-600 */
   --color-primary-hover: rgb(126 34 206) !important;     /* Purple-700 */
   --color-primary-text: rgb(255 255 255) !important;
   
+  /* Secondary colors */
   --color-secondary: rgb(168 85 247) !important;         /* Purple-400 */
   --color-secondary-hover: rgb(147 51 234) !important;
   
-  --color-header-bg: rgb(147 51 234) !important;         /* Purple header */
+  /* Header */
+  --color-header-bg: rgb(147 51 234) !important;
   
+  /* Backgrounds */
   --color-background: rgb(250 245 255) !important;       /* Purple-50 */
   --color-surface: rgb(255 255 255) !important;
-  --color-surface-hover: rgb(245 243 255) !important;    /* Purple-50 */
+  --color-surface-hover: rgb(245 243 255) !important;
   
+  /* Text colors */
   --color-text: rgb(59 7 100) !important;                /* Purple-950 */
   --color-text-secondary: rgb(107 33 168) !important;    /* Purple-800 */
-  --color-text-muted: rgb(147 51 234) !important;        /* Purple-600 */
+  --color-text-muted: rgb(147 51 234) !important;
   
+  /* Borders and focus */
   --color-border: rgb(233 213 255) !important;           /* Purple-200 */
-  --color-border-focus: rgb(147 51 234) !important;      /* Purple-600 */
+  --color-border-focus: rgb(147 51 234) !important;
   
+  /* Status colors */
   --color-success: rgb(22 163 74) !important;
   --color-warning: rgb(234 179 8) !important;
   --color-error: rgb(220 38 38) !important;
   
+  /* Form inputs */
   --color-input-bg: rgb(255 255 255) !important;
   --color-modal-overlay: rgba(147, 51, 234, 0.4) !important;
 }
 
-/* COMPREHENSIVE THEME CLASS OVERRIDE - Handle all possible theme states */
-
-/* Override regardless of theme class state - maximum specificity */
-:root:root:root {
-  --color-header-bg: rgb(147 51 234) !important;
-  --color-primary: rgb(147 51 234) !important;
-  --color-background: rgb(250 245 255) !important;
-  --color-surface: rgb(255 255 255) !important;
-  --color-border: rgb(233 213 255) !important;
-}
-
-/* Target all possible theme class combinations */
+/* Theme class overrides - handle all possible Angular theme states */
+:root:root:root,
 html:root,
 html:root:not(.dark):not(.high-contrast),
 html:root.dark,
@@ -60,25 +58,7 @@ html.high-contrast:root {
   --color-border: rgb(233 213 255) !important;
 }
 
-/* If HTML element has dark class, override it */
-html.dark,
-html.dark:root,
-:root.dark {
-  --color-header-bg: rgb(147 51 234) !important;
-  --color-primary: rgb(147 51 234) !important;
-}
-
-/* If HTML element has high-contrast class, override it */
-html.high-contrast,
-html.high-contrast:root,
-:root.high-contrast {
-  --color-header-bg: rgb(147 51 234) !important;
-  --color-primary: rgb(147 51 234) !important;
-}
-
-/* Clean purple theme without aggressive overrides */
-
-/* Page background */
+/* Page layouts */
 .min-h-screen {
   background-color: rgb(250 245 255) !important;
 }
@@ -87,7 +67,7 @@ html.high-contrast:root,
   background-color: rgb(250 245 255) !important;
 }
 
-/* Login form and surfaces */
+/* Surfaces and containers */
 .bg-theme-surface {
   background-color: rgb(255 255 255) !important;
   border-color: rgb(233 213 255) !important;
@@ -102,42 +82,22 @@ html.high-contrast:root,
   background-color: rgb(126 34 206) !important;
 }
 
-/* COPY EXACT HEADER CSS FROM FORCE_PURPLE_THEME.css THAT WORKED */
-
-/* Create the most specific selector possible for the header */
+/* Header styling - multiple selector approaches for maximum compatibility */
 app-header > div.bg-theme-header-bg.text-theme-primary-text.p-4.shadow-md.flex.justify-between.items-center.transition-colors {
   background-color: rgb(147 51 234) !important;
   background: rgb(147 51 234) !important;
   background-image: none !important;
 }
 
-/* Also target without the full selector chain */
 .bg-theme-header-bg {
   background-color: rgb(147 51 234) !important;
 }
 
-/* Use attribute selector to target background property specifically */
 [class*="bg-theme-header-bg"] {
   background-color: rgb(147 51 234) !important;
 }
 
-/* Add animation to header to verify CSS is applying */
-.bg-theme-header-bg {
-  animation: purple-flash 2s infinite !important;
-}
-
-@keyframes purple-flash {
-  0%, 100% { 
-    background-color: rgb(147 51 234) !important;
-    border: 2px solid rgb(255 255 0) !important;
-  }
-  50% { 
-    background-color: rgb(126 34 206) !important;
-    border: 2px solid rgb(255 0 255) !important;
-  }
-}
-
-/* Text colors for content areas */
+/* Text colors */
 .text-theme-text {
   color: rgb(59 7 100) !important;
 }
@@ -146,7 +106,7 @@ app-header > div.bg-theme-header-bg.text-theme-primary-text.p-4.shadow-md.flex.j
   color: rgb(107 33 168) !important;
 }
 
-/* Border colors */
+/* Border styling */
 .border-theme-border {
   border-color: rgb(233 213 255) !important;
 }

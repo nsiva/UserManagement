@@ -61,18 +61,28 @@
         },
         "serve": {
           "builder": "@angular/build:dev-server",
+          "options": {
+            "port": 4202,
+            "headers": {
+              "Access-Control-Allow-Origin": "http://localhost:4201",
+              "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+              "Access-Control-Allow-Headers": "Content-Type"
+            }
+          },
           "configurations": {
             "production": {
               "buildTarget": "external-app:build:production"
             },
             "development": {
-              "buildTarget": "external-app:build:development"
+              "buildTarget": "external-app:build:development",
+              "headers": {
+                "Access-Control-Allow-Origin": "http://localhost:4201",
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type"
+              }
             }
           },
-          "defaultConfiguration": "development",
-          "options": {
-            "port": 4202
-          }
+          "defaultConfiguration": "development"
         },
         "extract-i18n": {
           "builder": "@angular/build:extract-i18n"
