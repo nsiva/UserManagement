@@ -1,0 +1,51 @@
+/* SUPER SPECIFIC CSS TO OVERRIDE TAILWIND */
+
+/* Target everything with maximum specificity */
+html html html {
+  background: purple !important;
+}
+
+body body body {
+  background: purple !important;
+}
+
+/* Target specific Tailwind classes */
+.min-h-screen {
+  background: purple !important;
+}
+
+.bg-theme-background {
+  background: purple !important;
+}
+
+.bg-theme-surface {
+  background: lightpurple !important;
+  border: 3px solid purple !important;
+}
+
+/* Target all divs with purple */
+div div div {
+  background: rgba(147, 51, 234, 0.1) !important;
+}
+
+/* Make all text purple */
+* {
+  color: purple !important;
+}
+
+/* Super obvious test message */
+body::before {
+  content: "🟣 PURPLE THEME ACTIVE - CSS IS WORKING! 🟣";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: purple;
+  color: white;
+  text-align: center;
+  font-size: 24px;
+  font-weight: bold;
+  padding: 20px;
+  z-index: 99999;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}

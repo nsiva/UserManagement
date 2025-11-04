@@ -53,7 +53,64 @@
   }
 }
 
-/* Pulse animation on header to confirm theme is active */
+/* WORKING PURPLE THEME - Uses same approach as SUPER_SPECIFIC_TEST.css */
+
+/* Use maximum specificity like the working test */
+html html html {
+  background: rgb(250 245 255) !important;
+}
+
+body body body {
+  background: rgb(250 245 255) !important;
+}
+
+/* Target specific Tailwind classes */
+.min-h-screen {
+  background: rgb(250 245 255) !important;
+}
+
+.bg-theme-background {
+  background: rgb(250 245 255) !important;
+}
+
+.bg-theme-surface {
+  background: rgb(255 255 255) !important;
+  border: 3px solid rgb(147 51 234) !important;
+}
+
+.bg-theme-primary {
+  background: rgb(147 51 234) !important;
+}
+
+/* Target all divs with light purple */
+div div div {
+  background: rgba(147, 51, 234, 0.05) !important;
+}
+
+/* Make text purple */
+* {
+  color: rgb(59 7 100) !important;
+}
+
+/* Target app-header */
 app-header {
-  animation: pulse-purple 2s ease-in-out infinite;
+  animation: pulse-purple 2s ease-in-out infinite !important;
+  border: 3px solid rgb(147 51 234) !important;
+  background: rgb(147 51 234) !important;
+}
+
+/* Success banner */
+body::before {
+  content: "🟣 PURPLE THEME LOADED! 🟣";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: rgb(147 51 234);
+  color: white;
+  text-align: center;
+  font-size: 20px;
+  font-weight: bold;
+  padding: 10px;
+  z-index: 9999;
 }
