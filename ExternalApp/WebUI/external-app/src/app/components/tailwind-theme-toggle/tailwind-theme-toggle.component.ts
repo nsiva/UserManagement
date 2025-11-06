@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { TailwindThemeService, TailwindTheme, TailwindThemeConfig } from '../../services/tailwind-theme.service';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -7,49 +8,69 @@ import { takeUntil } from 'rxjs/operators';
 @Component({
   selector: 'app-tailwind-theme-toggle',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
-    <!-- Simple Toggle Button -->
-    <div class="relative inline-block">
-      <button 
-        (click)="toggleTheme()"
-        [title]="getToggleTitle()"
-        class="flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-300 ease-in-out
-               bg-green-light-100 hover:bg-green-light-200 dark:bg-green-dark-200 dark:hover:bg-green-dark-300
-               border border-green-light-300 dark:border-green-dark-400
-               text-green-light-800 dark:text-green-dark-800
-               hover:shadow-lg hover:scale-105 transform
-               focus:outline-none focus:ring-2 focus:ring-green-light-500 dark:focus:ring-green-dark-500"
-        type="button">
-        
-        <!-- Theme Icon -->
-        <span class="text-lg transition-transform duration-300" 
-              [class.rotate-180]="currentTheme === 'dark'">
-          {{ getCurrentThemeIcon() }}
-        </span>
-        
-        <!-- Toggle Switch -->
-        <div class="relative w-12 h-6 rounded-full transition-colors duration-300
-                    bg-green-light-300 dark:bg-green-dark-400">
-          <div class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-transform duration-300 shadow-md
-                      bg-white dark:bg-green-dark-100
-                      transform" 
-               [class.translate-x-6]="currentTheme === 'dark'">
+    <div class="flex items-center gap-4">
+      <!-- Simple Toggle Button -->
+      <div class="relative inline-block">
+        <button 
+          (click)="toggleTheme()"
+          [title]="getToggleTitle()"
+          class="flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-300 ease-in-out
+                 bg-green-light-100 hover:bg-green-light-200 dark:bg-green-dark-200 dark:hover:bg-green-dark-300
+                 border border-green-light-300 dark:border-green-dark-400
+                 text-green-light-800 dark:text-green-dark-800
+                 hover:shadow-lg hover:scale-105 transform
+                 focus:outline-none focus:ring-2 focus:ring-green-light-500 dark:focus:ring-green-dark-500"
+          type="button">
+          
+          <!-- Theme Icon -->
+          <span class="text-lg transition-transform duration-300" 
+                [class.rotate-180]="currentTheme === 'dark'">
+            {{ getCurrentThemeIcon() }}
+          </span>
+          
+          <!-- Toggle Switch -->
+          <div class="relative w-12 h-6 rounded-full transition-colors duration-300
+                      bg-green-light-300 dark:bg-green-dark-400">
+            <div class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-transform duration-300 shadow-md
+                        bg-white dark:bg-green-dark-100
+                        transform" 
+                 [class.translate-x-6]="currentTheme === 'dark'">
+            </div>
           </div>
-        </div>
+          
+          <!-- Theme Label -->
+          <span class="text-sm font-medium hidden sm:inline">
+            {{ getCurrentThemeName() }}
+          </span>
+        </button>
         
-        <!-- Theme Label -->
-        <span class="text-sm font-medium hidden sm:inline">
-          {{ getCurrentThemeName() }}
-        </span>
-      </button>
-      
-      <!-- Tooltip for mobile -->
-      <div class="sm:hidden absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 
-                  px-2 py-1 text-xs rounded bg-gray-800 text-white opacity-0 pointer-events-none
-                  transition-opacity duration-300 whitespace-nowrap z-50"
-           [class.opacity-100]="showTooltip">
-        {{ getToggleTitle() }}
+        <!-- Tooltip for mobile -->
+        <div class="sm:hidden absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 
+                    px-2 py-1 text-xs rounded bg-gray-800 text-white opacity-0 pointer-events-none
+                    transition-opacity duration-300 whitespace-nowrap z-50"
+             [class.opacity-100]="showTooltip">
+          {{ getToggleTitle() }}
+        </div>
+      </div>
+
+      <!-- Theme Selector Dropdown -->
+      <div class="relative inline-block">
+        <select 
+          [(ngModel)]="selectedThemeUrl"
+          (change)="onThemeUrlChange()"
+          class="px-3 py-2 rounded-lg border transition-all duration-300
+                 bg-green-light-100 hover:bg-green-light-200 dark:bg-green-dark-200 dark:hover:bg-green-dark-300
+                 border-green-light-300 dark:border-green-dark-400
+                 text-green-light-800 dark:text-green-dark-800
+                 focus:outline-none focus:ring-2 focus:ring-green-light-500 dark:focus:ring-green-dark-500
+                 cursor-pointer">
+          <option value="">Select Theme</option>
+          <option *ngFor="let theme of themeOptions" [value]="theme.url">
+            {{ theme.name }}
+          </option>
+        </select>
       </div>
     </div>
   `,
@@ -80,6 +101,15 @@ import { takeUntil } from 'rxjs/operators';
 export class TailwindThemeToggleComponent implements OnInit, OnDestroy {
   currentTheme: TailwindTheme = 'light';
   showTooltip = false;
+  selectedThemeUrl = '';
+  
+  themeOptions = [
+    { name: 'Orange', url: 'http://localhost:4202/assets/PRODUCTION_ORANGE_THEME.css' },
+    { name: 'Green', url: 'http://localhost:4202/assets/PRODUCTION_GREEN_THEME.css' },
+    { name: 'Blue', url: 'http://localhost:4202/assets/PRODUCTION_BLUE_THEME.css' },
+    { name: 'Dark', url: 'http://localhost:4202/assets/PRODUCTION_DARK_THEME.css' },
+    { name: 'Purple', url: 'http://localhost:4202/assets/PRODUCTION_PURPLE_THEME.css' }
+  ];
   
   private destroy$ = new Subject<void>();
 
@@ -91,6 +121,13 @@ export class TailwindThemeToggleComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(theme => {
         this.currentTheme = theme;
+      });
+
+    // Subscribe to selected theme URL changes
+    this.themeService.selectedThemeUrl$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(url => {
+        this.selectedThemeUrl = url;
       });
   }
 
@@ -125,5 +162,11 @@ export class TailwindThemeToggleComponent implements OnInit, OnDestroy {
 
   onMouseLeave(): void {
     this.showTooltip = false;
+  }
+
+  onThemeUrlChange(): void {
+    if (this.selectedThemeUrl) {
+      this.themeService.setSelectedThemeUrl(this.selectedThemeUrl);
+    }
   }
 }

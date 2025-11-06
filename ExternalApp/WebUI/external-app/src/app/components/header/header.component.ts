@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { AuthService, AuthStatus } from '../../services/auth.service';
 import { TailwindThemeToggleComponent } from '../tailwind-theme-toggle/tailwind-theme-toggle.component';
+import { TailwindThemeService } from '../../services/tailwind-theme.service';
 import { Observable } from 'rxjs';
 
 @Component({
@@ -46,7 +47,10 @@ import { Observable } from 'rxjs';
 export class HeaderComponent implements OnInit {
   authStatus$: Observable<AuthStatus>;
 
-  constructor(private authService: AuthService) {
+  constructor(
+    private authService: AuthService,
+    private themeService: TailwindThemeService
+  ) {
     this.authStatus$ = this.authService.getAuthStatus();
   }
 
@@ -57,8 +61,9 @@ export class HeaderComponent implements OnInit {
 
   login(): void {
     const returnUrl = `${window.location.origin}/dashboard`;
+    const selectedThemeUrl = this.themeService.selectedThemeUrl;
     
-    this.authService.initiateLogin(returnUrl).subscribe({
+    this.authService.initiateLogin(returnUrl, selectedThemeUrl).subscribe({
       next: (response) => {
         if (response.success && response.login_url) {
           console.log('Redirecting to User Management for login:', response.login_url);

@@ -44,8 +44,10 @@ export class AuthService {
   /**
    * Initiate login by getting redirect URL to User Management
    */
-  initiateLogin(returnUrl?: string): Observable<LoginResponse> {
-    const body = returnUrl ? { return_url: returnUrl } : {};
+  initiateLogin(returnUrl?: string, styleUrl?: string): Observable<LoginResponse> {
+    const body: any = {};
+    if (returnUrl) body.return_url = returnUrl;
+    if (styleUrl) body.style_url = styleUrl;
     return this.http.post<LoginResponse>(`${this.apiUrl}/auth/login`, body);
   }
 

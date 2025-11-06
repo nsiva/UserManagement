@@ -64,6 +64,7 @@ class UserSession(BaseModel):
     
 class LoginRequest(BaseModel):
     return_url: Optional[str] = None
+    style_url: Optional[str] = None
 
 class AuthStatus(BaseModel):
     authenticated: bool
@@ -141,7 +142,19 @@ async def initiate_login(request: LoginRequest):
             'state': state
         }
         
-        auth_url = f"{OAUTH_AUTHORIZE_URL}?{urllib.parse.urlencode(auth_params)}"
+        oauth_url = f"{OAUTH_AUTHORIZE_URL}?{urllib.parse.urlencode(auth_params)}"
+        
+        # Build final login URL with styleUrl parameter (styleUrl first if provided)
+        login_params = {}
+        
+        # Add styleUrl as first parameter if provided
+        if request.style_url:
+            login_params['styleUrl'] = request.style_url
+            
+        login_params['return_url'] = oauth_url
+        
+        # Construct final login URL for User Management frontend
+        auth_url = f"{USER_MGMT_WEB_BASE}/login?{urllib.parse.urlencode(login_params)}"
         
         logger.info(f"PKCE session created with state: {state}")
         logger.info(f"Redirect URI after auth: {redirect_uri}")

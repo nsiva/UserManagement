@@ -3,7 +3,8 @@
     "allow": [
       "Bash(echo:*)",
       "Bash(cp:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(pkill:*)"
     ],
     "additionalDirectories": [
       "/Users/siva/projects/UserManagement/WebUI"

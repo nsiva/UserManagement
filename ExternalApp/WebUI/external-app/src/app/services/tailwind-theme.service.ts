@@ -16,10 +16,12 @@ export interface TailwindThemeConfig {
 })
 export class TailwindThemeService {
   private readonly THEME_KEY = 'external-app-tailwind-theme';
+  private readonly THEME_URL_KEY = 'external-app-selected-theme-url';
   private readonly DEFAULT_THEME: TailwindTheme = 'light';
   
   // Declare themeSubject property first
   private themeSubject!: BehaviorSubject<TailwindTheme>;
+  private selectedThemeUrlSubject = new BehaviorSubject<string>('');
   
   // Available theme configurations - define first
   public readonly themes: TailwindThemeConfig[] = [
@@ -42,6 +44,7 @@ export class TailwindThemeService {
   constructor() {
     // Initialize themeSubject after themes array is defined
     this.themeSubject = new BehaviorSubject<TailwindTheme>(this.getStoredTheme());
+    this.selectedThemeUrlSubject.next(this.getStoredThemeUrl());
     console.log('🚀 TailwindThemeService constructor starting...');
     
     // Check if theme is already applied by pre-Angular script
@@ -84,6 +87,28 @@ export class TailwindThemeService {
    */
   get currentTheme(): TailwindTheme {
     return this.themeSubject.value;
+  }
+
+  /**
+   * Get the selected theme URL as an Observable
+   */
+  get selectedThemeUrl$(): Observable<string> {
+    return this.selectedThemeUrlSubject.asObservable();
+  }
+
+  /**
+   * Get the current selected theme URL value
+   */
+  get selectedThemeUrl(): string {
+    return this.selectedThemeUrlSubject.value;
+  }
+
+  /**
+   * Set the selected theme URL
+   */
+  setSelectedThemeUrl(url: string): void {
+    this.selectedThemeUrlSubject.next(url);
+    this.storeThemeUrl(url);
   }
 
   /**
@@ -158,6 +183,29 @@ export class TailwindThemeService {
       localStorage.setItem(this.THEME_KEY, theme);
     } catch (error) {
       console.warn('Error storing theme to localStorage:', error);
+    }
+  }
+
+  /**
+   * Get the stored theme URL from localStorage
+   */
+  private getStoredThemeUrl(): string {
+    try {
+      return localStorage.getItem(this.THEME_URL_KEY) || '';
+    } catch (error) {
+      console.warn('Error reading theme URL from localStorage:', error);
+      return '';
+    }
+  }
+
+  /**
+   * Store the theme URL in localStorage
+   */
+  private storeThemeUrl(url: string): void {
+    try {
+      localStorage.setItem(this.THEME_URL_KEY, url);
+    } catch (error) {
+      console.warn('Error storing theme URL to localStorage:', error);
     }
   }
 
